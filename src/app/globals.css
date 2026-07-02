@@ -1,0 +1,133 @@
+@import "tailwindcss";
+
+:root {
+  --bb-black: #000000;
+  --bb-charcoal: #111111;
+  --bb-muted: #5f5f5f;
+  --bb-bg: #f7f7f2;
+  --bb-surface: rgba(255, 255, 255, 0.72);
+  --bb-surface-solid: #ffffff;
+  --bb-border: rgba(0, 0, 0, 0.08);
+  --bb-soft-yellow: #ecfe54;
+  --bb-soft-blue: #53b7df;
+  --bb-violet: #8c65c7;
+  --bb-red: #e84c31;
+  --bb-orange: #fe7023;
+  --bb-pure-blue: #0000ff;
+  --bb-gray-blue: #cfd2e4;
+  --bb-primary: #53b7df;
+  --bb-primary-soft: rgba(83, 183, 223, 0.16);
+  --bb-primary-hover: rgba(83, 183, 223, 0.24);
+  --bb-secondary: #8c65c7;
+  --bb-secondary-soft: rgba(140, 101, 199, 0.16);
+  --bb-yellow: #ecfe54;
+  --bb-yellow-soft: rgba(236, 254, 84, 0.22);
+  --bb-orange-soft: rgba(254, 112, 35, 0.16);
+  --bb-red-soft: rgba(232, 76, 49, 0.14);
+  --bb-gray-blue-soft: rgba(207, 210, 228, 0.35);
+  --background: var(--bb-bg);
+  --foreground: var(--bb-charcoal);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: "Manrope", "Manrope Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", "Geist Mono Fallback", ui-monospace, monospace;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  min-height: 100vh;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(83, 183, 223, 0.14), transparent 24rem),
+    radial-gradient(circle at 92% 12%, rgba(140, 101, 199, 0.1), transparent 22rem);
+  z-index: -1;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+tbody tr {
+  transition:
+    background 180ms ease,
+    transform 180ms ease;
+}
+
+tbody tr:hover {
+  background: rgba(255, 255, 255, 0.48);
+}
+
+th {
+  letter-spacing: 0;
+}
+
+.bb-line-clamp-2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: normal;
+}
+
+::selection {
+  background: var(--bb-primary);
+  color: var(--bb-black);
+}
+
+.bb-input {
+  min-height: 2.75rem;
+  border-radius: 1rem;
+  border: 1px solid var(--bb-border);
+  background: rgba(255, 255, 255, 0.72);
+  padding: 0 0.875rem;
+  color: var(--bb-charcoal);
+  outline: none;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
+}
+
+.bb-input:focus {
+  border-color: rgba(0, 0, 0, 0.18);
+  box-shadow: 0 0 0 4px var(--bb-primary-soft);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.bb-textarea {
+  min-height: 7rem;
+  border-radius: 1rem;
+  border: 1px solid var(--bb-border);
+  background: rgba(255, 255, 255, 0.72);
+  padding: 0.875rem;
+  color: var(--bb-charcoal);
+  outline: none;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
+}
+
+.bb-textarea:focus {
+  border-color: rgba(0, 0, 0, 0.18);
+  box-shadow: 0 0 0 4px var(--bb-primary-soft);
+  background: rgba(255, 255, 255, 0.92);
+}
