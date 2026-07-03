@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { deleteTaskAction, updateTaskAction } from "@/lib/actions";
-import { getClients, getTask } from "@/lib/data";
+import { getClients, getTask, getTeamMembers } from "@/lib/data";
 import { FormFrame, TaskForm } from "@/components/forms";
 import { PageHeader } from "@/components/ui";
 
@@ -10,7 +10,7 @@ type Props = {
 
 export default async function EditTaskPage({ params }: Props) {
   const { id } = await params;
-  const [clients, task] = await Promise.all([getClients(), getTask(id)]);
+  const [clients, teamMembers, task] = await Promise.all([getClients(), getTeamMembers(), getTask(id)]);
 
   if (!task) notFound();
 
@@ -26,6 +26,7 @@ export default async function EditTaskPage({ params }: Props) {
         <TaskForm
           action={updateTaskAction.bind(null, task.id)}
           clients={clients}
+          teamMembers={teamMembers}
           task={task}
           submitLabel="Guardar alterações"
         />

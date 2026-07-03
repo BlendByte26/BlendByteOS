@@ -5,9 +5,9 @@
   --bb-charcoal: #111111;
   --bb-muted: #5f5f5f;
   --bb-bg: #f7f7f2;
-  --bb-surface: rgba(255, 255, 255, 0.72);
+  --bb-surface: rgba(255, 255, 255, 0.86);
   --bb-surface-solid: #ffffff;
-  --bb-border: rgba(0, 0, 0, 0.08);
+  --bb-border: rgba(0, 0, 0, 0.11);
   --bb-soft-yellow: #ecfe54;
   --bb-soft-blue: #53b7df;
   --bb-violet: #8c65c7;
@@ -29,6 +29,13 @@
   --foreground: var(--bb-charcoal);
 }
 
+html {
+  min-height: 100%;
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: auto;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -41,6 +48,9 @@ body {
   color: var(--foreground);
   font-family: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
   min-height: 100vh;
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: auto;
 }
 
 body::before {
@@ -61,7 +71,7 @@ textarea {
   font: inherit;
 }
 
-table {
+table:not(.bb-sticky-actions-table) {
   border-collapse: collapse;
 }
 
@@ -72,11 +82,57 @@ tbody tr {
 }
 
 tbody tr:hover {
-  background: rgba(255, 255, 255, 0.48);
+  background: rgba(255, 255, 255, 0.68);
+}
+
+thead {
+  background: rgba(246, 248, 250, 0.88);
 }
 
 th {
   letter-spacing: 0;
+}
+
+.bb-actions-col {
+  box-sizing: border-box;
+  width: 6.5rem;
+  min-width: 6.5rem;
+  max-width: 6.5rem;
+  background: var(--bb-surface-solid);
+  border-left: 1px solid var(--bb-border);
+  box-shadow: -8px 0 14px rgba(0, 0, 0, 0.035);
+  min-height: 4.25rem;
+  overflow: visible;
+  position: sticky;
+  right: 0;
+  text-align: center;
+}
+
+th.bb-actions-col {
+  z-index: 40;
+}
+
+td.bb-actions-col {
+  z-index: 30;
+}
+
+.bb-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  min-height: 2.5rem;
+}
+
+table.bb-sticky-actions-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+table.bb-sticky-actions-table .bb-actions-col {
+  background: var(--bb-surface-solid);
+  background-clip: padding-box;
+  box-shadow: -8px 0 14px rgba(0, 0, 0, 0.035);
 }
 
 .bb-line-clamp-2 {

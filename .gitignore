@@ -24,6 +24,11 @@
 .DS_Store
 *.pem
 
+# local/imported data
+data/imports/*.csv
+data/imports/*.tsv
+data/imports/*.xlsx
+
 # debug
 npm-debug.log*
 yarn-debug.log*

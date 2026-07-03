@@ -68,7 +68,7 @@ export function Badge({ value, label }: { value: string; label: string }) {
 export function Panel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
     <section
-      className={`rounded-[24px] border border-[var(--bb-border)] bg-[var(--bb-surface)] shadow-[0_20px_60px_rgba(0,0,0,0.07)] backdrop-blur-xl transition duration-200 hover:-translate-y-0.5 hover:border-[rgba(0,0,0,0.12)] hover:shadow-[0_26px_70px_rgba(0,0,0,0.1)] ${className}`}
+      className={`min-w-0 rounded-[24px] border border-[rgba(0,0,0,0.11)] bg-[rgba(255,255,255,0.86)] shadow-[0_18px_52px_rgba(0,0,0,0.08)] backdrop-blur-xl transition duration-200 hover:-translate-y-0.5 hover:border-[rgba(0,0,0,0.15)] hover:shadow-[0_24px_64px_rgba(0,0,0,0.11)] ${className}`}
     >
       {children}
     </section>
@@ -77,7 +77,7 @@ export function Panel({ children, className = "" }: { children: React.ReactNode;
 
 export function EmptyState({ title }: { title: string }) {
   return (
-    <div className="flex min-h-36 flex-col items-center justify-center gap-2 px-4 py-9 text-center text-sm font-medium text-[var(--bb-muted)]">
+    <div className="flex min-h-28 flex-col items-center justify-center gap-2 px-4 py-7 text-center text-sm font-medium text-[var(--bb-muted)]">
       <CheckCircle2 className="size-5 text-[var(--bb-muted)]" aria-hidden="true" />
       {title}
     </div>
@@ -112,7 +112,7 @@ export function SupabaseSchemaNotice({ message }: { message: string }) {
 
 export function TableWrap({ children }: { children: React.ReactNode }) {
   return (
-    <div className="max-w-full overflow-x-auto overflow-y-visible rounded-[24px] pb-2 pr-1 [scrollbar-gutter:stable]">
+    <div className="relative max-w-full overflow-x-auto overflow-y-visible overscroll-x-contain rounded-[24px] pb-2 [scrollbar-gutter:stable]">
       {children}
     </div>
   );

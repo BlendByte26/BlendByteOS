@@ -148,7 +148,7 @@ export const sampleTasks: Task[] = sampleClients.slice(1, 7).map(
     status: ["todo", "in_progress", "done", "archived", "todo", "in_progress"][
       index
     ] as Task["status"],
-    priority: ["normal", "urgent", "low", "normal", "urgent", "normal"][
+    priority: ["normal", "urgent", "normal", "normal", "urgent", "normal"][
       index
     ] as Task["priority"],
     assignee_name: ["Rita", "João", "Sofia"][index % 3],

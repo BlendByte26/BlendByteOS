@@ -11,16 +11,13 @@ import {
   contentStatusLabels,
   taskPriorityLabels,
   taskStatusLabels,
-  taskTypeLabels,
 } from "@/lib/labels";
 import {
   clientStatuses,
   clientTypes,
   serviceTypes,
   contentStatuses,
-  taskPriorities,
   taskStatuses,
-  taskTypes,
   type Client,
   type ContentItem,
   type Task,
@@ -46,6 +43,11 @@ const clientPlatformOptions = [
   "Metricool",
   "CRM / Newsletter",
   "Outro",
+];
+
+const taskPriorityOptions: SelectOption[] = [
+  { value: "normal", label: taskPriorityLabels.normal },
+  { value: "urgent", label: taskPriorityLabels.urgent },
 ];
 
 function optionList<T extends readonly string[]>(
@@ -456,6 +458,7 @@ export function TaskForm({
   task,
   defaultClientId,
   submitLabel,
+  teamMembers = [],
   onCancel,
 }: {
   action: FormAction;
@@ -463,13 +466,25 @@ export function TaskForm({
   task?: Task;
   defaultClientId?: string;
   submitLabel: string;
+  teamMembers?: TeamMember[];
   onCancel?: () => void;
 }) {
   const selectedClientId = task?.client_id ?? defaultClientId ?? "";
+  const assigneeOptions = [
+    { value: "", label: "Por definir" },
+    ...teamMembers.map((member) => ({ value: member.name, label: member.name })),
+    ...(task?.assignee_name && !teamMembers.some((member) => member.name === task.assignee_name)
+      ? [{ value: task.assignee_name, label: task.assignee_name }]
+      : []),
+  ];
 
   return (
     <form action={action} className="grid gap-4">
-      <div className="grid gap-4 md:grid-cols-4">
+      <input type="hidden" name="type" value={task?.type ?? "operations"} />
+      <input type="hidden" name="related_url" value={task?.related_url ?? ""} />
+      <input type="hidden" name="is_blocked" value={task?.is_blocked ? "on" : ""} />
+      <input type="hidden" name="blocker_reason" value={task?.blocker_reason ?? ""} />
+      <div className="grid gap-4 md:grid-cols-3">
         <label className={labelClass}>
           Cliente
           <SelectField
@@ -482,49 +497,38 @@ export function TaskForm({
           />
         </label>
         <label className={labelClass}>
-          Tipo
-          <SelectField name="type" defaultValue={task?.type ?? "operations"} options={optionList(taskTypes, taskTypeLabels)} />
-        </label>
-        <label className={labelClass}>
           Estado
           <SelectField name="status" defaultValue={task?.status ?? "todo"} options={optionList(taskStatuses, taskStatusLabels)} />
         </label>
         <label className={labelClass}>
           Prioridade
-          <SelectField name="priority" defaultValue={task?.priority ?? "normal"} options={optionList(taskPriorities, taskPriorityLabels)} />
+          <SelectField
+            name="priority"
+            defaultValue={task?.priority === "urgent" ? "urgent" : "normal"}
+            options={taskPriorityOptions}
+          />
         </label>
       </div>
       <div className="grid gap-4 md:grid-cols-3">
-        <label className={labelClass}>
+        <label className={`${labelClass} md:col-span-1`}>
           Título
           <input name="title" required defaultValue={task?.title ?? ""} className={inputClass} />
         </label>
         <label className={labelClass}>
           Responsável
-          <input name="assignee_name" defaultValue={task?.assignee_name ?? ""} className={inputClass} />
+          {teamMembers.length ? (
+            <SelectField
+              name="assignee_name"
+              defaultValue={task?.assignee_name ?? ""}
+              options={assigneeOptions}
+            />
+          ) : (
+            <input name="assignee_name" defaultValue={task?.assignee_name ?? ""} className={inputClass} />
+          )}
         </label>
         <label className={labelClass}>
           Prazo
           <DatePicker name="due_date" defaultValue={task?.due_date ?? ""} ariaLabel="Prazo" />
-        </label>
-      </div>
-      <label className={labelClass}>
-        Link relacionado
-        <input name="related_url" type="url" defaultValue={task?.related_url ?? ""} className={inputClass} />
-      </label>
-      <div className="rounded-[20px] border border-[var(--bb-border)] bg-white/35 p-4">
-        <label className="flex items-center gap-3 text-sm font-extrabold text-[var(--bb-charcoal)]">
-          <input
-            name="is_blocked"
-            type="checkbox"
-            defaultChecked={task?.is_blocked ?? false}
-            className="size-5 accent-[var(--bb-red)]"
-          />
-          Bloqueado?
-        </label>
-        <label className={`${labelClass} mt-4`}>
-          Motivo do bloqueio
-          <textarea name="blocker_reason" defaultValue={task?.blocker_reason ?? ""} className={textAreaClass} />
         </label>
       </div>
       <label className={labelClass}>

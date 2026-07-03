@@ -74,7 +74,7 @@ export function TopNav() {
         </div>
       </div>
 
-      <nav className="mx-auto mt-3 flex max-w-[1280px] gap-1 overflow-x-auto rounded-full border border-[var(--bb-border)] bg-[var(--bb-surface)] p-1.5 shadow-[0_14px_34px_rgba(0,0,0,0.06)] backdrop-blur-xl md:hidden">
+      <nav className="mx-auto mt-3 grid max-w-[1280px] grid-cols-5 gap-1 rounded-full border border-[var(--bb-border)] bg-[var(--bb-surface)] p-1.5 shadow-[0_14px_34px_rgba(0,0,0,0.06)] backdrop-blur-xl md:hidden">
         {navItems.map((item) => {
           const active = isActive(pathname, item.href);
 
@@ -82,7 +82,7 @@ export function TopNav() {
             <Link
               key={item.href}
               href={item.href}
-              className={`whitespace-nowrap rounded-full px-3 py-2 text-sm font-semibold transition duration-200 ${
+              className={`min-w-0 truncate rounded-full px-1.5 py-2 text-center text-[12px] font-semibold transition duration-200 ${
                 active
                   ? "bg-[var(--bb-primary)] text-[var(--bb-black)]"
                   : "text-[var(--bb-muted)] hover:bg-[rgba(0,0,0,0.05)]"

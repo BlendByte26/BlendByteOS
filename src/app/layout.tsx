@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist_Mono, Manrope } from "next/font/google";
+import { headers } from "next/headers";
 import { AppShell } from "@/components/app-shell";
 import "./globals.css";
 
@@ -19,18 +20,21 @@ export const metadata: Metadata = {
   description: "Internal operations app for clients, content and tasks.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const pathname = (await headers()).get("x-blendbyte-pathname") ?? "";
+  const isAccessPage = pathname.startsWith("/access");
+
   return (
     <html
       lang="pt"
-      className={`${manrope.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${manrope.variable} ${geistMono.variable} h-full overflow-x-hidden antialiased`}
     >
-      <body className="min-h-full">
-        <AppShell>{children}</AppShell>
+      <body className="min-h-full overflow-x-hidden">
+        {isAccessPage ? children : <AppShell>{children}</AppShell>}
       </body>
     </html>
   );

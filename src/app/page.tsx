@@ -1,255 +1,1061 @@
 import Link from "next/link";
-import { getClientLabel } from "@/lib/client-display";
-import { contentStatusLabels } from "@/lib/labels";
-import { getDashboardData } from "@/lib/data";
+import { ClientBadge } from "@/components/client-badge";
+import { DashboardControls } from "@/components/live-filters";
+import { Badge, ExternalLink, Panel } from "@/components/ui";
+import { getClientVisualToken } from "@/lib/client-visuals";
+import { getClients, getContentItems, getTasks } from "@/lib/data";
+import {
+  contentStatusLabels,
+  taskPriorityLabels,
+  taskStatusLabels,
+} from "@/lib/labels";
+import { buildContentUrl, buildTasksUrl } from "@/lib/smart-links";
 import { getTaskDisplayTitle } from "@/lib/task-display";
-import { Badge, ClientAvatar, EmptyState, Panel, TableWrap } from "@/components/ui";
+import { cleanPrefixedTitle } from "@/lib/title-display";
+import type { Client, ContentItem, Task } from "@/lib/types";
 
-export default async function DashboardPage() {
-  const dashboard = await getDashboardData();
+type Props = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+type DashboardView = "marketing" | "design";
+type DashboardMetric = {
+  label: string;
+  value: number;
+  href?: string;
+  tone?: "default" | "blocked" | "warning";
+};
+type DashboardItem = {
+  key: string;
+  source: "task" | "content";
+  task?: Task;
+  content?: ContentItem;
+  chip: "Tarefa" | "Conteúdo" | "Atenção" | "Pronto";
+  date: string | null;
+  href: string;
+  actionLabel: string;
+  note?: string;
+  sort: {
+    urgent: boolean;
+    attention: boolean;
+    ready: boolean;
+  };
+};
+
+const viewOptions = [
+  { value: "marketing", label: "Marketing / Gestão" },
+  { value: "design", label: "Design" },
+];
+
+const activeContentStatuses = ["idea", "todo", "in_progress", "ready_to_publish"];
+const activeTaskStatuses = ["todo", "in_progress"];
+const prepareContentStatuses = ["todo", "in_progress"];
+const priorityOrder = { urgent: 0, normal: 1, low: 2 };
+const QUEUE_LIMIT = 5;
+
+function valueOf(params: Record<string, string | string[] | undefined>, key: string) {
+  const value = params[key];
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function parseView(value: string | undefined): DashboardView {
+  return value === "design" ? "design" : "marketing";
+}
+
+function normalize(value: string | null | undefined) {
+  return (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function ownerMatches(value: string | null | undefined, owner: string) {
+  if (!owner) return true;
+  const source = normalize(value);
+  const target = normalize(owner);
+  return Boolean(source && (source === target || source.includes(target) || target.includes(source)));
+}
+
+function formatDate(value: string | null) {
+  if (!value) return "-";
+  const [year, month, day] = value.split("-");
+  if (!year || !month || !day) return value;
+  return `${day}/${month}/${year}`;
+}
+
+function compactDate(value: string | null) {
+  if (!value) return "-";
+  const [year, month, day] = value.split("-");
+  if (!year || !month || !day) return value;
+  return `${day}/${month}`;
+}
+
+function sortByDate(a: string | null, b: string | null) {
+  if (!a && !b) return 0;
+  if (!a) return 1;
+  if (!b) return -1;
+  return a.localeCompare(b);
+}
+
+function localDateString(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function currentWeekRange() {
+  const today = new Date();
+  const start = new Date(today);
+  const day = (today.getDay() + 6) % 7;
+  start.setDate(today.getDate() - day);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+
+  return {
+    start: localDateString(start),
+    end: localDateString(end),
+  };
+}
+
+function isThisWeek(value: string | null) {
+  if (!value) return false;
+  const week = currentWeekRange();
+  return value >= week.start && value <= week.end;
+}
+
+function clientFor(item: Pick<Task | ContentItem, "client_id">, clientsById: Map<string, Client>) {
+  return item.client_id ? clientsById.get(item.client_id) ?? null : null;
+}
+
+function isActiveTask(task: Task) {
+  return activeTaskStatuses.includes(task.status);
+}
+
+function isActiveContent(item: ContentItem) {
+  return activeContentStatuses.includes(item.status);
+}
+
+function hasAnyWord(value: string, words: string[]) {
+  const source = normalize(value);
+  return words.some((word) => source.includes(normalize(word)));
+}
+
+function taskSearchText(task: Task) {
+  return [task.title, task.type, task.notes, task.related_url].filter(Boolean).join(" ");
+}
+
+function contentSearchText(item: ContentItem) {
+  return [
+    item.title,
+    item.format,
+    item.platform,
+    item.creative_brief,
+    item.notes,
+    item.design_status,
+    item.media_url,
+    item.figma_url,
+    item.internal_review_notes,
+    item.client_feedback,
+    item.blocker_reason,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function isDesignTask(task: Task) {
+  return (
+    task.type === "design" ||
+    hasAnyWord(taskSearchText(task), [
+      "design",
+      "criativo",
+      "criativos",
+      "branding",
+      "website",
+      "landing",
+      "apresentação",
+      "apresentacao",
+      "figma",
+    ])
+  );
+}
+
+function needsDesignWork(item: ContentItem) {
+  const designState = normalize(item.design_status);
+  const hasOpenDesignState = Boolean(
+    designState &&
+      !["feito", "done", "concluido", "concluído", "aprovado", "approved"].some((state) =>
+        designState.includes(state),
+      ),
+  );
+
+  return (
+    (item.needs_design && prepareContentStatuses.includes(item.status)) ||
+    hasOpenDesignState ||
+    hasAnyWord(contentSearchText(item), ["design", "criativo", "figma"])
+  );
+}
+
+function contentMissingFields(item: ContentItem) {
+  const missing: string[] = [];
+  if (!item.platform?.trim()) missing.push("plataforma");
+  if (!item.format?.trim()) missing.push("formato");
+  if (!item.assignee_name?.trim()) missing.push("owner");
+  if (["todo", "in_progress", "ready_to_publish"].includes(item.status)) {
+    if (!item.creative_brief?.trim() && !item.brief_url?.trim()) missing.push("briefing");
+    if (!item.copy_text?.trim()) missing.push("copy");
+  }
+  return missing;
+}
+
+function attentionLabel(item: ContentItem) {
+  if (item.is_blocked) return item.blocker_reason ?? "Bloqueio";
+  const missing = contentMissingFields(item);
+  if (missing.length) return missing.join(", ");
+  return "Atenção";
+}
+
+function isDesignAttention(item: ContentItem) {
+  return (
+    item.is_blocked ||
+    hasAnyWord(contentSearchText(item), [
+      "asset",
+      "assets",
+      "imagem",
+      "imagens",
+      "visual",
+      "design",
+      "figma",
+      "criativo",
+      "aprovação visual",
+      "aprovacao visual",
+    ])
+  );
+}
+
+function contentActionDate(item: ContentItem) {
+  return item.publish_date ?? item.publishing_due_date ?? item.approval_due_date ?? item.design_due_date;
+}
+
+function designActionDate(item: ContentItem) {
+  return item.design_due_date ?? item.approval_due_date ?? item.publish_date ?? item.publishing_due_date;
+}
+
+function sortDashboardTasks(a: Task, b: Task) {
+  return priorityOrder[a.priority] - priorityOrder[b.priority] || sortByDate(a.due_date, b.due_date);
+}
+
+function sortDashboardItems(a: DashboardItem, b: DashboardItem) {
+  if (a.sort.urgent !== b.sort.urgent) return a.sort.urgent ? -1 : 1;
+  const dateSort = sortByDate(a.date, b.date);
+  if (dateSort !== 0) return dateSort;
+  if (a.sort.attention !== b.sort.attention) return a.sort.attention ? -1 : 1;
+  if (a.sort.ready !== b.sort.ready) return a.sort.ready ? -1 : 1;
+  return a.key.localeCompare(b.key);
+}
+
+function taskDashboardItem(task: Task, chip: DashboardItem["chip"] = "Tarefa"): DashboardItem {
+  const href =
+    task.priority === "urgent"
+      ? buildTasksUrl({ client: task.client_id, priority: "urgent", status: "open" })
+      : isThisWeek(task.due_date)
+        ? buildTasksUrl({ view: "week", client: task.client_id, status: "open" })
+        : buildTasksUrl({ client: task.client_id, status: "open" });
+
+  return {
+    key: `task-${task.id}`,
+    source: "task",
+    task,
+    chip,
+    date: task.due_date,
+    href,
+    actionLabel: "Ver em Tarefas",
+    note: task.is_blocked ? task.blocker_reason ?? "Precisa de atenção" : undefined,
+    sort: {
+      urgent: task.priority === "urgent",
+      attention: task.is_blocked,
+      ready: false,
+    },
+  };
+}
+
+function contentDashboardItem(
+  item: ContentItem,
+  chip: DashboardItem["chip"] = "Conteúdo",
+  note?: string,
+  date = contentActionDate(item),
+): DashboardItem {
+  const attention = chip === "Atenção" || item.is_blocked;
+
+  return {
+    key: `content-${item.id}`,
+    source: "content",
+    content: item,
+    chip,
+    date,
+    href: buildContentUrl({
+      client: item.client_id,
+      status: item.status,
+      attention,
+    }),
+    actionLabel: "Ver em Conteúdos",
+    note,
+    sort: {
+      urgent: false,
+      attention,
+      ready: chip === "Pronto" || item.status === "ready_to_publish",
+    },
+  };
+}
+
+function firstByDate<T>(items: T[], dateOf: (item: T) => string | null) {
+  return [...items].sort((a, b) => sortByDate(dateOf(a), dateOf(b)))[0] ?? null;
+}
+
+function uniqueDashboardItems(items: DashboardItem[]) {
+  return Array.from(new Map(items.map((item) => [item.key, item])).values());
+}
+
+function isInvest2030Client(client: Client | null) {
+  if (!client) return false;
+  return hasAnyWord(
+    [client.name, client.client_code, client.short_name].filter(Boolean).join(" "),
+    ["invest2030", "invest 2030", "i2030"],
+  );
+}
+
+export default async function DashboardPage({ searchParams }: Props) {
+  const params = (await searchParams) ?? {};
+  const currentView = parseView(valueOf(params, "view"));
+  const [clients, content, tasks] = await Promise.all([
+    getClients(),
+    getContentItems(),
+    getTasks(),
+  ]);
+  const clientsById = new Map(clients.map((client) => [client.id, client]));
+  const activeTasks = tasks.filter(isActiveTask);
+  const activeContent = content.filter(isActiveContent);
+  const attentionContent = activeContent.filter(
+    (item) => item.is_blocked || contentMissingFields(item).length > 0,
+  );
+  const readyContent = activeContent.filter((item) => item.status === "ready_to_publish");
+  const designContent = activeContent.filter((item) => item.status === "in_progress" || needsDesignWork(item));
+  const designTasks = activeTasks.filter(isDesignTask);
+  const designAttention = designContent.filter(isDesignAttention);
+  const readyForValidation = readyContent.filter(
+    (item) =>
+      item.needs_design ||
+      Boolean(item.design_status?.trim()) ||
+      Boolean(item.figma_url?.trim()) ||
+      ownerMatches(item.assignee_name, "design"),
+  );
+  const marketingMetrics: DashboardMetric[] = [
+    {
+      label: "Atenções",
+      value: attentionContent.length,
+      href: buildContentUrl({ attention: true }),
+      tone: attentionContent.length ? "warning" : "default",
+    },
+    {
+      label: "Prontos a publicar",
+      value: readyContent.length,
+      href: buildContentUrl({ status: "ready" }),
+    },
+    {
+      label: "Tarefas urgentes",
+      value: activeTasks.filter((task) => task.priority === "urgent").length,
+      href: buildTasksUrl({ priority: "urgent", status: "open" }),
+      tone: activeTasks.some((task) => task.priority === "urgent") ? "warning" : "default",
+    },
+    {
+      label: "Em produção",
+      value: activeContent.filter((item) => item.status === "todo").length,
+      href: buildContentUrl({ status: "production" }),
+    },
+    {
+      label: "Em design",
+      value: activeContent.filter((item) => item.status === "in_progress").length,
+      href: buildContentUrl({ status: "design" }),
+    },
+  ];
+  const designMetrics: DashboardMetric[] = [
+    { label: "Em design", value: designContent.length },
+    {
+      label: "Atenções de design",
+      value: designAttention.length,
+      tone: designAttention.length ? "warning" : "default",
+    },
+    { label: "Prontos para validar", value: readyForValidation.length },
+    { label: "Tarefas de design", value: designTasks.length },
+    {
+      label: "Próximos prazos",
+      value:
+        designContent.filter((item) => isThisWeek(designActionDate(item))).length +
+        designTasks.filter((task) => isThisWeek(task.due_date)).length,
+    },
+  ];
 
   return (
     <>
-      <div className="grid gap-4 md:grid-cols-4">
-        <Metric label="Hoje" value={dashboard.dueToday.length} />
-        <Metric label="Esta semana" value={dashboard.dueThisWeek.length} />
-        <Metric label="Atrasados" value={dashboard.overdue.length} />
-        <Metric label="Bloqueados" value={dashboard.blockedContent.length + dashboard.blockedTasks.length} tone="blocked" />
-      </div>
-
-      <div className="mt-6 grid gap-6 xl:grid-cols-2">
-        <BlockedPanel
-          content={dashboard.blockedContent}
-          tasks={dashboard.blockedTasks}
+      <div className="mb-3 flex justify-start">
+        <DashboardControls
+          key={currentView}
+          filters={{ view: currentView }}
+          viewOptions={viewOptions}
         />
-        <SetupClientsPanel clients={dashboard.clientsInSetup} />
-        <ContentPanel title="Conteúdos para hoje" items={dashboard.dueToday} />
-        <ContentPanel title="Conteúdos atrasados" items={dashboard.overdue} />
-        <ContentPanel title="Pronto para publicar" items={dashboard.ready} />
-        <Panel>
-          <div className="border-b border-[var(--bb-border)] px-5 py-4">
-            <h2 className="text-sm font-extrabold text-[var(--bb-charcoal)]">Tarefas esta semana</h2>
-          </div>
-          {dashboard.tasksThisWeek.length ? (
-            <TableWrap>
-              <table className="w-full table-auto text-left text-sm">
-                <thead className="bg-[rgba(255,255,255,0.46)] text-xs uppercase text-[var(--bb-muted)]">
-                  <tr>
-                    <th className="px-5 py-4 font-extrabold">Tarefa</th>
-                    <th className="px-4 py-4 font-extrabold">Cliente</th>
-                    <th className="px-4 py-4 font-extrabold">Responsável</th>
-                    <th className="py-4 pl-4 pr-6 font-extrabold">Prazo</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[var(--bb-border)]">
-                  {dashboard.tasksThisWeek.map((task) => (
-                    <tr key={task.id} className={task.is_blocked ? "bg-[var(--bb-red-soft)]" : ""}>
-                      <td className="max-w-[320px] px-5 py-4 font-bold text-[var(--bb-charcoal)]">
-                        <span className="bb-line-clamp-2">{getTaskDisplayTitle(task)}</span>
-                        {task.is_blocked ? (
-                          <div className="mt-1 text-xs font-bold text-[#8f2415]">
-                            Bloqueado: {task.blocker_reason ?? "Motivo por adicionar"}
-                          </div>
-                        ) : null}
-                      </td>
-                      <td className="px-4 py-4 font-medium text-[var(--bb-muted)]">{task.clients ? getClientLabel(task.clients) : "-"}</td>
-                      <td className="px-4 py-4 font-medium text-[var(--bb-muted)]">{task.assignee_name ?? "-"}</td>
-                      <td className="py-4 pl-4 pr-6 font-medium whitespace-nowrap text-[var(--bb-muted)]">{task.due_date ?? "-"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </TableWrap>
-          ) : (
-            <EmptyState title="Sem tarefas com prazo esta semana." />
-          )}
-        </Panel>
       </div>
 
-      <Panel className="mt-6">
-        <div className="border-b border-[var(--bb-border)] px-5 py-4">
-          <h2 className="text-sm font-extrabold text-[var(--bb-charcoal)]">Resumo por cliente</h2>
-        </div>
-        <TableWrap>
-          <table className="w-full table-auto text-left text-sm">
-            <thead className="bg-[rgba(255,255,255,0.46)] text-xs uppercase text-[var(--bb-muted)]">
-              <tr>
-                <th className="px-5 py-4 font-extrabold">Cliente</th>
-                <th className="px-4 py-4 text-right font-extrabold">Conteúdos</th>
-                <th className="px-4 py-4 text-right font-extrabold">Prontos</th>
-                <th className="px-4 py-4 text-right font-extrabold">Bloqueados</th>
-                <th className="py-4 pl-4 pr-6 text-right font-extrabold">Tarefas</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--bb-border)]">
-              {dashboard.summaryByClient.map((row) => (
-                <tr key={row.client.id}>
-                  <td className="px-5 py-4">
-                    <div className="flex items-center gap-3">
-                      <ClientAvatar client={row.client} size="xs" />
-                      <Link href={`/clients/${row.client.id}`} className="font-medium hover:underline">
-                        {getClientLabel(row.client)}
-                      </Link>
-                    </div>
-                  </td>
-                  <td className="px-4 py-4 text-right font-medium text-[var(--bb-muted)]">{row.content}</td>
-                  <td className="px-4 py-4 text-right font-medium text-[var(--bb-muted)]">{row.ready}</td>
-                  <td className="px-4 py-4 text-right font-medium text-[var(--bb-muted)]">{row.blocked}</td>
-                  <td className="py-4 pl-4 pr-6 text-right font-medium text-[var(--bb-muted)]">{row.tasks}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </TableWrap>
-      </Panel>
+      <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
+        {(currentView === "design" ? designMetrics : marketingMetrics).map((metric) => (
+          <Metric key={metric.label} {...metric} />
+        ))}
+      </div>
+
+      {currentView === "design" ? (
+        <DesignView
+          clientsById={clientsById}
+          designAttention={designAttention}
+          designContent={designContent}
+          designTasks={designTasks}
+          readyForValidation={readyForValidation}
+        />
+      ) : (
+        <MarketingManagementView
+          activeContent={activeContent}
+          activeTasks={activeTasks}
+          attentionContent={attentionContent}
+          clients={clients}
+          clientsById={clientsById}
+          readyContent={readyContent}
+        />
+      )}
     </>
   );
 }
 
-function Metric({ label, value, tone = "default" }: { label: string; value: number; tone?: "default" | "blocked" }) {
+function MarketingManagementView({
+  activeContent,
+  activeTasks,
+  attentionContent,
+  clients,
+  clientsById,
+  readyContent,
+}: {
+  activeContent: ContentItem[];
+  activeTasks: Task[];
+  attentionContent: ContentItem[];
+  clients: Client[];
+  clientsById: Map<string, Client>;
+  readyContent: ContentItem[];
+}) {
+  const urgentTasks = activeTasks.filter((task) => task.priority === "urgent").sort(sortDashboardTasks);
+  const todayTasks = activeTasks
+    .filter((task) => task.due_date === localDateString(new Date()))
+    .sort(sortDashboardTasks);
+  const nextTask = urgentTasks[0] ?? todayTasks[0] ?? null;
+  const nextPriority =
+    nextTask ? taskDashboardItem(nextTask) :
+      firstByDate(attentionContent, contentActionDate)
+        ? contentDashboardItem(firstByDate(attentionContent, contentActionDate)!, "Atenção", attentionLabel(firstByDate(attentionContent, contentActionDate)!))
+        : firstByDate(readyContent, contentActionDate)
+          ? contentDashboardItem(firstByDate(readyContent, contentActionDate)!, "Pronto")
+          : null;
+  const weekTasks = activeTasks.filter((task) => task.priority === "urgent" || isThisWeek(task.due_date));
+  const actionQueue = uniqueDashboardItems([
+    ...urgentTasks.map((task) => taskDashboardItem(task)),
+    ...weekTasks.map((task) => taskDashboardItem(task)),
+    ...attentionContent.map((item) => contentDashboardItem(item, "Atenção", attentionLabel(item))),
+    ...readyContent.map((item) => contentDashboardItem(item, "Pronto")),
+  ])
+    .sort(sortDashboardItems)
+    .slice(0, QUEUE_LIMIT);
+  const investClientIds = new Set(
+    Array.from(clientsById.values())
+      .filter(isInvest2030Client)
+      .map((client) => client.id),
+  );
+  const investClientId = Array.from(investClientIds)[0] ?? null;
+  const investContent = activeContent.filter((item) => investClientIds.has(item.client_id));
+  const investTasks = activeTasks.filter((task) => task.client_id && investClientIds.has(task.client_id));
+  const hasInvestData = investContent.length > 0 || investTasks.length > 0;
+  const investAttention = investContent.filter((item) => item.is_blocked || contentMissingFields(item).length > 0);
+  const investReady = investContent.filter((item) => item.status === "ready_to_publish");
+  const investNext = uniqueDashboardItems([
+    ...investTasks.map((task) => taskDashboardItem(task)),
+    ...investAttention.map((item) => contentDashboardItem(item, "Atenção", attentionLabel(item))),
+    ...investReady.map((item) => contentDashboardItem(item, "Pronto")),
+    ...investContent.map((item) => contentDashboardItem(item)),
+  ]).sort(sortDashboardItems)[0] ?? null;
+  const contentWithoutOwner = activeContent.filter((item) => !item.assignee_name?.trim());
+  const setupClients = clients.filter((client) => client.status === "setup");
+  const alerts = [
+    contentWithoutOwner.length
+      ? {
+          title: "Conteúdos sem owner",
+          detail: `${contentWithoutOwner.length} por atribuir`,
+          href: buildContentUrl({ attention: true }),
+        }
+      : null,
+    setupClients.length
+      ? {
+          title: "Clientes em setup",
+          detail: `${setupClients.length} a completar`,
+          href: "/clients",
+        }
+      : null,
+    urgentTasks.length
+      ? {
+          title: "Tarefas urgentes",
+          detail: `${urgentTasks.length} abertas`,
+          href: buildTasksUrl({ priority: "urgent", status: "open" }),
+        }
+      : null,
+    attentionContent.length
+      ? {
+          title: "Conteúdos com atenção",
+          detail: `${attentionContent.length} a resolver`,
+          href: buildContentUrl({ attention: true }),
+        }
+      : null,
+    readyContent.length
+      ? {
+          title: "Prontos por publicar",
+          detail: `${readyContent.length} para agendar/publicar`,
+          href: buildContentUrl({ status: "ready" }),
+        }
+      : null,
+  ].filter(Boolean).slice(0, QUEUE_LIMIT) as Array<{ title: string; detail: string; href: string }>;
+
   return (
-    <Panel className="relative overflow-hidden p-5">
-      <div className="absolute right-4 top-4 text-5xl font-extrabold text-[rgba(0,0,0,0.04)]">
+    <div className="mt-3 grid gap-3 xl:grid-cols-[1.08fr_0.92fr]">
+      <DashboardBlock title="Próxima prioridade" className="xl:col-span-2">
+        {nextPriority ? (
+          <PriorityCard item={nextPriority} clientsById={clientsById} actionLabel="Abrir" />
+        ) : (
+          <CompactEmpty title="Sem prioridades imediatas." />
+        )}
+      </DashboardBlock>
+
+      <DashboardBlock title="Fila de ação" action={<SmallLink href={actionQueue.some((item) => item.source === "task") ? buildTasksUrl({ status: "open" }) : buildContentUrl()}>Ver todos</SmallLink>}>
+        {actionQueue.length ? (
+          <div className="grid gap-1.5">
+            {actionQueue.map((item) => (
+              <QueueItem key={item.key} item={item} clientsById={clientsById} />
+            ))}
+          </div>
+        ) : (
+          <CompactEmpty title="Sem ações pendentes." />
+        )}
+      </DashboardBlock>
+
+      <DashboardBlock title="Invest2030 agora">
+        {hasInvestData ? (
+          <div className="grid gap-2">
+            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+              <MiniStat label="Ativos" value={investContent.length} href={buildContentUrl({ client: investClientId })} />
+              <MiniStat label="Prontos" value={investReady.length} href={buildContentUrl({ client: investClientId, status: "ready" })} />
+              <MiniStat label="Atenções" value={investAttention.length} href={buildContentUrl({ client: investClientId, attention: true })} tone={investAttention.length ? "warning" : "default"} />
+              <MiniStat label="Tarefas" value={investTasks.length} href={buildTasksUrl({ client: investClientId, status: "open" })} />
+            </div>
+            {investNext ? <QueueItem item={investNext} clientsById={clientsById} /> : <CompactEmpty title="Sem próxima ação Invest2030." />}
+          </div>
+        ) : (
+          <CompactEmpty title="Sem dados Invest2030 nesta vista." />
+        )}
+      </DashboardBlock>
+
+      <DashboardBlock title="Alertas operacionais" className="xl:col-span-2">
+        {alerts.length ? (
+          <div className="grid gap-1.5 md:grid-cols-2 xl:grid-cols-5">
+            {alerts.map((alert) => (
+              <Link
+                key={alert.title}
+                href={alert.href}
+                className="rounded-[14px] border border-[var(--bb-border)] bg-white/58 px-3 py-2 transition hover:bg-white/82"
+              >
+                <div className="text-sm font-extrabold text-[var(--bb-charcoal)]">{alert.title}</div>
+                <div className="mt-0.5 text-xs font-bold text-[var(--bb-muted)]">{alert.detail}</div>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-[14px] border border-[var(--bb-border)] bg-white/46 px-3 py-2 text-sm font-bold text-[var(--bb-muted)]">
+            Operação sem alertas críticos.
+          </div>
+        )}
+      </DashboardBlock>
+    </div>
+  );
+}
+
+function DesignView({
+  clientsById,
+  designAttention,
+  designContent,
+  designTasks,
+  readyForValidation,
+}: {
+  clientsById: Map<string, Client>;
+  designAttention: ContentItem[];
+  designContent: ContentItem[];
+  designTasks: Task[];
+  readyForValidation: ContentItem[];
+}) {
+  const sortedDesignContent = [...designContent].sort((a, b) => sortByDate(designActionDate(a), designActionDate(b)));
+  const sortedDesignTasks = [...designTasks].sort(sortDashboardTasks);
+  const nextDesignContent = sortedDesignContent.find((item) => item.status === "in_progress") ?? null;
+  const nextAttention = firstByDate(designAttention, designActionDate);
+  const nextDesignTask = sortedDesignTasks[0] ?? null;
+  const nextWork =
+    nextDesignContent ? contentDashboardItem(nextDesignContent, "Conteúdo", undefined, designActionDate(nextDesignContent)) :
+      nextAttention ? contentDashboardItem(nextAttention, "Atenção", attentionLabel(nextAttention), designActionDate(nextAttention)) :
+        nextDesignTask ? taskDashboardItem(nextDesignTask) :
+          null;
+  const designByClient = Array.from(
+    designContent.reduce((map, item) => {
+      const client = clientFor(item, clientsById);
+      const key = client?.id ?? "sem-cliente";
+      const current = map.get(key) ?? { client, count: 0 };
+      map.set(key, { client, count: current.count + 1 });
+      return map;
+    }, new Map<string, { client: Client | null; count: number }>()),
+  )
+    .map(([, row]) => row)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, QUEUE_LIMIT);
+  const maxDesignCount = Math.max(...designByClient.map((row) => row.count), 1);
+  const designQueue = uniqueDashboardItems([
+    ...sortedDesignContent.map((item) => contentDashboardItem(item, "Conteúdo", undefined, designActionDate(item))),
+    ...designAttention.map((item) => contentDashboardItem(item, "Atenção", attentionLabel(item), designActionDate(item))),
+    ...sortedDesignTasks.map((task) => taskDashboardItem(task)),
+  ])
+    .sort(sortDashboardItems)
+    .slice(0, QUEUE_LIMIT);
+  const validationItems = [...readyForValidation]
+    .sort((a, b) => sortByDate(contentActionDate(a), contentActionDate(b)))
+    .slice(0, 3);
+
+  return (
+    <div className="mt-3 grid gap-3 xl:grid-cols-[1.08fr_0.92fr]">
+      <DashboardBlock title="Próximo trabalho de design" className="xl:col-span-2">
+        {nextWork ? (
+          <PriorityCard item={nextWork} clientsById={clientsById} actionLabel="Abrir" showQuickLinks />
+        ) : (
+          <CompactEmpty title="Sem trabalho de design imediato." />
+        )}
+      </DashboardBlock>
+
+      <DashboardBlock title="Carga de design por cliente">
+        {designByClient.length ? (
+          <div className="grid gap-2">
+            {designByClient.map((row) => (
+              <div key={row.client?.id ?? "sem-cliente"} className="rounded-[14px] border border-[var(--bb-border)] bg-white/52 px-3 py-2">
+                <div className="flex items-center justify-between gap-3">
+                  <ClientLink client={row.client} />
+                  <span className="text-sm font-extrabold text-[var(--bb-charcoal)]">{row.count}</span>
+                </div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/80">
+                  <div
+                    className="h-full rounded-full bg-[var(--bb-primary)]"
+                    style={{ width: `${Math.max(12, Math.round((row.count / maxDesignCount) * 100))}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <CompactEmpty title="Sem conteúdos em design por cliente." />
+        )}
+      </DashboardBlock>
+
+      <DashboardBlock title="Fila de design" action={<SmallLink href="/content">Ver todos</SmallLink>}>
+        {designQueue.length ? (
+          <div className="grid gap-1.5">
+            {designQueue.map((item) => (
+              <QueueItem key={item.key} item={item} clientsById={clientsById} showQuickLinks />
+            ))}
+          </div>
+        ) : (
+          <CompactEmpty title="Sem fila de design." />
+        )}
+      </DashboardBlock>
+
+      <DashboardBlock title="Prontos para validar" className="xl:col-span-2">
+        {validationItems.length ? (
+          <div className="grid gap-1.5 md:grid-cols-3">
+            {validationItems.map((item) => (
+              <ContentCard key={item.id} item={item} clientsById={clientsById} compact showQuickLinks />
+            ))}
+          </div>
+        ) : (
+          <CompactEmpty title="Sem conteúdos prontos para validar." />
+        )}
+      </DashboardBlock>
+    </div>
+  );
+}
+
+function Metric({
+  label,
+  value,
+  href,
+  tone = "default",
+}: {
+  label: string;
+  value: number;
+  href?: string;
+  tone?: "default" | "blocked" | "warning";
+}) {
+  const barClass =
+    tone === "blocked"
+      ? "bg-[var(--bb-red)] shadow-[0_0_24px_rgba(232,76,49,0.28)]"
+      : tone === "warning"
+        ? "bg-[var(--bb-orange)] shadow-[0_0_24px_rgba(254,112,35,0.28)]"
+        : "bg-[var(--bb-primary)] shadow-[0_0_24px_rgba(83,183,223,0.45)]";
+
+  const content = (
+    <Panel className={`relative overflow-hidden px-4 py-3 ${href ? "cursor-pointer" : ""}`}>
+      <div className="absolute right-3 top-2 text-3xl font-extrabold text-[rgba(0,0,0,0.04)]">
         BB
       </div>
-      <div className={`mb-5 h-1.5 w-8 rounded-full ${tone === "blocked" ? "bg-[var(--bb-red)] shadow-[0_0_24px_rgba(232,76,49,0.28)]" : "bg-[var(--bb-primary)] shadow-[0_0_24px_rgba(83,183,223,0.45)]"}`} />
-      <div className="text-sm font-bold text-[var(--bb-muted)]">{label}</div>
-      <div className="mt-2 text-5xl font-extrabold tracking-tight text-[var(--bb-charcoal)]">{value}</div>
+      <div className={`mb-3 h-1.5 w-8 rounded-full ${barClass}`} />
+      <div className="text-xs font-bold text-[var(--bb-muted)]">{label}</div>
+      <div className="mt-0.5 text-3xl font-extrabold tracking-tight text-[var(--bb-charcoal)]">{value}</div>
     </Panel>
   );
-}
 
-function BlockedPanel({
-  content,
-  tasks,
-}: {
-  content: Awaited<ReturnType<typeof getDashboardData>>["blockedContent"];
-  tasks: Awaited<ReturnType<typeof getDashboardData>>["blockedTasks"];
-}) {
-  const hasBlocked = content.length > 0 || tasks.length > 0;
+  if (!href) return content;
 
   return (
-    <Panel>
-      <div className="border-b border-[var(--bb-border)] px-5 py-4">
-        <h2 className="text-sm font-extrabold text-[var(--bb-charcoal)]">Bloqueados</h2>
-      </div>
-      {hasBlocked ? (
-        <div className="divide-y divide-[var(--bb-border)]">
-          {content.map((item) => (
-            <Link
-              key={item.id}
-              href={`/content/${item.id}/edit`}
-              className="block bg-[var(--bb-red-soft)] px-5 py-4 transition hover:bg-[rgba(232,76,49,0.2)]"
-            >
-              <div className="bb-line-clamp-2 text-sm font-extrabold text-[var(--bb-charcoal)]">{item.title}</div>
-              <div className="mt-1 text-xs font-bold text-[#8f2415]">
-                Conteúdo · {item.blocker_reason ?? "Motivo do bloqueio por adicionar"}
-              </div>
-            </Link>
-          ))}
-          {tasks.map((task) => (
-            <Link
-              key={task.id}
-              href={`/tasks/${task.id}/edit`}
-              className="block bg-[var(--bb-red-soft)] px-5 py-4 transition hover:bg-[rgba(232,76,49,0.2)]"
-            >
-              <div className="bb-line-clamp-2 text-sm font-extrabold text-[var(--bb-charcoal)]">{getTaskDisplayTitle(task)}</div>
-              <div className="mt-1 text-xs font-bold text-[#8f2415]">
-                Tarefa · {task.blocker_reason ?? "Motivo do bloqueio por adicionar"}
-              </div>
-            </Link>
-          ))}
-        </div>
-      ) : (
-        <EmptyState title="Sem bloqueios neste momento." />
-      )}
-    </Panel>
+    <Link href={href} aria-label={`Abrir ${label}`} title={`Abrir ${label}`} className="block">
+      {content}
+    </Link>
   );
 }
 
-function SetupClientsPanel({
-  clients,
-}: {
-  clients: Awaited<ReturnType<typeof getDashboardData>>["clientsInSetup"];
-}) {
-  return (
-    <Panel>
-      <div className="border-b border-[var(--bb-border)] px-5 py-4">
-        <h2 className="text-sm font-extrabold text-[var(--bb-charcoal)]">Clientes em setup</h2>
-      </div>
-      {clients.length ? (
-        <div className="divide-y divide-[var(--bb-border)]">
-          {clients.slice(0, 6).map((row) => (
-            <Link
-              key={row.client.id}
-              href={`/clients/${row.client.id}`}
-              className="block px-5 py-4 transition hover:bg-white/45"
-            >
-              <div className="bb-line-clamp-2 text-sm font-extrabold text-[var(--bb-charcoal)]">
-                {getClientLabel(row.client)}
-              </div>
-              <div className="mt-1 text-xs font-bold leading-5 text-[var(--bb-muted)]">
-                <span className="bb-line-clamp-2">Em falta: {row.missing.slice(0, 4).join(", ")}
-                {row.missing.length > 4 ? ` +${row.missing.length - 4}` : ""}
-                </span>
-              </div>
-            </Link>
-          ))}
-        </div>
-      ) : (
-        <EmptyState title="Sem clientes ativos com setup pendente." />
-      )}
-    </Panel>
-  );
-}
-
-function ContentPanel({
+function DashboardBlock({
   title,
-  items,
+  action,
+  children,
+  className = "",
 }: {
   title: string;
-  items: Awaited<ReturnType<typeof getDashboardData>>["dueToday"];
+  action?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <Panel>
-      <div className="border-b border-[var(--bb-border)] px-5 py-4">
+    <Panel className={`p-3.5 ${className}`}>
+      <div className="mb-2.5 flex items-center justify-between gap-3">
         <h2 className="text-sm font-extrabold text-[var(--bb-charcoal)]">{title}</h2>
+        {action ? <div className="shrink-0">{action}</div> : null}
       </div>
-      {items.length ? (
-        <TableWrap>
-          <table className="w-full table-auto text-left text-sm">
-            <thead className="bg-[rgba(255,255,255,0.46)] text-xs uppercase text-[var(--bb-muted)]">
-              <tr>
-                <th className="px-5 py-4 font-extrabold">Conteúdo</th>
-                <th className="px-4 py-4 font-extrabold">Cliente</th>
-                <th className="px-4 py-4 font-extrabold">Data</th>
-                <th className="w-48 py-4 pl-4 pr-6 font-extrabold">Estado</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--bb-border)]">
-              {items.map((item) => (
-                <tr key={item.id} className={item.is_blocked ? "bg-[var(--bb-red-soft)]" : ""}>
-                  <td className="max-w-[320px] px-5 py-4 font-bold text-[var(--bb-charcoal)]">
-                    <span className="bb-line-clamp-2">{item.title}</span>
-                    {item.is_blocked ? (
-                      <div className="mt-1 text-xs font-bold text-[#8f2415]">
-                        Bloqueado: {item.blocker_reason ?? "Motivo por adicionar"}
-                      </div>
-                    ) : null}
-                  </td>
-                  <td className="px-4 py-4 font-medium text-[var(--bb-muted)]">{item.clients ? getClientLabel(item.clients) : "-"}</td>
-                  <td className="px-4 py-4 font-medium whitespace-nowrap text-[var(--bb-muted)]">{item.publish_date ?? "-"}</td>
-                  <td className="w-48 py-4 pl-4 pr-6">
-                    <Badge value={item.status} label={contentStatusLabels[item.status]} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </TableWrap>
-      ) : (
-        <EmptyState title="Nada para mostrar aqui." />
-      )}
+      {children}
     </Panel>
+  );
+}
+
+function CompactEmpty({ title }: { title: string }) {
+  return (
+    <div className="rounded-[14px] border border-dashed border-[var(--bb-border)] bg-white/38 px-3 py-2 text-sm font-bold text-[var(--bb-muted)]">
+      {title}
+    </div>
+  );
+}
+
+function MiniStat({
+  label,
+  value,
+  href,
+  tone = "default",
+}: {
+  label: string;
+  value: number;
+  href?: string;
+  tone?: "default" | "warning";
+}) {
+  const className = `rounded-[14px] border px-3 py-2 transition ${tone === "warning" ? "border-[rgba(254,112,35,0.32)] bg-[var(--bb-orange-soft)]" : "border-[var(--bb-border)] bg-white/52"} ${href ? "hover:bg-white/82" : ""}`;
+  const content = (
+    <div className={className}>
+      <div className="text-[11px] font-extrabold uppercase text-[var(--bb-muted)]">{label}</div>
+      <div className="text-xl font-extrabold text-[var(--bb-charcoal)]">{value}</div>
+    </div>
+  );
+
+  if (!href) return content;
+
+  return (
+    <Link href={href} aria-label={`Abrir Invest2030 ${label}`} title={`Abrir Invest2030 ${label}`}>
+      {content}
+    </Link>
+  );
+}
+
+function SmallLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className="inline-flex min-h-8 items-center rounded-full border border-[var(--bb-border)] bg-white/65 px-3 text-xs font-extrabold text-[var(--bb-charcoal)] transition hover:bg-[var(--bb-primary-soft)]"
+    >
+      {children}
+    </Link>
+  );
+}
+
+function ClientLink({
+  client,
+}: {
+  client: Pick<Client, "id" | "name" | "client_code" | "short_name" | "logo_url"> | null;
+}) {
+  if (!client) return <span>-</span>;
+
+  return (
+    <ClientBadge
+      clientId={client.id}
+      clientCode={client.client_code}
+      clientName={client.name}
+      shortName={client.short_name}
+      logoUrl={client.logo_url}
+      href={`/clients/${client.id}`}
+      variant="pill"
+      className="max-w-[220px]"
+    />
+  );
+}
+
+function ActionLink({ href, label = "Editar" }: { href: string; label?: string }) {
+  return (
+    <Link
+      href={href}
+      className="inline-flex min-h-8 items-center rounded-full border border-[var(--bb-border)] bg-white/65 px-3 text-xs font-extrabold text-[var(--bb-charcoal)] transition hover:bg-[var(--bb-primary-soft)]"
+    >
+      {label}
+    </Link>
+  );
+}
+
+function DesignQuickLinks({ client }: { client: Client | null }) {
+  if (!client) return null;
+  const figma = client.figma_project_url ?? client.figma_url;
+  const drive = client.google_drive_url ?? client.drive_url ?? client.onedrive_url;
+
+  if (!figma && !drive) return null;
+
+  return (
+    <div className="mt-2 flex flex-wrap gap-1.5">
+      <ExternalLink href={figma} label="Figma" />
+      <ExternalLink href={drive} label="Drive" />
+    </div>
+  );
+}
+
+function PriorityCard({
+  item,
+  clientsById,
+  actionLabel,
+  showQuickLinks = false,
+}: {
+  item: DashboardItem;
+  clientsById: Map<string, Client>;
+  actionLabel: string;
+  showQuickLinks?: boolean;
+}) {
+  if (item.source === "task" && item.task) {
+    return <TaskCard task={item.task} clientsById={clientsById} note={item.note} actionLabel={actionLabel} actionHref={item.href} showQuickLinks={showQuickLinks} />;
+  }
+
+  if (item.content) {
+    return <ContentCard item={item.content} clientsById={clientsById} note={item.note} actionLabel={actionLabel} actionHref={item.href} showQuickLinks={showQuickLinks} />;
+  }
+
+  return null;
+}
+
+function QueueItem({
+  item,
+  clientsById,
+  showQuickLinks = false,
+}: {
+  item: DashboardItem;
+  clientsById: Map<string, Client>;
+  showQuickLinks?: boolean;
+}) {
+  const entity = item.source === "task" ? item.task : item.content;
+  if (!entity) return null;
+  const client = clientFor(entity, clientsById);
+  const title =
+    item.source === "task" && item.task
+      ? getTaskDisplayTitle(item.task)
+      : item.content
+        ? cleanPrefixedTitle(item.content.title, item.content.clients)
+        : "";
+  const statusBadge =
+    item.source === "task" && item.task ? (
+      <>
+        <Badge value={item.task.status} label={taskStatusLabels[item.task.status]} />
+        <Badge value={item.task.priority} label={taskPriorityLabels[item.task.priority]} />
+      </>
+    ) : item.content ? (
+      <Badge value={item.content.status} label={contentStatusLabels[item.content.status]} />
+    ) : null;
+  const clientToken = getClientVisualToken({
+    clientCode: client?.client_code,
+    clientName: client?.name,
+    shortName: client?.short_name,
+  });
+
+  return (
+    <div className={`rounded-[14px] border border-l-4 border-[var(--bb-border)] bg-white/58 px-3 py-2 ${clientToken.borderStrong}`}>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="mb-0.5 flex flex-wrap items-center gap-1.5 text-xs font-bold text-[var(--bb-muted)]">
+            <span className="rounded-full bg-white/80 px-2 py-0.5 text-[11px] font-extrabold text-[var(--bb-charcoal)] ring-1 ring-inset ring-[var(--bb-border)]">
+              {item.chip}
+            </span>
+            <ClientLink client={client} />
+            <span>·</span>
+            <span>{formatDate(item.date)}</span>
+          </div>
+          <div className="bb-line-clamp-2 text-sm font-extrabold leading-5 text-[var(--bb-charcoal)]">
+            {title}
+          </div>
+          {item.note ? (
+            <div className="bb-line-clamp-2 mt-1 text-xs font-bold text-[var(--bb-muted)]">
+              Atenção: {item.note}
+            </div>
+          ) : null}
+        </div>
+        <div className="flex shrink-0 flex-wrap justify-end gap-1">{statusBadge}</div>
+      </div>
+      <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-[var(--bb-muted)]">
+        <span>Owner: {entity.assignee_name ?? "-"}</span>
+        <ActionLink href={item.href} label={item.actionLabel} />
+      </div>
+      {showQuickLinks ? <DesignQuickLinks client={client} /> : null}
+    </div>
+  );
+}
+
+function TaskCard({
+  task,
+  clientsById,
+  compact = false,
+  showQuickLinks = false,
+  note,
+  actionLabel = "Editar",
+  actionHref,
+}: {
+  task: Task;
+  clientsById: Map<string, Client>;
+  compact?: boolean;
+  showQuickLinks?: boolean;
+  note?: string;
+  actionLabel?: string;
+  actionHref?: string;
+}) {
+  const client = clientFor(task, clientsById);
+  const clientToken = getClientVisualToken({
+    clientCode: client?.client_code,
+    clientName: client?.name,
+    shortName: client?.short_name,
+  });
+
+  return (
+    <div className={`rounded-[14px] border border-l-4 border-[var(--bb-border)] bg-white/58 px-3 ${clientToken.borderStrong} ${compact ? "py-2" : "py-2.5"}`}>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="mb-0.5 flex flex-wrap items-center gap-1.5 text-xs font-bold text-[var(--bb-muted)]">
+            <span>Tarefa</span>
+            <span>·</span>
+            <ClientLink client={client} />
+            <span>·</span>
+            <span>{formatDate(task.due_date)}</span>
+          </div>
+          <div className="bb-line-clamp-2 text-sm font-extrabold leading-5 text-[var(--bb-charcoal)]">
+            {getTaskDisplayTitle(task)}
+          </div>
+          {task.is_blocked || note ? (
+            <div className="bb-line-clamp-2 mt-1 text-xs font-bold text-[var(--bb-muted)]">
+              Atenção: {note ?? task.blocker_reason ?? "Nota por adicionar"}
+            </div>
+          ) : null}
+        </div>
+        <div className="flex shrink-0 flex-wrap justify-end gap-1">
+          <Badge value={task.status} label={taskStatusLabels[task.status]} />
+          <Badge value={task.priority} label={taskPriorityLabels[task.priority]} />
+        </div>
+      </div>
+      <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-[var(--bb-muted)]">
+        <span>Responsável: {task.assignee_name ?? "-"}</span>
+        <ActionLink href={actionHref ?? `/tasks/${task.id}/edit`} label={actionLabel} />
+      </div>
+      {showQuickLinks ? <DesignQuickLinks client={client} /> : null}
+    </div>
+  );
+}
+
+function ContentCard({
+  item,
+  clientsById,
+  compact = false,
+  note,
+  showQuickLinks = false,
+  actionLabel = "Editar",
+  actionHref,
+}: {
+  item: ContentItem;
+  clientsById: Map<string, Client>;
+  compact?: boolean;
+  note?: string;
+  showQuickLinks?: boolean;
+  actionLabel?: string;
+  actionHref?: string;
+}) {
+  const client = clientFor(item, clientsById);
+  const clientToken = getClientVisualToken({
+    clientCode: client?.client_code,
+    clientName: client?.name,
+    shortName: client?.short_name,
+  });
+
+  return (
+    <div className={`rounded-[14px] border border-l-4 border-[var(--bb-border)] bg-white/58 px-3 ${clientToken.borderStrong} ${compact ? "py-2" : "py-2.5"}`}>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="mb-0.5 flex flex-wrap items-center gap-1.5 text-xs font-bold text-[var(--bb-muted)]">
+            <span>Conteúdo</span>
+            <span>·</span>
+            <ClientLink client={client} />
+            <span>·</span>
+            <span>{compactDate(contentActionDate(item))}</span>
+            {item.platform ? (
+              <>
+                <span>·</span>
+                <span>{item.platform}</span>
+              </>
+            ) : null}
+          </div>
+          <div className="bb-line-clamp-2 text-sm font-extrabold leading-5 text-[var(--bb-charcoal)]">
+            {cleanPrefixedTitle(item.title, item.clients)}
+          </div>
+          {item.format ? (
+            <div className="mt-0.5 text-xs font-bold text-[var(--bb-muted)]">{item.format}</div>
+          ) : null}
+          {item.is_blocked ? (
+            <div className="bb-line-clamp-2 mt-1 text-xs font-bold text-[var(--bb-muted)]">
+              Atenção: {item.blocker_reason ?? "Nota por adicionar"}
+            </div>
+          ) : null}
+          {note ? <div className="bb-line-clamp-2 mt-1 text-xs font-bold text-[var(--bb-muted)]">Atenção: {note}</div> : null}
+        </div>
+        <Badge value={item.status} label={contentStatusLabels[item.status]} />
+      </div>
+      <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-[var(--bb-muted)]">
+        <span>Responsável: {item.assignee_name ?? "-"}</span>
+        <ActionLink href={actionHref ?? `/content/${item.id}/edit`} label={actionLabel} />
+      </div>
+      {showQuickLinks ? <DesignQuickLinks client={client} /> : null}
+    </div>
   );
 }

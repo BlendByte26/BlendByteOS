@@ -23,17 +23,17 @@ export const clientStatusLabels: Record<ClientStatus, string> = {
 
 export const contentStatusLabels: Record<ContentStatus, string> = {
   idea: "Ideia",
-  todo: "A Fazer",
-  in_progress: "Em Produção",
-  ready_to_publish: "Pronto para Publicar",
-  published: "Publicado",
+  todo: "Produção",
+  in_progress: "Em Design",
+  ready_to_publish: "Pronto para Agendar/Publicar",
+  published: "Agendado / Publicado",
   archived: "Arquivado",
 };
 
 export const taskStatusLabels: Record<TaskStatus, string> = {
-  todo: "A Fazer",
-  in_progress: "Em Produção",
-  done: "Concluído",
+  todo: "A fazer",
+  in_progress: "Em curso",
+  done: "Feito",
   archived: "Arquivado",
 };
 
@@ -47,7 +47,7 @@ export const taskTypeLabels: Record<TaskType, string> = {
 };
 
 export const taskPriorityLabels: Record<TaskPriority, string> = {
-  low: "Baixa",
+  low: "Normal",
   normal: "Normal",
   urgent: "Urgente",
 };
@@ -55,11 +55,11 @@ export const taskPriorityLabels: Record<TaskPriority, string> = {
 export const statusTone: Record<string, string> = {
   idea: "bg-[var(--bb-primary-soft)] text-[var(--bb-black)] ring-[rgba(83,183,223,0.28)]",
   todo: "bg-[rgba(0,0,0,0.05)] text-[var(--bb-black)] ring-[rgba(0,0,0,0.08)]",
-  in_progress: "bg-[var(--bb-orange-soft)] text-[var(--bb-black)] ring-[rgba(254,112,35,0.26)]",
+  in_progress: "bg-[var(--bb-secondary-soft)] text-[var(--bb-black)] ring-[rgba(140,101,199,0.24)]",
   review: "bg-[var(--bb-secondary-soft)] text-[var(--bb-black)] ring-[rgba(140,101,199,0.24)]",
   approved: "bg-[var(--bb-yellow-soft)] text-[var(--bb-black)] ring-[rgba(236,254,84,0.5)]",
-  ready_to_publish: "bg-[var(--bb-primary-soft)] text-[var(--bb-black)] ring-[rgba(83,183,223,0.28)]",
-  published: "bg-[var(--bb-black)] text-white ring-[var(--bb-black)]",
+  ready_to_publish: "bg-[var(--bb-yellow-soft)] text-[var(--bb-black)] ring-[rgba(236,254,84,0.5)]",
+  published: "bg-[var(--bb-gray-blue-soft)] text-[var(--bb-black)] ring-[rgba(0,0,0,0.08)]",
   delivered: "bg-[var(--bb-gray-blue-soft)] text-[var(--bb-black)] ring-[rgba(0,0,0,0.08)]",
   archived: "bg-[rgba(0,0,0,0.06)] text-[var(--bb-muted)] ring-[rgba(0,0,0,0.08)]",
   blocked: "bg-[var(--bb-red-soft)] text-[#8f2415] ring-[rgba(232,76,49,0.24)]",

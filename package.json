@@ -7,7 +7,8 @@
     "build": "next build",
     "typecheck": "tsc --noEmit --incremental false -p tsconfig.typecheck.json",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "tsx": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",

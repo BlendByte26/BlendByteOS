@@ -1,16 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Copy, FileText, Pencil, Trash2, X } from "lucide-react";
+import { ClientBadge } from "@/components/client-badge";
+import { ContentStatusControl } from "@/components/content-status-control";
 import { ContentForm } from "@/components/forms";
-import { SelectField } from "@/components/select-field";
 import { EmptyState, ExternalLink, Panel, TableWrap } from "@/components/ui";
-import { getClientLabel } from "@/lib/client-display";
-import { contentStatusLabels } from "@/lib/labels";
+import { getClientVisualToken } from "@/lib/client-visuals";
 import { cleanPrefixedTitle } from "@/lib/title-display";
-import { contentStatuses, type Client, type ContentItem, type ContentStatus } from "@/lib/types";
+import type { Client, ContentItem } from "@/lib/types";
 
 type ContentFormAction = (id: string, formData: FormData) => void | Promise<void>;
 type DeleteContentAction = (id: string) => void | Promise<void>;
@@ -162,7 +162,6 @@ export function ContentTable({
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [tableError, setTableError] = useState<string | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
-  const [, startTransition] = useTransition();
 
   useEffect(() => {
     if (!editing) return;
@@ -183,38 +182,6 @@ export function ContentTable({
       target?.querySelector<HTMLElement>("input, textarea, button")?.focus();
     }, 80);
   }, [editing]);
-
-  function saveStatus(item: ContentItem, status: string) {
-    if (!canPersist) {
-      setTableError("Modo demo: configure o Supabase para gravar alterações.");
-      return;
-    }
-
-    const previousStatus = item.status;
-    const formData = new FormData();
-    formData.set("status", status);
-    setTableError(null);
-    setLocalItems((current) =>
-      current.map((currentItem) =>
-        currentItem.id === item.id ? { ...currentItem, status: status as ContentStatus } : currentItem,
-      ),
-    );
-    startTransition(() => {
-      void Promise.resolve(updateStatusAction(item.id, formData))
-        .then(() => {
-          router.refresh();
-        })
-        .catch((error: unknown) => {
-          console.error("Erro ao atualizar estado do conteúdo", error);
-          setTableError(error instanceof Error ? error.message : "Não foi possível atualizar o estado.");
-          setLocalItems((current) =>
-            current.map((currentItem) =>
-              currentItem.id === item.id ? { ...currentItem, status: previousStatus } : currentItem,
-            ),
-          );
-        });
-    });
-  }
 
   async function saveContent(formData: FormData) {
     if (!editing) return;
@@ -262,8 +229,8 @@ export function ContentTable({
         ) : null}
         {localItems.length ? (
           <TableWrap>
-            <table className="w-full min-w-[1120px] table-auto text-left text-sm">
-              <thead className="bg-[rgba(255,255,255,0.46)] text-xs uppercase text-[var(--bb-muted)]">
+            <table className="bb-sticky-actions-table w-full min-w-[1120px] table-auto text-left text-sm">
+              <thead className="bg-[rgba(246,248,250,0.9)] text-xs uppercase text-[var(--bb-muted)]">
                 <tr>
                   <th className="px-4 py-4 font-extrabold">Pub.</th>
                   <th className="px-4 py-4 font-extrabold">Cliente</th>
@@ -275,7 +242,7 @@ export function ContentTable({
                   <th className="min-w-[190px] px-4 py-4 font-extrabold">Estado</th>
                   <th className="px-4 py-4 font-extrabold">Owner</th>
                   <th className="px-4 py-4 font-extrabold">Links</th>
-                  <th className="sticky right-0 w-24 bg-white/80 px-4 py-4 pr-6 font-extrabold backdrop-blur">Ações</th>
+                  <th className="bb-actions-col sticky right-0 px-2 py-4 font-extrabold">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--bb-border)]">
@@ -288,12 +255,27 @@ export function ContentTable({
                     { href: item.delivery_url, label: "Entrega" },
                     { href: item.published_url, label: "Publicação" },
                   ].filter((link): link is { href: string; label: string } => Boolean(link.href));
+                  const clientToken = getClientVisualToken({
+                    clientCode: item.clients?.client_code,
+                    clientName: item.clients?.name,
+                    shortName: item.clients?.short_name,
+                  });
 
                   return (
-                    <tr key={item.id} className={item.is_blocked ? "bg-[var(--bb-red-soft)]" : ""}>
-                      <td className="px-4 py-4 font-medium whitespace-nowrap text-[var(--bb-muted)]">{formatDate(item.publish_date)}</td>
-                      <td className="max-w-44 px-4 py-4 font-medium text-[var(--bb-muted)]">
-                        <span className="block truncate">{item.clients ? getClientLabel(item.clients) : "-"}</span>
+                    <tr key={item.id} className={item.is_blocked ? "bg-[var(--bb-red-soft)]" : "odd:bg-white/18"}>
+                      <td className={`border-l-4 px-4 py-4 font-medium whitespace-nowrap text-[var(--bb-muted)] ${clientToken.borderStrong}`}>{formatDate(item.publish_date)}</td>
+                      <td className="max-w-56 px-4 py-4">
+                        {item.clients ? (
+                          <ClientBadge
+                            clientId={item.clients.id}
+                            clientCode={item.clients.client_code}
+                            clientName={item.clients.name}
+                            shortName={item.clients.short_name}
+                            variant="compact"
+                          />
+                        ) : (
+                          <span className="text-xs font-bold text-[var(--bb-muted)]">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-4 font-medium text-[var(--bb-muted)]">{item.platform}</td>
                       <td className="px-4 py-4 font-medium text-[var(--bb-muted)]">{item.format ?? "-"}</td>
@@ -308,9 +290,9 @@ export function ContentTable({
                         {item.is_blocked ? (
                           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-bold leading-5 text-[#8f2415]">
                             <span className="whitespace-nowrap rounded-full bg-[var(--bb-red-soft)] px-2 py-1 ring-1 ring-[rgba(232,76,49,0.24)]">
-                              Bloqueado
+                              Precisa de atenção
                             </span>
-                            <span className="min-w-0 break-words">{item.blocker_reason ?? "Motivo por adicionar"}</span>
+                            <span className="min-w-0 break-words">{item.blocker_reason ?? "Nota por adicionar"}</span>
                           </div>
                         ) : null}
                       </td>
@@ -321,13 +303,12 @@ export function ContentTable({
                         <PreviewCell text={item.copy_text} label="Copy" copyLabel="copy" onOpen={() => setEditing({ item, section: "copy" })} />
                       </td>
                       <td className="px-4 py-4">
-                        <SelectField
-                          name={`status-${item.id}`}
-                          value={item.status}
-                          onValueChange={(status) => saveStatus(item, status as ContentStatus)}
-                          compact
-                          className="w-44"
-                          options={contentStatuses.map((status) => ({ value: status, label: contentStatusLabels[status] }))}
+                        <ContentStatusControl
+                          itemId={item.id}
+                          status={item.status}
+                          canPersist={canPersist}
+                          updateStatusAction={updateStatusAction}
+                          className="w-52"
                         />
                       </td>
                       <td className="px-4 py-4 font-medium text-[var(--bb-muted)]">{item.assignee_name ?? "-"}</td>
@@ -336,8 +317,8 @@ export function ContentTable({
                           {links.length ? links.map((link) => <ExternalLink key={`${item.id}-${link.label}`} href={link.href} label={link.label} />) : <span className="text-xs font-bold text-[var(--bb-muted)]">—</span>}
                         </div>
                       </td>
-                      <td className="sticky right-0 w-24 bg-[rgba(255,255,255,0.82)] px-4 py-4 pr-6 backdrop-blur">
-                        <div className="flex items-center gap-2">
+                      <td className="bb-actions-col sticky right-0 px-2 py-4">
+                        <div className="bb-actions-row">
                           <ActionButton label="Editar" onClick={() => setEditing({ item, section: "general" })}>
                             <Pencil className="size-4" aria-hidden="true" />
                           </ActionButton>

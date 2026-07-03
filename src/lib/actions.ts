@@ -478,7 +478,6 @@ export async function updateContentStatusAction(id: string, formData: FormData) 
     .eq("id", id);
 
   if (error) throw new Error(error.message);
-  refreshAll();
 }
 
 async function deleteContent(id: string) {
@@ -506,7 +505,7 @@ function taskPayload(formData: FormData) {
   return {
     client_id: text(formData, "client_id"),
     title: requiredText(formData, "title"),
-    type: requiredText(formData, "type") as TaskType,
+    type: (text(formData, "type") ?? "operations") as TaskType,
     status: requiredText(formData, "status") as TaskStatus,
     priority: requiredText(formData, "priority") as TaskPriority,
     assignee_name: text(formData, "assignee_name"),
@@ -537,6 +536,25 @@ async function updateTask(id: string, formData: FormData) {
 
 export async function updateTaskInlineAction(id: string, formData: FormData) {
   await updateTask(id, formData);
+}
+
+export async function updateTaskStatusInlineAction(id: string, formData: FormData) {
+  const supabase = supabaseOrError();
+  const { error } = await supabase
+    .from("tasks")
+    .update({ status: requiredText(formData, "status") as TaskStatus })
+    .eq("id", id);
+
+  if (error) throw new Error(error.message);
+  refreshAll();
+}
+
+export async function archiveTaskInlineAction(id: string) {
+  const supabase = supabaseOrError();
+  const { error } = await supabase.from("tasks").update({ status: "archived" }).eq("id", id);
+
+  if (error) throw new Error(error.message);
+  refreshAll();
 }
 
 export async function updateTaskAction(id: string, formData: FormData) {

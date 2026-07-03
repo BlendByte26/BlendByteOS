@@ -1,5 +1,5 @@
 import { createTaskAction } from "@/lib/actions";
-import { getClients } from "@/lib/data";
+import { getClients, getTeamMembers } from "@/lib/data";
 import { FormFrame, TaskForm } from "@/components/forms";
 import { PageHeader } from "@/components/ui";
 
@@ -14,7 +14,7 @@ function valueOf(params: Record<string, string | string[] | undefined>, key: str
 
 export default async function NewTaskPage({ searchParams }: Props) {
   const params = (await searchParams) ?? {};
-  const clients = await getClients();
+  const [clients, teamMembers] = await Promise.all([getClients(), getTeamMembers()]);
   const defaultClientId = valueOf(params, "client");
 
   return (
@@ -24,6 +24,7 @@ export default async function NewTaskPage({ searchParams }: Props) {
         <TaskForm
           action={createTaskAction}
           clients={clients}
+          teamMembers={teamMembers}
           defaultClientId={defaultClientId}
           submitLabel="Criar tarefa"
         />

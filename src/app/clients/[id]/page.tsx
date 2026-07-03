@@ -6,7 +6,9 @@ import {
   updateClientLinksAction,
   updateClientSetupChecklistAction,
 } from "@/lib/actions";
+import { ClientBadge } from "@/components/client-badge";
 import { ClientOperationalControls } from "@/components/client-operational-controls";
+import { getClientVisualToken } from "@/lib/client-visuals";
 import {
   clientStatusLabels,
   clientTypeLabels,
@@ -14,9 +16,10 @@ import {
   taskPriorityLabels,
   taskStatusLabels,
 } from "@/lib/labels";
+import { buildContentUrl, buildTasksUrl } from "@/lib/smart-links";
 import { getTaskDisplayTitle } from "@/lib/task-display";
 import { cleanPrefixedTitle } from "@/lib/title-display";
-import { Badge, ClientAvatar, EmptyState, Panel, SecondaryLink, TableWrap } from "@/components/ui";
+import { Badge, EmptyState, Panel, SecondaryLink, TableWrap } from "@/components/ui";
 import type { Client } from "@/lib/types";
 
 type Props = {
@@ -66,25 +69,27 @@ export default async function ClientDetailPage({ params }: Props) {
   const services = servicesFor(client);
   const newTaskHref = `/tasks/new?client=${encodeURIComponent(client.id)}`;
   const newContentHref = `/content/new?client=${encodeURIComponent(client.id)}`;
+  const clientToken = getClientVisualToken({
+    clientCode: client.client_code,
+    clientName: client.name,
+    shortName: client.short_name,
+  });
 
   return (
     <div className="grid gap-6">
-      <section className="rounded-[24px] border border-[var(--bb-border)] bg-[var(--bb-surface)] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.07)] backdrop-blur-xl">
+      <section className={`min-w-0 rounded-[24px] border border-l-4 border-[var(--bb-border)] bg-[var(--bb-surface)] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.07)] backdrop-blur-xl ${clientToken.borderStrong}`}>
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start">
-            <ClientAvatar client={client} size="lg" />
             <div className="min-w-0">
               <div className="mb-3 flex flex-wrap items-center gap-2">
-                {client.client_code ? (
-                  <span className="rounded-full bg-[var(--bb-primary-soft)] px-3 py-1 text-xs font-extrabold text-[var(--bb-charcoal)] ring-1 ring-[rgba(83,183,223,0.28)]">
-                    {client.client_code}
-                  </span>
-                ) : null}
-                {client.short_name ? (
-                  <span className="rounded-full bg-white/55 px-3 py-1 text-xs font-extrabold text-[var(--bb-muted)] ring-1 ring-[var(--bb-border)]">
-                    {client.short_name}
-                  </span>
-                ) : null}
+                <ClientBadge
+                  clientId={client.id}
+                  clientCode={client.client_code}
+                  clientName={client.name}
+                  shortName={client.short_name}
+                  logoUrl={client.logo_url}
+                  variant="header"
+                />
                 <Badge value={client.status} label={clientStatusLabels[client.status]} />
               </div>
               <h1 className="text-3xl font-extrabold tracking-tight text-[var(--bb-charcoal)] md:text-4xl">
@@ -108,6 +113,24 @@ export default async function ClientDetailPage({ params }: Props) {
           <Info label="Serviços contratados" value={services.join(", ") || "-"} />
           <Info label="Valor contratado" value={contractValueFor(client) ?? "-"} />
         </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          <OperationalShortcut href={buildContentUrl({ client: client.id })}>
+            Conteúdos ativos
+          </OperationalShortcut>
+          <OperationalShortcut href={buildContentUrl({ client: client.id, status: "ready" })}>
+            Prontos a publicar
+          </OperationalShortcut>
+          <OperationalShortcut href={buildContentUrl({ client: client.id, attention: true })}>
+            Atenções
+          </OperationalShortcut>
+          <OperationalShortcut href={buildTasksUrl({ client: client.id, status: "open" })}>
+            Tarefas abertas
+          </OperationalShortcut>
+          <OperationalShortcut href={buildTasksUrl({ client: client.id, priority: "urgent", status: "open" })}>
+            Tarefas urgentes
+          </OperationalShortcut>
+        </div>
       </section>
 
       <ClientOperationalControls
@@ -126,8 +149,8 @@ export default async function ClientDetailPage({ params }: Props) {
         </div>
         {openTasks.length ? (
           <TableWrap>
-            <table className="w-full min-w-[860px] table-auto text-left text-sm">
-              <thead className="bg-[rgba(255,255,255,0.46)] text-xs uppercase text-[var(--bb-muted)]">
+            <table className="bb-sticky-actions-table w-full min-w-[860px] table-auto text-left text-sm">
+              <thead className="bg-[rgba(246,248,250,0.9)] text-xs uppercase text-[var(--bb-muted)]">
                 <tr>
                   <th className="px-5 py-4 font-extrabold">Tarefa</th>
                   <th className="px-4 py-4 font-extrabold">Estado</th>
@@ -135,7 +158,7 @@ export default async function ClientDetailPage({ params }: Props) {
                   <th className="px-4 py-4 font-extrabold">Owner</th>
                   <th className="px-4 py-4 font-extrabold">Prazo</th>
                   <th className="px-4 py-4 font-extrabold">Link</th>
-                  <th className="sticky right-0 w-24 bg-white/80 px-4 py-4 pr-6 font-extrabold backdrop-blur">Ações</th>
+                  <th className="bb-actions-col sticky right-0 px-2 py-4 font-extrabold">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--bb-border)]">
@@ -160,7 +183,7 @@ export default async function ClientDetailPage({ params }: Props) {
                     <td className="px-4 py-4">
                       {task.related_url ? <LinkPill href={task.related_url} label="Abrir" /> : <span className="text-xs font-bold text-[var(--bb-muted)]">-</span>}
                     </td>
-                    <td className="sticky right-0 w-24 bg-[rgba(255,255,255,0.82)] px-4 py-4 pr-6 backdrop-blur">
+                    <td className="bb-actions-col sticky right-0 px-2 py-4">
                       <Link href={`/tasks/${task.id}/edit`} className="text-sm font-extrabold text-[var(--bb-charcoal)] hover:underline">
                         Editar
                       </Link>
@@ -182,8 +205,8 @@ export default async function ClientDetailPage({ params }: Props) {
         </div>
         {content.length ? (
           <TableWrap>
-            <table className="w-full min-w-[820px] table-auto text-left text-sm">
-              <thead className="bg-[rgba(255,255,255,0.46)] text-xs uppercase text-[var(--bb-muted)]">
+            <table className="bb-sticky-actions-table w-full min-w-[820px] table-auto text-left text-sm">
+              <thead className="bg-[rgba(246,248,250,0.9)] text-xs uppercase text-[var(--bb-muted)]">
                 <tr>
                   <th className="px-5 py-4 font-extrabold">Publicação</th>
                   <th className="px-4 py-4 font-extrabold">Plataforma</th>
@@ -191,7 +214,7 @@ export default async function ClientDetailPage({ params }: Props) {
                   <th className="px-4 py-4 font-extrabold">Título</th>
                   <th className="px-4 py-4 font-extrabold">Estado</th>
                   <th className="px-4 py-4 font-extrabold">Owner</th>
-                  <th className="sticky right-0 w-24 bg-white/80 px-4 py-4 pr-6 font-extrabold backdrop-blur">Ações</th>
+                  <th className="bb-actions-col sticky right-0 px-2 py-4 font-extrabold">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--bb-border)]">
@@ -212,7 +235,7 @@ export default async function ClientDetailPage({ params }: Props) {
                       <Badge value={item.status} label={contentStatusLabels[item.status]} />
                     </td>
                     <td className="px-4 py-4 font-medium text-[var(--bb-muted)]">{item.assignee_name ?? "-"}</td>
-                    <td className="sticky right-0 w-24 bg-[rgba(255,255,255,0.82)] px-4 py-4 pr-6 backdrop-blur">
+                    <td className="bb-actions-col sticky right-0 px-2 py-4">
                       <Link href={`/content/${item.id}/edit`} className="text-sm font-extrabold text-[var(--bb-charcoal)] hover:underline">
                         Editar
                       </Link>
@@ -242,6 +265,17 @@ function Info({ label, value }: { label: string; value: React.ReactNode }) {
         {value}
       </div>
     </div>
+  );
+}
+
+function OperationalShortcut({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className="inline-flex min-h-8 items-center rounded-full border border-[var(--bb-border)] bg-white/58 px-3 text-xs font-extrabold text-[var(--bb-charcoal)] transition hover:border-[rgba(83,183,223,0.42)] hover:bg-[var(--bb-primary-soft)]"
+    >
+      {children}
+    </Link>
   );
 }
 
