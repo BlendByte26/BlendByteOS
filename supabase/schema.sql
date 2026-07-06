@@ -108,9 +108,19 @@ create table if not exists public.team_members (
   id uuid primary key default gen_random_uuid(),
   name text not null unique,
   email text,
+  phone text,
   role text,
   active boolean not null default true,
   display_order integer,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.quick_todos (
+  id uuid primary key default gen_random_uuid(),
+  view text not null check (view in ('marketing', 'design')),
+  text text not null check (char_length(btrim(text)) > 0),
+  done boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -248,6 +258,8 @@ alter table public.tasks add column if not exists is_blocked boolean not null de
 alter table public.tasks add column if not exists blocker_reason text;
 alter table public.tasks add column if not exists notes text;
 
+alter table public.team_members add column if not exists phone text;
+
 create index if not exists clients_status_idx on public.clients(status);
 create index if not exists clients_display_order_idx on public.clients(display_order);
 create index if not exists clients_client_code_idx on public.clients(client_code);
@@ -267,10 +279,13 @@ create index if not exists tasks_status_idx on public.tasks(status);
 create index if not exists tasks_assignee_name_idx on public.tasks(assignee_name);
 create index if not exists tasks_is_blocked_idx on public.tasks(is_blocked);
 create unique index if not exists tasks_seed_unique_idx on public.tasks(client_id, title);
+create index if not exists quick_todos_view_done_idx on public.quick_todos(view, done);
+create index if not exists quick_todos_created_at_idx on public.quick_todos(created_at);
 
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql
+set search_path = public
 as $$
 begin
   new.updated_at = now();
@@ -298,16 +313,23 @@ create trigger set_team_members_updated_at
 before update on public.team_members
 for each row execute function public.set_updated_at();
 
+drop trigger if exists set_quick_todos_updated_at on public.quick_todos;
+create trigger set_quick_todos_updated_at
+before update on public.quick_todos
+for each row execute function public.set_updated_at();
+
 alter table public.clients enable row level security;
 alter table public.content_items enable row level security;
 alter table public.tasks enable row level security;
 alter table public.team_members enable row level security;
+alter table public.quick_todos enable row level security;
 
 grant usage on schema public to anon, authenticated;
 grant select, insert, update, delete on public.clients to anon, authenticated;
 grant select, insert, update, delete on public.content_items to anon, authenticated;
 grant select, insert, update, delete on public.tasks to anon, authenticated;
 grant select, insert, update, delete on public.team_members to anon, authenticated;
+grant select, insert, update, delete on public.quick_todos to anon, authenticated;
 grant execute on function public.set_updated_at() to anon, authenticated;
 
 drop policy if exists "Open internal read clients" on public.clients;
@@ -407,6 +429,31 @@ with check (true);
 drop policy if exists "Open internal delete team members" on public.team_members;
 create policy "Open internal delete team members"
 on public.team_members for delete
+to anon, authenticated
+using (true);
+
+drop policy if exists "Open internal read quick todos" on public.quick_todos;
+create policy "Open internal read quick todos"
+on public.quick_todos for select
+to anon, authenticated
+using (true);
+
+drop policy if exists "Open internal insert quick todos" on public.quick_todos;
+create policy "Open internal insert quick todos"
+on public.quick_todos for insert
+to anon, authenticated
+with check (true);
+
+drop policy if exists "Open internal update quick todos" on public.quick_todos;
+create policy "Open internal update quick todos"
+on public.quick_todos for update
+to anon, authenticated
+using (true)
+with check (true);
+
+drop policy if exists "Open internal delete quick todos" on public.quick_todos;
+create policy "Open internal delete quick todos"
+on public.quick_todos for delete
 to anon, authenticated
 using (true);
 

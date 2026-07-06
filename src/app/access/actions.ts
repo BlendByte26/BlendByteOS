@@ -5,16 +5,12 @@ import { redirect } from "next/navigation";
 import {
   APP_ACCESS_COOKIE,
   APP_ACCESS_ERROR_COOKIE,
+  APP_ACCESS_VIEW_COOKIE,
   createAppAccessToken,
   getAppAccessPassword,
+  isAppAccessView,
   isProductionEnvironment,
 } from "@/lib/app-access";
-
-function safeRedirectPath(value: FormDataEntryValue | null) {
-  if (typeof value !== "string" || !value.startsWith("/")) return "/";
-  if (value.startsWith("//") || value.startsWith("/access")) return "/";
-  return value;
-}
 
 function cookieOptions(maxAge: number) {
   return {
@@ -28,7 +24,8 @@ function cookieOptions(maxAge: number) {
 
 export async function verifyAppAccess(formData: FormData) {
   const password = getAppAccessPassword();
-  const nextPath = safeRedirectPath(formData.get("next"));
+  const selectedView = String(formData.get("view") ?? "");
+  const view = isAppAccessView(selectedView) ? selectedView : "marketing";
   const cookieStore = await cookies();
 
   if (!password) {
@@ -42,10 +39,11 @@ export async function verifyAppAccess(formData: FormData) {
 
   if (submittedToken === expectedToken) {
     cookieStore.set(APP_ACCESS_COOKIE, expectedToken, cookieOptions(60 * 60 * 12));
+    cookieStore.set(APP_ACCESS_VIEW_COOKIE, view, cookieOptions(60 * 60 * 24 * 90));
     cookieStore.delete(APP_ACCESS_ERROR_COOKIE);
-    redirect(nextPath);
+    redirect(`/?view=${view}`);
   }
 
   cookieStore.set(APP_ACCESS_ERROR_COOKIE, "1", cookieOptions(12));
-  redirect(`/access?next=${encodeURIComponent(nextPath)}`);
+  redirect(`/access?view=${view}`);
 }

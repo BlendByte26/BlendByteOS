@@ -97,9 +97,21 @@ export type TeamMember = {
   id: string;
   name: string;
   email: string | null;
+  phone: string | null;
   role: string | null;
   active: boolean;
   display_order: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type QuickTodoView = "marketing" | "design";
+
+export type QuickTodo = {
+  id: string;
+  view: QuickTodoView;
+  text: string;
+  done: boolean;
   created_at: string;
   updated_at: string;
 };

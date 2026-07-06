@@ -2,7 +2,17 @@ import { getSupabase, isSupabaseConfigured, isSupabaseSchemaError } from "./supa
 import { compareClients } from "./client-display";
 import { getClientMissingSetup } from "./onboarding";
 import { sampleClients, sampleContent, sampleTasks } from "./sample-data";
-import type { Client, ContentItem, ContentStatus, Task, TaskPriority, TaskStatus, TeamMember } from "./types";
+import type {
+  Client,
+  ContentItem,
+  ContentStatus,
+  QuickTodo,
+  QuickTodoView,
+  Task,
+  TaskPriority,
+  TaskStatus,
+  TeamMember,
+} from "./types";
 
 export type ContentFilters = {
   assignee?: string;
@@ -26,6 +36,7 @@ const sampleTeamMembers: TeamMember[] = [
     id: "sample-guilherme",
     name: "Guilherme",
     email: null,
+    phone: null,
     role: "Direção / Operações",
     active: true,
     display_order: 1,
@@ -36,6 +47,7 @@ const sampleTeamMembers: TeamMember[] = [
     id: "sample-carlota",
     name: "Carlota",
     email: null,
+    phone: null,
     role: "Client Ops",
     active: true,
     display_order: 2,
@@ -46,6 +58,7 @@ const sampleTeamMembers: TeamMember[] = [
     id: "sample-design",
     name: "Estagiário Design",
     email: null,
+    phone: null,
     role: "Design",
     active: true,
     display_order: 3,
@@ -56,9 +69,29 @@ const sampleTeamMembers: TeamMember[] = [
     id: "sample-marketing",
     name: "Estagiário Marketing/Client Ops",
     email: null,
+    phone: null,
     role: "Marketing / Client Ops",
     active: true,
     display_order: 4,
+    created_at: "",
+    updated_at: "",
+  },
+];
+
+const sampleQuickTodos: QuickTodo[] = [
+  {
+    id: "sample-marketing-todo",
+    view: "marketing",
+    text: "Confirmar prioridades da semana",
+    done: false,
+    created_at: "",
+    updated_at: "",
+  },
+  {
+    id: "sample-design-todo",
+    view: "design",
+    text: "Validar criativos em aberto",
+    done: false,
     created_at: "",
     updated_at: "",
   },
@@ -140,6 +173,47 @@ export async function getTeamMembers() {
   }
 
   return data as TeamMember[];
+}
+
+export async function getTeamMember(id: string) {
+  const supabase = getSupabase();
+
+  if (!supabase) {
+    return sampleTeamMembers.find((member) => member.id === id) ?? null;
+  }
+
+  const { data, error } = await supabase.from("team_members").select("*").eq("id", id).maybeSingle();
+
+  if (error) {
+    return handleSupabaseReadError(error, null, "membro da equipa");
+  }
+
+  return data as TeamMember | null;
+}
+
+export async function getQuickTodos(view: QuickTodoView) {
+  const supabase = getSupabase();
+
+  if (!supabase) {
+    return sampleQuickTodos.filter((todo) => todo.view === view);
+  }
+
+  const { data, error } = await supabase
+    .from("quick_todos")
+    .select("*")
+    .eq("view", view)
+    .order("done", { ascending: true })
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    return handleSupabaseReadError(
+      error,
+      sampleQuickTodos.filter((todo) => todo.view === view),
+      "to-dos rápidos",
+    );
+  }
+
+  return data as QuickTodo[];
 }
 
 export async function getContentItems(filters: ContentFilters = {}) {

@@ -1,5 +1,8 @@
 export const APP_ACCESS_COOKIE = "blendbyteos_app_access";
 export const APP_ACCESS_ERROR_COOKIE = "blendbyteos_app_access_error";
+export const APP_ACCESS_VIEW_COOKIE = "bb_access_view";
+
+export type AppAccessView = "marketing" | "design";
 
 const TOKEN_PREFIX = "blendbyteos-app-access-v1";
 
@@ -10,6 +13,10 @@ export function getAppAccessPassword() {
 
 export function isProductionEnvironment() {
   return process.env.NODE_ENV === "production";
+}
+
+export function isAppAccessView(value: string | null | undefined): value is AppAccessView {
+  return value === "marketing" || value === "design";
 }
 
 export async function createAppAccessToken(password: string) {

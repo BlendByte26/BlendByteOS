@@ -9,6 +9,7 @@ const navItems = [
   { href: "/clients", label: "Clientes" },
   { href: "/content", label: "Conteúdos" },
   { href: "/tasks", label: "Tarefas" },
+  { href: "/team", label: "Equipa" },
   { href: "/archive", label: "Arquivo" },
 ];
 
@@ -74,7 +75,7 @@ export function TopNav() {
         </div>
       </div>
 
-      <nav className="mx-auto mt-3 grid max-w-[1280px] grid-cols-5 gap-1 rounded-full border border-[var(--bb-border)] bg-[var(--bb-surface)] p-1.5 shadow-[0_14px_34px_rgba(0,0,0,0.06)] backdrop-blur-xl md:hidden">
+      <nav className="mx-auto mt-3 grid max-w-[1280px] grid-cols-6 gap-1 rounded-full border border-[var(--bb-border)] bg-[var(--bb-surface)] p-1.5 shadow-[0_14px_34px_rgba(0,0,0,0.06)] backdrop-blur-xl md:hidden">
         {navItems.map((item) => {
           const active = isActive(pathname, item.href);
 

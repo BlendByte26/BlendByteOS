@@ -8,6 +8,7 @@ import type {
   ClientStatus,
   ClientType,
   ContentStatus,
+  QuickTodoView,
   ServiceType,
   SetupChecklistItem,
   TaskPriority,
@@ -129,6 +130,7 @@ function refreshAll() {
   revalidatePath("/content");
   revalidatePath("/tasks");
   revalidatePath("/archive");
+  revalidatePath("/team");
 }
 
 function demoRedirect(path: string): never {
@@ -585,4 +587,76 @@ export async function deleteTaskAction(id: string) {
   if (error) throw new Error(error.message);
   refreshAll();
   redirect("/tasks");
+}
+
+function quickTodoViewValue(formData: FormData): QuickTodoView {
+  const value = text(formData, "view");
+  return value === "design" ? "design" : "marketing";
+}
+
+export async function createQuickTodoAction(formData: FormData) {
+  const view = quickTodoViewValue(formData);
+  const supabase = supabaseOrRedirect(`/?view=${view}`);
+  const { error } = await supabase.from("quick_todos").insert({
+    view,
+    text: requiredText(formData, "text"),
+  });
+
+  if (error) throw new Error(error.message);
+  revalidatePath("/");
+  redirect(`/?view=${view}`);
+}
+
+export async function toggleQuickTodoAction(id: string, formData: FormData) {
+  const view = quickTodoViewValue(formData);
+  const supabase = supabaseOrRedirect(`/?view=${view}`);
+  const { error } = await supabase
+    .from("quick_todos")
+    .update({ done: checked(formData, "done") })
+    .eq("id", id);
+
+  if (error) throw new Error(error.message);
+  revalidatePath("/");
+  redirect(`/?view=${view}`);
+}
+
+export async function deleteQuickTodoAction(id: string, formData: FormData) {
+  const view = quickTodoViewValue(formData);
+  const supabase = supabaseOrRedirect(`/?view=${view}`);
+  const { error } = await supabase.from("quick_todos").delete().eq("id", id);
+
+  if (error) throw new Error(error.message);
+  revalidatePath("/");
+  redirect(`/?view=${view}`);
+}
+
+function teamMemberPayload(formData: FormData) {
+  return {
+    name: requiredText(formData, "name"),
+    role: text(formData, "role"),
+    email: text(formData, "email"),
+    phone: text(formData, "phone"),
+    active: true,
+  };
+}
+
+export async function createTeamMemberAction(formData: FormData) {
+  const supabase = supabaseOrRedirect("/team");
+  const { error } = await supabase.from("team_members").insert(teamMemberPayload(formData));
+
+  if (error) throw new Error(error.message);
+  revalidatePath("/team");
+  redirect("/team");
+}
+
+export async function updateTeamMemberAction(id: string, formData: FormData) {
+  const supabase = supabaseOrRedirect("/team");
+  const { error } = await supabase
+    .from("team_members")
+    .update(teamMemberPayload(formData))
+    .eq("id", id);
+
+  if (error) throw new Error(error.message);
+  revalidatePath("/team");
+  redirect("/team");
 }

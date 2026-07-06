@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   APP_ACCESS_COOKIE,
+  APP_ACCESS_VIEW_COOKIE,
   createAppAccessToken,
   getAppAccessPassword,
+  isAppAccessView,
   isProductionEnvironment,
 } from "@/lib/app-access";
 
@@ -11,7 +13,20 @@ const ACCESS_PATH = "/access";
 function withPathHeader(request: NextRequest) {
   const headers = new Headers(request.headers);
   headers.set("x-blendbyte-pathname", request.nextUrl.pathname);
-  return NextResponse.next({ request: { headers } });
+  const response = NextResponse.next({ request: { headers } });
+  const view = request.nextUrl.pathname === "/" ? request.nextUrl.searchParams.get("view") : null;
+
+  if (isAppAccessView(view)) {
+    response.cookies.set(APP_ACCESS_VIEW_COOKIE, view, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: isProductionEnvironment(),
+      path: "/",
+      maxAge: 60 * 60 * 24 * 90,
+    });
+  }
+
+  return response;
 }
 
 function accessUrl(request: NextRequest, setupMissing = false) {
@@ -28,7 +43,7 @@ function accessUrl(request: NextRequest, setupMissing = false) {
   return url;
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const isAccessPage = pathname.startsWith(ACCESS_PATH);
   const isApiRoute = pathname.startsWith("/api");
