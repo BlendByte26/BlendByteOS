@@ -3,16 +3,32 @@ import type { Database } from "./database.types";
 
 let supabase: SupabaseClient<Database> | null = null;
 
-export function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+function getValidSupabaseConfig() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
 
   if (!url || !anonKey) {
     return null;
   }
 
+  try {
+    new URL(url);
+  } catch {
+    return null;
+  }
+
+  return { url, anonKey };
+}
+
+export function getSupabase() {
+  const config = getValidSupabaseConfig();
+
+  if (!config) {
+    return null;
+  }
+
   if (!supabase) {
-    supabase = createClient<Database>(url, anonKey, {
+    supabase = createClient<Database>(config.url, config.anonKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false,
@@ -36,10 +52,7 @@ export function requireSupabase() {
 }
 
 export function isSupabaseConfigured() {
-  return Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  );
+  return Boolean(getValidSupabaseConfig());
 }
 
 type SupabaseErrorLike = {
