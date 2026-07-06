@@ -1,14 +1,8 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { Check, Trash2 } from "lucide-react";
 import { ClientBadge } from "@/components/client-badge";
-import { DashboardControls } from "@/components/live-filters";
-import { Badge, EmptyState, ExternalLink, Panel } from "@/components/ui";
-import {
-  createQuickTodoAction,
-  deleteQuickTodoAction,
-  toggleQuickTodoAction,
-} from "@/lib/actions";
+import { QuickTodosPanel } from "@/components/quick-todos";
+import { Badge, ExternalLink, Panel } from "@/components/ui";
 import { APP_ACCESS_VIEW_COOKIE, isAppAccessView } from "@/lib/app-access";
 import { getClientVisualToken } from "@/lib/client-visuals";
 import { getClients, getContentItems, getQuickTodos, getTasks } from "@/lib/data";
@@ -20,7 +14,7 @@ import {
 import { buildContentUrl, buildTasksUrl } from "@/lib/smart-links";
 import { getTaskDisplayTitle } from "@/lib/task-display";
 import { cleanPrefixedTitle } from "@/lib/title-display";
-import type { Client, ContentItem, QuickTodo, Task } from "@/lib/types";
+import type { Client, ContentItem, Task } from "@/lib/types";
 
 type Props = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -49,11 +43,6 @@ type DashboardItem = {
     ready: boolean;
   };
 };
-
-const viewOptions = [
-  { value: "marketing", label: "Marketing / Gestão" },
-  { value: "design", label: "Design" },
-];
 
 const activeContentStatuses = ["idea", "todo", "in_progress", "ready_to_publish"];
 const activeTaskStatuses = ["todo", "in_progress"];
@@ -413,12 +402,16 @@ export default async function DashboardPage({ searchParams }: Props) {
 
   return (
     <>
-      <div className="mb-3 flex justify-start">
-        <DashboardControls
-          key={currentView}
-          filters={{ view: currentView }}
-          viewOptions={viewOptions}
-        />
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <span className="inline-flex min-h-8 items-center rounded-full border border-[var(--bb-border)] bg-white/55 px-3 text-xs font-extrabold text-[var(--bb-muted)]">
+          Vista: {currentView === "design" ? "Design" : "Marketing / Gestão"}
+        </span>
+        <Link
+          href="/access?switch=1"
+          className="inline-flex min-h-8 items-center rounded-full border border-[var(--bb-border)] bg-white/55 px-3 text-xs font-extrabold text-[var(--bb-charcoal)] transition hover:bg-[var(--bb-primary-soft)]"
+        >
+          Trocar vista
+        </Link>
       </div>
 
       <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
@@ -448,85 +441,6 @@ export default async function DashboardPage({ searchParams }: Props) {
         />
       )}
     </>
-  );
-}
-
-function QuickTodosPanel({ view, todos }: { view: DashboardView; todos: QuickTodo[] }) {
-  return (
-    <Panel className="mt-3 p-3.5">
-      <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-extrabold text-[var(--bb-charcoal)]">To-do rápido</h2>
-        <span className="rounded-full bg-white/65 px-2.5 py-1 text-xs font-extrabold text-[var(--bb-muted)] ring-1 ring-inset ring-[var(--bb-border)]">
-          {view === "design" ? "Design" : "Marketing / Gestão"}
-        </span>
-      </div>
-      <form action={createQuickTodoAction} className="mb-2.5 flex flex-col gap-2 sm:flex-row">
-        <input type="hidden" name="view" value={view} />
-        <input
-          name="text"
-          required
-          placeholder="Nova tarefa rápida"
-          className="bb-input min-w-0 flex-1 text-sm font-semibold"
-        />
-        <button
-          type="submit"
-          className="inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--bb-black)] px-4 text-sm font-extrabold text-white shadow-[0_12px_26px_rgba(0,0,0,0.12)] transition hover:bg-[var(--bb-primary)] hover:text-[var(--bb-black)]"
-        >
-          Adicionar
-        </button>
-      </form>
-      {todos.length ? (
-        <div className="grid gap-1.5">
-          {todos.map((todo) => (
-            <div
-              key={todo.id}
-              className={`flex items-center gap-2 rounded-[14px] border border-[var(--bb-border)] bg-white/55 px-3 py-2 ${
-                todo.done ? "opacity-68" : ""
-              }`}
-            >
-              <form action={toggleQuickTodoAction.bind(null, todo.id)}>
-                <input type="hidden" name="view" value={view} />
-                <input type="hidden" name="done" value={todo.done ? "" : "on"} />
-                <button
-                  type="submit"
-                  role="checkbox"
-                  aria-checked={todo.done}
-                  aria-label={todo.done ? "Marcar por fazer" : "Marcar como feito"}
-                  title={todo.done ? "Marcar por fazer" : "Marcar como feito"}
-                  className={`grid size-8 shrink-0 place-items-center rounded-lg border transition focus:outline-none focus:ring-4 focus:ring-[var(--bb-primary-soft)] ${
-                    todo.done
-                      ? "border-[rgba(83,183,223,0.42)] bg-[var(--bb-primary)] text-[var(--bb-black)]"
-                      : "border-[var(--bb-border)] bg-white/70 text-transparent hover:border-[rgba(83,183,223,0.42)] hover:text-[var(--bb-muted)]"
-                  }`}
-                >
-                  <Check className="size-4" aria-hidden="true" />
-                </button>
-              </form>
-              <span
-                className={`min-w-0 flex-1 break-words text-sm font-bold text-[var(--bb-charcoal)] ${
-                  todo.done ? "line-through decoration-2" : ""
-                }`}
-              >
-                {todo.text}
-              </span>
-              <form action={deleteQuickTodoAction.bind(null, todo.id)}>
-                <input type="hidden" name="view" value={view} />
-                <button
-                  type="submit"
-                  aria-label="Apagar to-do"
-                  title="Apagar to-do"
-                  className="grid size-8 shrink-0 place-items-center rounded-full border border-[var(--bb-border)] bg-white/60 text-[#a73522] transition hover:border-[rgba(232,76,49,0.32)] hover:bg-[var(--bb-red-soft)] focus:outline-none focus:ring-4 focus:ring-[var(--bb-primary-soft)]"
-                >
-                  <Trash2 className="size-4" aria-hidden="true" />
-                </button>
-              </form>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <EmptyState title="Sem to-dos rápidos nesta vista." />
-      )}
-    </Panel>
   );
 }
 

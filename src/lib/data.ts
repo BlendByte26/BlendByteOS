@@ -67,7 +67,7 @@ const sampleTeamMembers: TeamMember[] = [
   },
   {
     id: "sample-marketing",
-    name: "Estagiário Marketing/Client Ops",
+    name: "Sofia",
     email: null,
     phone: null,
     role: "Marketing / Client Ops",

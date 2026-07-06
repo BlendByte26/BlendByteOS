@@ -67,6 +67,10 @@ export async function proxy(request: NextRequest) {
 
   if (hasAccess) {
     if (isAccessPage) {
+      if (request.nextUrl.searchParams.get("switch") === "1") {
+        return withPathHeader(request);
+      }
+
       const nextPath = request.nextUrl.searchParams.get("next");
       const redirectUrl =
         nextPath?.startsWith("/") && !nextPath.startsWith("//")
