@@ -5,7 +5,7 @@ import { QuickTodosPanel } from "@/components/quick-todos";
 import { Badge, ExternalLink, Panel } from "@/components/ui";
 import { APP_ACCESS_VIEW_COOKIE, isAppAccessView } from "@/lib/app-access";
 import { getClientVisualToken } from "@/lib/client-visuals";
-import { getClients, getContentItems, getQuickTodos, getTasks } from "@/lib/data";
+import { getClients, getContentItems, getQuickNotes, getQuickTodos, getTasks } from "@/lib/data";
 import {
   contentStatusLabels,
   taskPriorityLabels,
@@ -336,7 +336,10 @@ export default async function DashboardPage({ searchParams }: Props) {
     getContentItems(),
     getTasks(),
   ]);
-  const quickTodos = await getQuickTodos(currentView);
+  const [quickTodos, quickNotes] = await Promise.all([
+    getQuickTodos(currentView),
+    getQuickNotes(currentView),
+  ]);
   const clientsById = new Map(clients.map((client) => [client.id, client]));
   const activeTasks = tasks.filter(isActiveTask);
   const activeContent = content.filter(isActiveContent);
@@ -420,7 +423,7 @@ export default async function DashboardPage({ searchParams }: Props) {
         ))}
       </div>
 
-      <QuickTodosPanel view={currentView} todos={quickTodos} />
+      <QuickTodosPanel view={currentView} todos={quickTodos} notes={quickNotes} />
 
       {currentView === "design" ? (
         <DesignView

@@ -105,6 +105,15 @@ export type TeamMember = {
   updated_at: string;
 };
 
+export type CompanyContact = {
+  id: string;
+  label: string;
+  email: string;
+  phone: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type QuickTodoView = "marketing" | "design";
 
 export type QuickTodo = {
@@ -112,6 +121,14 @@ export type QuickTodo = {
   view: QuickTodoView;
   text: string;
   done: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type QuickNote = {
+  id: string;
+  view: QuickTodoView;
+  text: string;
   created_at: string;
   updated_at: string;
 };

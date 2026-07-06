@@ -1,4 +1,4 @@
-import type { Client, ContentItem, QuickTodo, Task, TeamMember } from "./types";
+import type { Client, CompanyContact, ContentItem, QuickNote, QuickTodo, Task, TeamMember } from "./types";
 
 type Insertable<T> = Omit<T, "id" | "created_at" | "updated_at" | "clients">;
 type Updatable<T> = Partial<Insertable<T>>;
@@ -50,6 +50,13 @@ export type Database = {
         Update: Updatable<QuickTodo>;
         Relationships: [];
       };
+      quick_notes: {
+        Row: QuickNote;
+        Insert: Partial<Pick<QuickNote, "id" | "created_at" | "updated_at">> &
+          Omit<QuickNote, "id" | "created_at" | "updated_at">;
+        Update: Updatable<QuickNote>;
+        Relationships: [];
+      };
       team_members: {
         Row: TeamMember;
         Insert: Partial<
@@ -57,6 +64,13 @@ export type Database = {
         > &
           Pick<TeamMember, "name">;
         Update: Updatable<TeamMember>;
+        Relationships: [];
+      };
+      company_contacts: {
+        Row: CompanyContact;
+        Insert: Partial<Pick<CompanyContact, "id" | "created_at" | "updated_at" | "phone">> &
+          Pick<CompanyContact, "label" | "email">;
+        Update: Updatable<CompanyContact>;
         Relationships: [];
       };
     };

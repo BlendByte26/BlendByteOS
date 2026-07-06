@@ -4,8 +4,10 @@ import { getClientMissingSetup } from "./onboarding";
 import { sampleClients, sampleContent, sampleTasks } from "./sample-data";
 import type {
   Client,
+  CompanyContact,
   ContentItem,
   ContentStatus,
+  QuickNote,
   QuickTodo,
   QuickTodoView,
   Task,
@@ -97,6 +99,9 @@ const sampleQuickTodos: QuickTodo[] = [
   },
 ];
 
+const sampleQuickNotes: QuickNote[] = [];
+const sampleCompanyContacts: CompanyContact[] = [];
+
 function getToday() {
   const now = new Date();
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12));
@@ -175,6 +180,25 @@ export async function getTeamMembers() {
   return data as TeamMember[];
 }
 
+export async function getCompanyContacts() {
+  const supabase = getSupabase();
+
+  if (!supabase) {
+    return sampleCompanyContacts;
+  }
+
+  const { data, error } = await supabase
+    .from("company_contacts")
+    .select("*")
+    .order("label", { ascending: true });
+
+  if (error) {
+    return handleSupabaseReadError(error, sampleCompanyContacts, "contactos gerais");
+  }
+
+  return data as CompanyContact[];
+}
+
 export async function getTeamMember(id: string) {
   const supabase = getSupabase();
 
@@ -214,6 +238,30 @@ export async function getQuickTodos(view: QuickTodoView) {
   }
 
   return data as QuickTodo[];
+}
+
+export async function getQuickNotes(view: QuickTodoView) {
+  const supabase = getSupabase();
+
+  if (!supabase) {
+    return sampleQuickNotes.filter((note) => note.view === view);
+  }
+
+  const { data, error } = await supabase
+    .from("quick_notes")
+    .select("*")
+    .eq("view", view)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    return handleSupabaseReadError(
+      error,
+      sampleQuickNotes.filter((note) => note.view === view),
+      "notas rápidas",
+    );
+  }
+
+  return data as QuickNote[];
 }
 
 export async function getContentItems(filters: ContentFilters = {}) {

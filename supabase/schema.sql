@@ -125,6 +125,23 @@ create table if not exists public.quick_todos (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.quick_notes (
+  id uuid primary key default gen_random_uuid(),
+  view text not null check (view in ('marketing', 'design')),
+  text text not null check (char_length(btrim(text)) > 0),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.company_contacts (
+  id uuid primary key default gen_random_uuid(),
+  label text not null check (char_length(btrim(label)) > 0),
+  email text not null check (char_length(btrim(email)) > 0),
+  phone text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.content_items (
   id uuid primary key default gen_random_uuid(),
   client_id uuid not null references public.clients(id) on delete cascade,
@@ -281,6 +298,8 @@ create index if not exists tasks_is_blocked_idx on public.tasks(is_blocked);
 create unique index if not exists tasks_seed_unique_idx on public.tasks(client_id, title);
 create index if not exists quick_todos_view_done_idx on public.quick_todos(view, done);
 create index if not exists quick_todos_created_at_idx on public.quick_todos(created_at);
+create index if not exists quick_notes_view_created_at_idx on public.quick_notes(view, created_at);
+create index if not exists company_contacts_label_idx on public.company_contacts(label);
 
 create or replace function public.set_updated_at()
 returns trigger
@@ -318,11 +337,23 @@ create trigger set_quick_todos_updated_at
 before update on public.quick_todos
 for each row execute function public.set_updated_at();
 
+drop trigger if exists set_quick_notes_updated_at on public.quick_notes;
+create trigger set_quick_notes_updated_at
+before update on public.quick_notes
+for each row execute function public.set_updated_at();
+
+drop trigger if exists set_company_contacts_updated_at on public.company_contacts;
+create trigger set_company_contacts_updated_at
+before update on public.company_contacts
+for each row execute function public.set_updated_at();
+
 alter table public.clients enable row level security;
 alter table public.content_items enable row level security;
 alter table public.tasks enable row level security;
 alter table public.team_members enable row level security;
 alter table public.quick_todos enable row level security;
+alter table public.quick_notes enable row level security;
+alter table public.company_contacts enable row level security;
 
 grant usage on schema public to anon, authenticated;
 grant select, insert, update, delete on public.clients to anon, authenticated;
@@ -330,6 +361,8 @@ grant select, insert, update, delete on public.content_items to anon, authentica
 grant select, insert, update, delete on public.tasks to anon, authenticated;
 grant select, insert, update, delete on public.team_members to anon, authenticated;
 grant select, insert, update, delete on public.quick_todos to anon, authenticated;
+grant select, insert, update, delete on public.quick_notes to anon, authenticated;
+grant select, insert, update, delete on public.company_contacts to anon, authenticated;
 grant execute on function public.set_updated_at() to anon, authenticated;
 
 drop policy if exists "Open internal read clients" on public.clients;
@@ -454,6 +487,56 @@ with check (true);
 drop policy if exists "Open internal delete quick todos" on public.quick_todos;
 create policy "Open internal delete quick todos"
 on public.quick_todos for delete
+to anon, authenticated
+using (true);
+
+drop policy if exists "Open internal read quick notes" on public.quick_notes;
+create policy "Open internal read quick notes"
+on public.quick_notes for select
+to anon, authenticated
+using (true);
+
+drop policy if exists "Open internal insert quick notes" on public.quick_notes;
+create policy "Open internal insert quick notes"
+on public.quick_notes for insert
+to anon, authenticated
+with check (true);
+
+drop policy if exists "Open internal update quick notes" on public.quick_notes;
+create policy "Open internal update quick notes"
+on public.quick_notes for update
+to anon, authenticated
+using (true)
+with check (true);
+
+drop policy if exists "Open internal delete quick notes" on public.quick_notes;
+create policy "Open internal delete quick notes"
+on public.quick_notes for delete
+to anon, authenticated
+using (true);
+
+drop policy if exists "Open internal read company contacts" on public.company_contacts;
+create policy "Open internal read company contacts"
+on public.company_contacts for select
+to anon, authenticated
+using (true);
+
+drop policy if exists "Open internal insert company contacts" on public.company_contacts;
+create policy "Open internal insert company contacts"
+on public.company_contacts for insert
+to anon, authenticated
+with check (true);
+
+drop policy if exists "Open internal update company contacts" on public.company_contacts;
+create policy "Open internal update company contacts"
+on public.company_contacts for update
+to anon, authenticated
+using (true)
+with check (true);
+
+drop policy if exists "Open internal delete company contacts" on public.company_contacts;
+create policy "Open internal delete company contacts"
+on public.company_contacts for delete
 to anon, authenticated
 using (true);
 

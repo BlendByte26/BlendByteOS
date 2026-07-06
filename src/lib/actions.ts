@@ -630,6 +630,42 @@ export async function deleteQuickTodoAction(id: string, formData: FormData) {
   redirect(`/?view=${view}`);
 }
 
+export async function createQuickNoteAction(formData: FormData) {
+  const view = quickTodoViewValue(formData);
+  const supabase = supabaseOrRedirect(`/?view=${view}`);
+  const { error } = await supabase.from("quick_notes").insert({
+    view,
+    text: requiredText(formData, "text"),
+  });
+
+  if (error) throw new Error(error.message);
+  revalidatePath("/");
+  redirect(`/?view=${view}`);
+}
+
+export async function updateQuickNoteAction(id: string, formData: FormData) {
+  const view = quickTodoViewValue(formData);
+  const supabase = supabaseOrRedirect(`/?view=${view}`);
+  const { error } = await supabase
+    .from("quick_notes")
+    .update({ text: requiredText(formData, "text") })
+    .eq("id", id);
+
+  if (error) throw new Error(error.message);
+  revalidatePath("/");
+  redirect(`/?view=${view}`);
+}
+
+export async function deleteQuickNoteAction(id: string, formData: FormData) {
+  const view = quickTodoViewValue(formData);
+  const supabase = supabaseOrRedirect(`/?view=${view}`);
+  const { error } = await supabase.from("quick_notes").delete().eq("id", id);
+
+  if (error) throw new Error(error.message);
+  revalidatePath("/");
+  redirect(`/?view=${view}`);
+}
+
 function teamMemberPayload(formData: FormData) {
   return {
     name: requiredText(formData, "name"),
@@ -643,6 +679,45 @@ function teamMemberPayload(formData: FormData) {
 export async function createTeamMemberAction(formData: FormData) {
   const supabase = supabaseOrRedirect("/team");
   const { error } = await supabase.from("team_members").insert(teamMemberPayload(formData));
+
+  if (error) throw new Error(error.message);
+  revalidatePath("/team");
+  redirect("/team");
+}
+
+function companyContactPayload(formData: FormData) {
+  return {
+    label: requiredText(formData, "label"),
+    email: requiredText(formData, "email"),
+    phone: text(formData, "phone"),
+  };
+}
+
+export async function createCompanyContactAction(formData: FormData) {
+  const supabase = supabaseOrRedirect("/team");
+  const { error } = await supabase.from("company_contacts").insert(companyContactPayload(formData));
+
+  if (error) throw new Error(error.message);
+  revalidatePath("/team");
+  redirect("/team");
+}
+
+export async function updateCompanyContactAction(id: string, formData: FormData) {
+  const supabase = supabaseOrRedirect("/team");
+  const { error } = await supabase
+    .from("company_contacts")
+    .update(companyContactPayload(formData))
+    .eq("id", id);
+
+  if (error) throw new Error(error.message);
+  revalidatePath("/team");
+  redirect("/team");
+}
+
+export async function deleteCompanyContactAction(id: string, formData?: FormData) {
+  void formData;
+  const supabase = supabaseOrRedirect("/team");
+  const { error } = await supabase.from("company_contacts").delete().eq("id", id);
 
   if (error) throw new Error(error.message);
   revalidatePath("/team");
