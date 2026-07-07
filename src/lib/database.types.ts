@@ -45,8 +45,8 @@ export type Database = {
       };
       quick_todos: {
         Row: QuickTodo;
-        Insert: Partial<Pick<QuickTodo, "id" | "created_at" | "updated_at" | "done">> &
-          Omit<QuickTodo, "id" | "created_at" | "updated_at" | "done">;
+        Insert: Partial<Pick<QuickTodo, "id" | "created_at" | "updated_at" | "done" | "item_type">> &
+          Omit<QuickTodo, "id" | "created_at" | "updated_at" | "done" | "item_type">;
         Update: Updatable<QuickTodo>;
         Relationships: [];
       };

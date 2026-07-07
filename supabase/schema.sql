@@ -121,6 +121,7 @@ create table if not exists public.quick_todos (
   view text not null check (view in ('marketing', 'design')),
   profile_key text not null default 'guilherme' check (profile_key in ('carlota', 'sofia', 'guilherme')),
   text text not null check (char_length(btrim(text)) > 0),
+  item_type text not null default 'todo' check (item_type in ('todo', 'reminder')),
   done boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -300,6 +301,7 @@ create index if not exists tasks_is_blocked_idx on public.tasks(is_blocked);
 create unique index if not exists tasks_seed_unique_idx on public.tasks(client_id, title);
 create index if not exists quick_todos_view_done_idx on public.quick_todos(view, done);
 create index if not exists quick_todos_profile_view_done_idx on public.quick_todos(profile_key, view, done);
+create index if not exists quick_todos_profile_view_type_done_idx on public.quick_todos(profile_key, view, item_type, done);
 create index if not exists quick_todos_created_at_idx on public.quick_todos(created_at);
 create index if not exists quick_notes_view_created_at_idx on public.quick_notes(view, created_at);
 create index if not exists quick_notes_profile_view_created_at_idx on public.quick_notes(profile_key, view, created_at);

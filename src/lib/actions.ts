@@ -15,6 +15,7 @@ import type {
   ClientStatus,
   ClientType,
   ContentStatus,
+  QuickTodoItemType,
   QuickTodoView,
   ServiceType,
   SetupChecklistItem,
@@ -615,14 +616,21 @@ function quickProfileKeyValue(formData: FormData) {
   return isOperationalProfileKey(value) ? value : fallbackOperationalProfile().key;
 }
 
+function quickTodoItemTypeValue(formData: FormData): QuickTodoItemType {
+  return text(formData, "item_type") === "reminder" ? "reminder" : "todo";
+}
+
 export async function createQuickTodoAction(formData: FormData) {
   const view = quickTodoViewValue(formData);
   const profileKey = quickProfileKeyValue(formData);
+  const itemType = quickTodoItemTypeValue(formData);
   const supabase = supabaseOrRedirect(`/?view=${view}`);
   const { error } = await supabase.from("quick_todos").insert({
     view,
     profile_key: profileKey,
     text: requiredText(formData, "text"),
+    item_type: itemType,
+    done: false,
   });
 
   if (error) throw new Error(error.message);

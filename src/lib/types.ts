@@ -117,12 +117,14 @@ export type CompanyContact = {
 };
 
 export type QuickTodoView = "marketing" | "design";
+export type QuickTodoItemType = "todo" | "reminder";
 
 export type QuickTodo = {
   id: string;
   view: QuickTodoView;
   profile_key: OperationalProfileKey;
   text: string;
+  item_type: QuickTodoItemType;
   done: boolean;
   created_at: string;
   updated_at: string;
