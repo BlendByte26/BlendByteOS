@@ -1,9 +1,21 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { ClientBadge } from "@/components/client-badge";
+import { ClientLogo } from "@/components/client-logo";
 import { deleteClientAction } from "@/lib/actions";
-import { getClientVisualToken } from "@/lib/client-visuals";
+import { getClientDisplayCode, getClientVisualToken } from "@/lib/client-visuals";
 import { clientStatusLabels, clientTypeLabels } from "@/lib/labels";
 import { getClients } from "@/lib/data";
-import { Badge, ClientAvatar, DeleteIconButton, EditIconLink, EmptyState, ExternalLink, Panel, TableWrap } from "@/components/ui";
+import { Badge, DeleteIconButton, EditIconLink, EmptyState, ExternalLink, Panel, TableWrap } from "@/components/ui";
+
+function getStaticClientLogoPath(clientCode: string | null) {
+  if (!clientCode) return null;
+
+  const fileName = `${clientCode}.svg`;
+  const filePath = join(process.cwd(), "public", "clients", fileName);
+
+  return existsSync(filePath) ? `/clients/${fileName}` : null;
+}
 
 export default async function ClientsPage() {
   const clients = await getClients();
@@ -32,12 +44,23 @@ export default async function ClientsPage() {
                     clientName: client.name,
                     shortName: client.short_name,
                   });
+                  const displayCode = getClientDisplayCode({
+                    clientCode: client.client_code,
+                    clientName: client.name,
+                    shortName: client.short_name,
+                  });
+                  const staticLogoPath = getStaticClientLogoPath(client.client_code);
 
                   return (
                     <tr key={client.id} className="odd:bg-white/18">
                       <td className={`border-l-4 px-5 py-4 ${clientToken.borderStrong}`}>
                         <div className="flex items-center gap-3">
-                          <ClientAvatar client={client} />
+                          <ClientLogo
+                            logoPath={staticLogoPath}
+                            fallback={displayCode}
+                            className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-xl border border-[var(--bb-border)] bg-white/60 text-xs font-extrabold text-[var(--bb-charcoal)] shadow-[0_10px_24px_rgba(0,0,0,0.06)]"
+                            imageClassName="h-full w-full object-contain p-1.5"
+                          />
                           <ClientBadge
                             clientId={client.id}
                             clientCode={client.client_code}
