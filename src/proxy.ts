@@ -7,6 +7,10 @@ import {
   isAppAccessView,
   isProductionEnvironment,
 } from "@/lib/app-access";
+import {
+  OPERATIONAL_PROFILE_COOKIE,
+  getOperationalProfile,
+} from "@/lib/operational-profiles";
 
 const ACCESS_PATH = "/access";
 
@@ -64,11 +68,23 @@ export async function proxy(request: NextRequest) {
   const expectedToken = await createAppAccessToken(password);
   const currentToken = request.cookies.get(APP_ACCESS_COOKIE)?.value;
   const hasAccess = currentToken === expectedToken;
+  const currentProfile = getOperationalProfile(request.cookies.get(OPERATIONAL_PROFILE_COOKIE)?.value);
 
   if (hasAccess) {
     if (isAccessPage) {
-      if (request.nextUrl.searchParams.get("switch") === "1") {
+      if (
+        request.nextUrl.searchParams.get("switch") === "1" ||
+        request.nextUrl.searchParams.get("profile") === "1"
+      ) {
         return withPathHeader(request);
+      }
+
+      if (!currentProfile) {
+        const profileUrl = request.nextUrl.clone();
+        profileUrl.pathname = ACCESS_PATH;
+        profileUrl.search = "";
+        profileUrl.searchParams.set("profile", "1");
+        return NextResponse.redirect(profileUrl);
       }
 
       const nextPath = request.nextUrl.searchParams.get("next");
@@ -77,6 +93,14 @@ export async function proxy(request: NextRequest) {
           ? new URL(nextPath, request.url)
           : new URL("/", request.url);
       return NextResponse.redirect(redirectUrl);
+    }
+
+    if (!currentProfile && !isApiRoute) {
+      const profileUrl = request.nextUrl.clone();
+      profileUrl.pathname = ACCESS_PATH;
+      profileUrl.search = "";
+      profileUrl.searchParams.set("profile", "1");
+      return NextResponse.redirect(profileUrl);
     }
 
     return withPathHeader(request);

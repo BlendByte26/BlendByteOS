@@ -119,6 +119,7 @@ create table if not exists public.team_members (
 create table if not exists public.quick_todos (
   id uuid primary key default gen_random_uuid(),
   view text not null check (view in ('marketing', 'design')),
+  profile_key text not null default 'guilherme' check (profile_key in ('carlota', 'sofia', 'guilherme')),
   text text not null check (char_length(btrim(text)) > 0),
   done boolean not null default false,
   created_at timestamptz not null default now(),
@@ -128,6 +129,7 @@ create table if not exists public.quick_todos (
 create table if not exists public.quick_notes (
   id uuid primary key default gen_random_uuid(),
   view text not null check (view in ('marketing', 'design')),
+  profile_key text not null default 'guilherme' check (profile_key in ('carlota', 'sofia', 'guilherme')),
   text text not null check (char_length(btrim(text)) > 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -297,8 +299,10 @@ create index if not exists tasks_assignee_name_idx on public.tasks(assignee_name
 create index if not exists tasks_is_blocked_idx on public.tasks(is_blocked);
 create unique index if not exists tasks_seed_unique_idx on public.tasks(client_id, title);
 create index if not exists quick_todos_view_done_idx on public.quick_todos(view, done);
+create index if not exists quick_todos_profile_view_done_idx on public.quick_todos(profile_key, view, done);
 create index if not exists quick_todos_created_at_idx on public.quick_todos(created_at);
 create index if not exists quick_notes_view_created_at_idx on public.quick_notes(view, created_at);
+create index if not exists quick_notes_profile_view_created_at_idx on public.quick_notes(profile_key, view, created_at);
 create index if not exists company_contacts_label_idx on public.company_contacts(label);
 
 create or replace function public.set_updated_at()

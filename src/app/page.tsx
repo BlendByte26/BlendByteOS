@@ -5,7 +5,7 @@ import { QuickTodosPanel } from "@/components/quick-todos";
 import { Badge, ExternalLink, Panel } from "@/components/ui";
 import { APP_ACCESS_VIEW_COOKIE, isAppAccessView } from "@/lib/app-access";
 import { getClientVisualToken } from "@/lib/client-visuals";
-import { getClients, getContentItems, getQuickNotes, getQuickTodos, getTasks } from "@/lib/data";
+import { getClients, getContentItems, getQuickTodos, getTasks } from "@/lib/data";
 import {
   contentStatusLabels,
   taskPriorityLabels,
@@ -14,6 +14,11 @@ import {
 import { buildContentUrl, buildTasksUrl } from "@/lib/smart-links";
 import { getTaskDisplayTitle } from "@/lib/task-display";
 import { cleanPrefixedTitle } from "@/lib/title-display";
+import {
+  OPERATIONAL_PROFILE_COOKIE,
+  fallbackOperationalProfile,
+  getOperationalProfile,
+} from "@/lib/operational-profiles";
 import type { Client, ContentItem, Task } from "@/lib/types";
 
 type Props = {
@@ -327,18 +332,19 @@ function isInvest2030Client(client: Client | null) {
 export default async function DashboardPage({ searchParams }: Props) {
   const params = (await searchParams) ?? {};
   const cookieStore = await cookies();
+  const currentProfile =
+    getOperationalProfile(cookieStore.get(OPERATIONAL_PROFILE_COOKIE)?.value) ?? fallbackOperationalProfile();
   const currentView = parseView(
     valueOf(params, "view"),
-    cookieStore.get(APP_ACCESS_VIEW_COOKIE)?.value,
+    cookieStore.get(APP_ACCESS_VIEW_COOKIE)?.value ?? currentProfile.defaultView,
   );
   const [clients, content, tasks] = await Promise.all([
     getClients(),
     getContentItems(),
     getTasks(),
   ]);
-  const [quickTodos, quickNotes] = await Promise.all([
-    getQuickTodos(currentView),
-    getQuickNotes(currentView),
+  const [quickTodos] = await Promise.all([
+    getQuickTodos(currentView, currentProfile.key),
   ]);
   const clientsById = new Map(clients.map((client) => [client.id, client]));
   const activeTasks = tasks.filter(isActiveTask);
@@ -405,25 +411,17 @@ export default async function DashboardPage({ searchParams }: Props) {
 
   return (
     <>
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <span className="inline-flex min-h-8 items-center rounded-full border border-[var(--bb-border)] bg-white/55 px-3 text-xs font-extrabold text-[var(--bb-muted)]">
-          Vista: {currentView === "design" ? "Design" : "Marketing / Gestão"}
-        </span>
-        <Link
-          href="/access?switch=1"
-          className="inline-flex min-h-8 items-center rounded-full border border-[var(--bb-border)] bg-white/55 px-3 text-xs font-extrabold text-[var(--bb-charcoal)] transition hover:bg-[var(--bb-primary-soft)]"
-        >
-          Trocar vista
-        </Link>
-      </div>
-
       <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
         {(currentView === "design" ? designMetrics : marketingMetrics).map((metric) => (
           <Metric key={metric.label} {...metric} />
         ))}
       </div>
 
-      <QuickTodosPanel view={currentView} todos={quickTodos} notes={quickNotes} />
+      <QuickTodosPanel
+        view={currentView}
+        profile={currentProfile}
+        todos={quickTodos}
+      />
 
       {currentView === "design" ? (
         <DesignView

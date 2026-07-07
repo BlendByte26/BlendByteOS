@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Plus } from "lucide-react";
+import type { OperationalProfile } from "@/lib/operational-profiles";
 
 const navItems = [
   { href: "/", label: "Painel" },
@@ -25,9 +26,12 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function TopNav() {
+export function TopNav({ profile }: { profile: OperationalProfile | null }) {
   const pathname = usePathname();
-  const action = pageActions[pathname];
+  const isDashboard = pathname === "/";
+  const rawAction = pageActions[pathname];
+  const action = rawAction && (pathname !== "/team" || profile?.key === "guilherme") ? rawAction : null;
+  const showProfileControls = isDashboard && profile;
 
   return (
     <header className="sticky top-0 z-30 border-b border-[rgba(0,0,0,0.04)] bg-[rgba(247,247,242,0.82)] px-4 py-4 backdrop-blur-xl md:px-6">
@@ -61,7 +65,20 @@ export function TopNav() {
           })}
         </nav>
 
-        <div className="flex min-w-0 justify-end">
+        <div className="flex min-w-0 items-center justify-end gap-2">
+          {showProfileControls ? (
+            <div className="flex min-w-0 items-center justify-end gap-2">
+              <span className="hidden max-w-[190px] truncate rounded-full border border-[var(--bb-border)] bg-white/55 px-3 py-2 text-xs font-extrabold text-[var(--bb-muted)] sm:inline-flex">
+                Perfil: {profile.name}
+              </span>
+              <Link
+                href="/access?switch=1"
+                className="rounded-full border border-[var(--bb-border)] bg-white/55 px-3 py-2 text-xs font-extrabold text-[var(--bb-charcoal)] transition hover:bg-[var(--bb-primary-soft)]"
+              >
+                Trocar perfil
+              </Link>
+            </div>
+          ) : null}
           {action ? (
             <Link
               href={action.href}
@@ -70,7 +87,7 @@ export function TopNav() {
               <Plus className="size-4" aria-hidden="true" />
               <span className="hidden sm:inline">{action.label}</span>
             </Link>
-          ) : (
+          ) : showProfileControls ? null : (
             <div className="size-11" aria-hidden="true" />
           )}
         </div>

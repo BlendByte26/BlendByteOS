@@ -2,6 +2,7 @@ import { getSupabase, isSupabaseConfigured, isSupabaseSchemaError } from "./supa
 import { compareClients } from "./client-display";
 import { getClientMissingSetup } from "./onboarding";
 import { sampleClients, sampleContent, sampleTasks } from "./sample-data";
+import type { OperationalProfileKey } from "./operational-profiles";
 import type {
   Client,
   CompanyContact,
@@ -84,6 +85,7 @@ const sampleQuickTodos: QuickTodo[] = [
   {
     id: "sample-marketing-todo",
     view: "marketing",
+    profile_key: "sofia",
     text: "Confirmar prioridades da semana",
     done: false,
     created_at: "",
@@ -92,6 +94,7 @@ const sampleQuickTodos: QuickTodo[] = [
   {
     id: "sample-design-todo",
     view: "design",
+    profile_key: "carlota",
     text: "Validar criativos em aberto",
     done: false,
     created_at: "",
@@ -215,24 +218,25 @@ export async function getTeamMember(id: string) {
   return data as TeamMember | null;
 }
 
-export async function getQuickTodos(view: QuickTodoView) {
+export async function getQuickTodos(view: QuickTodoView, profileKey: OperationalProfileKey) {
   const supabase = getSupabase();
 
   if (!supabase) {
-    return sampleQuickTodos.filter((todo) => todo.view === view);
+    return sampleQuickTodos.filter((todo) => todo.view === view && todo.profile_key === profileKey);
   }
 
   const { data, error } = await supabase
     .from("quick_todos")
     .select("*")
     .eq("view", view)
+    .eq("profile_key", profileKey)
     .order("done", { ascending: true })
     .order("created_at", { ascending: false });
 
   if (error) {
     return handleSupabaseReadError(
       error,
-      sampleQuickTodos.filter((todo) => todo.view === view),
+      sampleQuickTodos.filter((todo) => todo.view === view && todo.profile_key === profileKey),
       "to-dos rápidos",
     );
   }
@@ -240,23 +244,24 @@ export async function getQuickTodos(view: QuickTodoView) {
   return data as QuickTodo[];
 }
 
-export async function getQuickNotes(view: QuickTodoView) {
+export async function getQuickNotes(view: QuickTodoView, profileKey: OperationalProfileKey) {
   const supabase = getSupabase();
 
   if (!supabase) {
-    return sampleQuickNotes.filter((note) => note.view === view);
+    return sampleQuickNotes.filter((note) => note.view === view && note.profile_key === profileKey);
   }
 
   const { data, error } = await supabase
     .from("quick_notes")
     .select("*")
     .eq("view", view)
+    .eq("profile_key", profileKey)
     .order("created_at", { ascending: false });
 
   if (error) {
     return handleSupabaseReadError(
       error,
-      sampleQuickNotes.filter((note) => note.view === view),
+      sampleQuickNotes.filter((note) => note.view === view && note.profile_key === profileKey),
       "notas rápidas",
     );
   }

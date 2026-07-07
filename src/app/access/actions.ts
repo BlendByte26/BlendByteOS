@@ -8,9 +8,13 @@ import {
   APP_ACCESS_VIEW_COOKIE,
   createAppAccessToken,
   getAppAccessPassword,
-  isAppAccessView,
+  isValidAppAccessToken,
   isProductionEnvironment,
 } from "@/lib/app-access";
+import {
+  OPERATIONAL_PROFILE_COOKIE,
+  getOperationalProfile,
+} from "@/lib/operational-profiles";
 
 function cookieOptions(maxAge: number) {
   return {
@@ -24,12 +28,11 @@ function cookieOptions(maxAge: number) {
 
 export async function verifyAppAccess(formData: FormData) {
   const password = getAppAccessPassword();
-  const selectedView = String(formData.get("view") ?? "");
-  const view = isAppAccessView(selectedView) ? selectedView : "marketing";
   const cookieStore = await cookies();
 
   if (!password) {
     cookieStore.delete(APP_ACCESS_COOKIE);
+    cookieStore.delete(OPERATIONAL_PROFILE_COOKIE);
     redirect("/access?setup=missing");
   }
 
@@ -39,11 +42,31 @@ export async function verifyAppAccess(formData: FormData) {
 
   if (submittedToken === expectedToken) {
     cookieStore.set(APP_ACCESS_COOKIE, expectedToken, cookieOptions(60 * 60 * 12));
-    cookieStore.set(APP_ACCESS_VIEW_COOKIE, view, cookieOptions(60 * 60 * 24 * 90));
     cookieStore.delete(APP_ACCESS_ERROR_COOKIE);
-    redirect(`/?view=${view}`);
+    redirect("/access?profile=1");
   }
 
   cookieStore.set(APP_ACCESS_ERROR_COOKIE, "1", cookieOptions(12));
-  redirect(`/access?view=${view}`);
+  redirect("/access");
+}
+
+export async function selectOperationalProfile(formData: FormData) {
+  const profile = getOperationalProfile(String(formData.get("profile") ?? ""));
+  const cookieStore = await cookies();
+  const password = getAppAccessPassword();
+
+  if (password) {
+    const hasAccess = await isValidAppAccessToken(cookieStore.get(APP_ACCESS_COOKIE)?.value, password);
+    if (!hasAccess) {
+      redirect("/access");
+    }
+  }
+
+  if (!profile) {
+    redirect("/access?profile=1");
+  }
+
+  cookieStore.set(OPERATIONAL_PROFILE_COOKIE, profile.key, cookieOptions(60 * 60 * 24 * 90));
+  cookieStore.set(APP_ACCESS_VIEW_COOKIE, profile.defaultView, cookieOptions(60 * 60 * 24 * 90));
+  redirect(`/?view=${profile.defaultView}`);
 }

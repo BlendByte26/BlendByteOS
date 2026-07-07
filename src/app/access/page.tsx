@@ -1,11 +1,17 @@
 import { cookies } from "next/headers";
 import {
+  APP_ACCESS_COOKIE,
   APP_ACCESS_ERROR_COOKIE,
   getAppAccessPassword,
-  isAppAccessView,
+  isValidAppAccessToken,
   isProductionEnvironment,
 } from "@/lib/app-access";
-import { verifyAppAccess } from "./actions";
+import {
+  OPERATIONAL_PROFILE_COOKIE,
+  getOperationalProfile,
+  operationalProfiles,
+} from "@/lib/operational-profiles";
+import { selectOperationalProfile, verifyAppAccess } from "./actions";
 
 type Props = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -19,12 +25,17 @@ function valueOf(params: Record<string, string | string[] | undefined>, key: str
 export default async function AccessPage({ searchParams }: Props) {
   const params = (await searchParams) ?? {};
   const setup = valueOf(params, "setup");
-  const selectedView = valueOf(params, "view");
-  const initialView = isAppAccessView(selectedView) ? selectedView : "marketing";
   const passwordConfigured = Boolean(getAppAccessPassword());
   const productionMissing = isProductionEnvironment() && !passwordConfigured;
   const cookieStore = await cookies();
   const hasError = Boolean(cookieStore.get(APP_ACCESS_ERROR_COOKIE));
+  const currentProfile = getOperationalProfile(cookieStore.get(OPERATIONAL_PROFILE_COOKIE)?.value);
+  const password = getAppAccessPassword();
+  const hasAccess = password
+    ? await isValidAppAccessToken(cookieStore.get(APP_ACCESS_COOKIE)?.value, password)
+    : !productionMissing;
+  const showProfileSelection =
+    hasAccess && (valueOf(params, "profile") === "1" || valueOf(params, "switch") === "1");
 
   return (
     <main className="fixed inset-0 z-[100] grid min-h-screen place-items-center overflow-y-auto bg-[var(--bb-bg)] px-4 py-10 text-[var(--bb-charcoal)]">
@@ -44,6 +55,40 @@ export default async function AccessPage({ searchParams }: Props) {
             <p className="font-extrabold">Acesso não configurado.</p>
             <p className="font-semibold">Configura APP_ACCESS_PASSWORD no Vercel para ativar o acesso.</p>
           </div>
+        ) : showProfileSelection ? (
+          <div className="grid gap-3">
+            <div>
+              <h2 className="text-lg font-extrabold text-[var(--bb-charcoal)]">Entrar como</h2>
+              <p className="mt-1 text-sm font-semibold text-[var(--bb-muted)]">Escolhe o perfil operacional.</p>
+            </div>
+            <div className="grid gap-2">
+              {Object.values(operationalProfiles).map((profile) => {
+                const active = currentProfile?.key === profile.key;
+
+                return (
+                  <form key={profile.key} action={selectOperationalProfile}>
+                    <button
+                      type="submit"
+                      name="profile"
+                      value={profile.key}
+                      className={`w-full min-h-24 rounded-[18px] border px-4 py-3 text-left shadow-[0_12px_28px_rgba(0,0,0,0.06)] transition duration-200 hover:-translate-y-0.5 hover:border-[rgba(83,183,223,0.42)] hover:bg-[var(--bb-primary-soft)] focus:outline-none focus:ring-4 focus:ring-[var(--bb-primary-soft)] ${
+                        active
+                          ? "border-[rgba(83,183,223,0.5)] bg-[var(--bb-primary-soft)]"
+                          : "border-[var(--bb-border)] bg-white/65"
+                      }`}
+                    >
+                      <span className="block text-base font-extrabold leading-5 text-[var(--bb-charcoal)]">
+                        {profile.name}
+                      </span>
+                      <span className="mt-2 block text-sm font-bold leading-5 text-[var(--bb-muted)]">
+                        {profile.role}
+                      </span>
+                    </button>
+                  </form>
+                );
+              })}
+            </div>
+          </div>
         ) : (
           <form action={verifyAppAccess} className="grid gap-4">
             <label className="grid gap-2 text-sm font-bold">
@@ -60,43 +105,12 @@ export default async function AccessPage({ searchParams }: Props) {
             {hasError ? (
               <p className="text-sm font-bold text-[#8a2530]">Password errada. Tenta novamente.</p>
             ) : null}
-            <div className="grid gap-2 sm:grid-cols-2">
-              {[
-                {
-                  value: "marketing",
-                  label: "Entrar em Marketing / Gestão",
-                  note: "Painel de prioridades e publicação",
-                },
-                {
-                  value: "design",
-                  label: "Entrar em Design",
-                  note: "Painel de produção visual",
-                },
-              ].map((option) => {
-                const active = initialView === option.value;
-
-                return (
-                  <button
-                    key={option.value}
-                    type="submit"
-                    name="view"
-                    value={option.value}
-                    className={`min-h-28 rounded-[18px] border px-4 py-3 text-left shadow-[0_12px_28px_rgba(0,0,0,0.06)] transition duration-200 hover:-translate-y-0.5 hover:border-[rgba(83,183,223,0.42)] hover:bg-[var(--bb-primary-soft)] focus:outline-none focus:ring-4 focus:ring-[var(--bb-primary-soft)] ${
-                      active
-                        ? "border-[rgba(83,183,223,0.5)] bg-[var(--bb-primary-soft)]"
-                        : "border-[var(--bb-border)] bg-white/65"
-                    }`}
-                  >
-                    <span className="block text-sm font-extrabold leading-5 text-[var(--bb-charcoal)]">
-                      {option.label}
-                    </span>
-                    <span className="mt-2 block text-xs font-bold leading-5 text-[var(--bb-muted)]">
-                      {option.note}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+            <button
+              type="submit"
+              className="inline-flex min-h-12 items-center justify-center rounded-full bg-[var(--bb-black)] px-5 text-sm font-extrabold text-white shadow-[0_16px_34px_rgba(0,0,0,0.14)] transition hover:bg-[var(--bb-primary)] hover:text-[var(--bb-black)]"
+            >
+              Continuar
+            </button>
           </form>
         )}
       </section>

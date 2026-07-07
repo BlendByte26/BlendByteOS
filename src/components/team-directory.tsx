@@ -139,10 +139,12 @@ export function TeamDirectory({
   teamMembers,
   companyContacts,
   createOpen = false,
+  canEdit = false,
 }: {
   teamMembers: TeamMember[];
   companyContacts: CompanyContact[];
   createOpen?: boolean;
+  canEdit?: boolean;
 }) {
   const [creating, setCreating] = useState(createOpen);
   const [editing, setEditing] = useState<TeamMember | null>(null);
@@ -170,16 +172,18 @@ export function TeamDirectory({
                     </p>
                   </div>
                   <MemberContacts member={member} />
-                  <div className="flex justify-end">
-                    <button
-                      type="button"
-                      onClick={() => setEditing(member)}
-                      className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-[var(--bb-border)] bg-white/70 px-3 text-xs font-extrabold text-[var(--bb-charcoal)] transition hover:bg-[var(--bb-primary-soft)]"
-                    >
-                      <Pencil className="size-3.5" aria-hidden="true" />
-                      Editar
-                    </button>
-                  </div>
+                  {canEdit ? (
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setEditing(member)}
+                        className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-[var(--bb-border)] bg-white/70 px-3 text-xs font-extrabold text-[var(--bb-charcoal)] transition hover:bg-[var(--bb-primary-soft)]"
+                      >
+                        <Pencil className="size-3.5" aria-hidden="true" />
+                        Editar
+                      </button>
+                    </div>
+                  ) : null}
                 </article>
               ))}
             </div>
@@ -191,14 +195,16 @@ export function TeamDirectory({
         <Panel className="p-4">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-extrabold text-[var(--bb-charcoal)]">Contactos gerais BlendByte</h2>
-            <button
-              type="button"
-              onClick={() => setCreatingContact(true)}
-              className="inline-flex min-h-9 items-center gap-2 rounded-full border border-[var(--bb-border)] bg-white/70 px-3 text-xs font-extrabold text-[var(--bb-charcoal)] transition hover:bg-[var(--bb-primary-soft)]"
-            >
-              <Plus className="size-3.5" aria-hidden="true" />
-              Contacto
-            </button>
+            {canEdit ? (
+              <button
+                type="button"
+                onClick={() => setCreatingContact(true)}
+                className="inline-flex min-h-9 items-center gap-2 rounded-full border border-[var(--bb-border)] bg-white/70 px-3 text-xs font-extrabold text-[var(--bb-charcoal)] transition hover:bg-[var(--bb-primary-soft)]"
+              >
+                <Plus className="size-3.5" aria-hidden="true" />
+                Contacto
+              </button>
+            ) : null}
           </div>
           {companyContacts.length ? (
             <div className="grid gap-2 md:grid-cols-2">
@@ -226,27 +232,29 @@ export function TeamDirectory({
                         ) : null}
                       </div>
                     </div>
-                    <div className="flex justify-end gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setEditingContact(contact)}
-                        className="grid size-8 place-items-center rounded-full border border-[var(--bb-border)] bg-white/70 text-[var(--bb-charcoal)] transition hover:bg-[var(--bb-primary-soft)]"
-                        aria-label="Editar contacto"
-                        title="Editar contacto"
-                      >
-                        <Pencil className="size-3.5" aria-hidden="true" />
-                      </button>
-                      <form action={deleteCompanyContactAction.bind(null, contact.id)}>
+                    {canEdit ? (
+                      <div className="flex justify-end gap-1.5">
                         <button
-                          type="submit"
-                          className="grid size-8 place-items-center rounded-full border border-[var(--bb-border)] bg-white/70 text-[#a73522] transition hover:bg-[var(--bb-red-soft)]"
-                          aria-label="Apagar contacto"
-                          title="Apagar contacto"
+                          type="button"
+                          onClick={() => setEditingContact(contact)}
+                          className="grid size-8 place-items-center rounded-full border border-[var(--bb-border)] bg-white/70 text-[var(--bb-charcoal)] transition hover:bg-[var(--bb-primary-soft)]"
+                          aria-label="Editar contacto"
+                          title="Editar contacto"
                         >
-                          <Trash2 className="size-3.5" aria-hidden="true" />
+                          <Pencil className="size-3.5" aria-hidden="true" />
                         </button>
-                      </form>
-                    </div>
+                        <form action={deleteCompanyContactAction.bind(null, contact.id)}>
+                          <button
+                            type="submit"
+                            className="grid size-8 place-items-center rounded-full border border-[var(--bb-border)] bg-white/70 text-[#a73522] transition hover:bg-[var(--bb-red-soft)]"
+                            aria-label="Apagar contacto"
+                            title="Apagar contacto"
+                          >
+                            <Trash2 className="size-3.5" aria-hidden="true" />
+                          </button>
+                        </form>
+                      </div>
+                    ) : null}
                   </article>
                 );
               })}
@@ -257,7 +265,7 @@ export function TeamDirectory({
         </Panel>
       </div>
 
-      {creating ? (
+      {canEdit && creating ? (
         <ModalShell title="Novo membro" onClose={() => setCreating(false)}>
           <form action={createTeamMemberAction} className="grid gap-4">
             <TeamMemberFields />
@@ -274,7 +282,7 @@ export function TeamDirectory({
         </ModalShell>
       ) : null}
 
-      {editing ? (
+      {canEdit && editing ? (
         <ModalShell title="Editar membro" onClose={() => setEditing(null)}>
           <form action={updateTeamMemberAction.bind(null, editing.id)} className="grid gap-4">
             <TeamMemberFields member={editing} />
@@ -291,7 +299,7 @@ export function TeamDirectory({
         </ModalShell>
       ) : null}
 
-      {creatingContact ? (
+      {canEdit && creatingContact ? (
         <ModalShell title="Novo contacto" onClose={() => setCreatingContact(false)}>
           <form action={createCompanyContactAction} className="grid gap-4">
             <CompanyContactFields />
@@ -308,7 +316,7 @@ export function TeamDirectory({
         </ModalShell>
       ) : null}
 
-      {editingContact ? (
+      {canEdit && editingContact ? (
         <ModalShell title="Editar contacto" onClose={() => setEditingContact(null)}>
           <form action={updateCompanyContactAction.bind(null, editingContact.id)} className="grid gap-4">
             <CompanyContactFields contact={editingContact} />

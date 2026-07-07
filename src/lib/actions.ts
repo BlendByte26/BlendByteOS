@@ -1,8 +1,15 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { baseChecklist } from "./onboarding";
+import {
+  OPERATIONAL_PROFILE_COOKIE,
+  fallbackOperationalProfile,
+  getOperationalProfile,
+  isOperationalProfileKey,
+} from "./operational-profiles";
 import { getSupabase } from "./supabase";
 import type {
   ClientStatus,
@@ -149,6 +156,15 @@ function supabaseOrError() {
     throw new Error("Modo demo: configure o Supabase para gravar alterações.");
   }
   return supabase;
+}
+
+async function requireGuilhermeOperationalProfile() {
+  const cookieStore = await cookies();
+  const profile = getOperationalProfile(cookieStore.get(OPERATIONAL_PROFILE_COOKIE)?.value);
+
+  if (profile?.key !== "guilherme") {
+    redirect("/team");
+  }
 }
 
 export async function createClientAction(formData: FormData): Promise<CreateClientResult> {
@@ -594,11 +610,18 @@ function quickTodoViewValue(formData: FormData): QuickTodoView {
   return value === "design" ? "design" : "marketing";
 }
 
+function quickProfileKeyValue(formData: FormData) {
+  const value = text(formData, "profile_key");
+  return isOperationalProfileKey(value) ? value : fallbackOperationalProfile().key;
+}
+
 export async function createQuickTodoAction(formData: FormData) {
   const view = quickTodoViewValue(formData);
+  const profileKey = quickProfileKeyValue(formData);
   const supabase = supabaseOrRedirect(`/?view=${view}`);
   const { error } = await supabase.from("quick_todos").insert({
     view,
+    profile_key: profileKey,
     text: requiredText(formData, "text"),
   });
 
@@ -609,11 +632,28 @@ export async function createQuickTodoAction(formData: FormData) {
 
 export async function toggleQuickTodoAction(id: string, formData: FormData) {
   const view = quickTodoViewValue(formData);
+  const profileKey = quickProfileKeyValue(formData);
   const supabase = supabaseOrRedirect(`/?view=${view}`);
   const { error } = await supabase
     .from("quick_todos")
     .update({ done: checked(formData, "done") })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("profile_key", profileKey);
+
+  if (error) throw new Error(error.message);
+  revalidatePath("/");
+  redirect(`/?view=${view}`);
+}
+
+export async function updateQuickTodoAction(id: string, formData: FormData) {
+  const view = quickTodoViewValue(formData);
+  const profileKey = quickProfileKeyValue(formData);
+  const supabase = supabaseOrRedirect(`/?view=${view}`);
+  const { error } = await supabase
+    .from("quick_todos")
+    .update({ text: requiredText(formData, "text") })
+    .eq("id", id)
+    .eq("profile_key", profileKey);
 
   if (error) throw new Error(error.message);
   revalidatePath("/");
@@ -622,8 +662,13 @@ export async function toggleQuickTodoAction(id: string, formData: FormData) {
 
 export async function deleteQuickTodoAction(id: string, formData: FormData) {
   const view = quickTodoViewValue(formData);
+  const profileKey = quickProfileKeyValue(formData);
   const supabase = supabaseOrRedirect(`/?view=${view}`);
-  const { error } = await supabase.from("quick_todos").delete().eq("id", id);
+  const { error } = await supabase
+    .from("quick_todos")
+    .delete()
+    .eq("id", id)
+    .eq("profile_key", profileKey);
 
   if (error) throw new Error(error.message);
   revalidatePath("/");
@@ -632,9 +677,11 @@ export async function deleteQuickTodoAction(id: string, formData: FormData) {
 
 export async function createQuickNoteAction(formData: FormData) {
   const view = quickTodoViewValue(formData);
+  const profileKey = quickProfileKeyValue(formData);
   const supabase = supabaseOrRedirect(`/?view=${view}`);
   const { error } = await supabase.from("quick_notes").insert({
     view,
+    profile_key: profileKey,
     text: requiredText(formData, "text"),
   });
 
@@ -645,11 +692,13 @@ export async function createQuickNoteAction(formData: FormData) {
 
 export async function updateQuickNoteAction(id: string, formData: FormData) {
   const view = quickTodoViewValue(formData);
+  const profileKey = quickProfileKeyValue(formData);
   const supabase = supabaseOrRedirect(`/?view=${view}`);
   const { error } = await supabase
     .from("quick_notes")
     .update({ text: requiredText(formData, "text") })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("profile_key", profileKey);
 
   if (error) throw new Error(error.message);
   revalidatePath("/");
@@ -658,8 +707,13 @@ export async function updateQuickNoteAction(id: string, formData: FormData) {
 
 export async function deleteQuickNoteAction(id: string, formData: FormData) {
   const view = quickTodoViewValue(formData);
+  const profileKey = quickProfileKeyValue(formData);
   const supabase = supabaseOrRedirect(`/?view=${view}`);
-  const { error } = await supabase.from("quick_notes").delete().eq("id", id);
+  const { error } = await supabase
+    .from("quick_notes")
+    .delete()
+    .eq("id", id)
+    .eq("profile_key", profileKey);
 
   if (error) throw new Error(error.message);
   revalidatePath("/");
@@ -677,6 +731,7 @@ function teamMemberPayload(formData: FormData) {
 }
 
 export async function createTeamMemberAction(formData: FormData) {
+  await requireGuilhermeOperationalProfile();
   const supabase = supabaseOrRedirect("/team");
   const { error } = await supabase.from("team_members").insert(teamMemberPayload(formData));
 
@@ -694,6 +749,7 @@ function companyContactPayload(formData: FormData) {
 }
 
 export async function createCompanyContactAction(formData: FormData) {
+  await requireGuilhermeOperationalProfile();
   const supabase = supabaseOrRedirect("/team");
   const { error } = await supabase.from("company_contacts").insert(companyContactPayload(formData));
 
@@ -703,6 +759,7 @@ export async function createCompanyContactAction(formData: FormData) {
 }
 
 export async function updateCompanyContactAction(id: string, formData: FormData) {
+  await requireGuilhermeOperationalProfile();
   const supabase = supabaseOrRedirect("/team");
   const { error } = await supabase
     .from("company_contacts")
@@ -716,6 +773,7 @@ export async function updateCompanyContactAction(id: string, formData: FormData)
 
 export async function deleteCompanyContactAction(id: string, formData?: FormData) {
   void formData;
+  await requireGuilhermeOperationalProfile();
   const supabase = supabaseOrRedirect("/team");
   const { error } = await supabase.from("company_contacts").delete().eq("id", id);
 
@@ -725,6 +783,7 @@ export async function deleteCompanyContactAction(id: string, formData?: FormData
 }
 
 export async function updateTeamMemberAction(id: string, formData: FormData) {
+  await requireGuilhermeOperationalProfile();
   const supabase = supabaseOrRedirect("/team");
   const { error } = await supabase
     .from("team_members")

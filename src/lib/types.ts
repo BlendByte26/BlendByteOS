@@ -1,3 +1,5 @@
+import type { OperationalProfileKey } from "./operational-profiles";
+
 export const clientTypes = ["internal", "external", "grupo_investe", "partner"] as const;
 export const clientStatuses = ["setup", "active", "paused", "archived"] as const;
 export const serviceTypes = [
@@ -119,6 +121,7 @@ export type QuickTodoView = "marketing" | "design";
 export type QuickTodo = {
   id: string;
   view: QuickTodoView;
+  profile_key: OperationalProfileKey;
   text: string;
   done: boolean;
   created_at: string;
@@ -128,6 +131,7 @@ export type QuickTodo = {
 export type QuickNote = {
   id: string;
   view: QuickTodoView;
+  profile_key: OperationalProfileKey;
   text: string;
   created_at: string;
   updated_at: string;
