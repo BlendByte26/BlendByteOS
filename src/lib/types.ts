@@ -144,6 +144,7 @@ export type ContentItem = {
   client_id: string;
   month: string;
   publish_date: string | null;
+  publish_time: string | null;
   design_due_date: string | null;
   copy_due_date: string | null;
   approval_due_date: string | null;

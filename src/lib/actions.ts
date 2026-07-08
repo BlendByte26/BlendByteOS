@@ -35,6 +35,35 @@ function text(formData: FormData, key: string) {
   return trimmed.length ? trimmed : null;
 }
 
+function textList(formData: FormData, key: string) {
+  const values = formData
+    .getAll(key)
+    .filter((value): value is string => typeof value === "string")
+    .flatMap((value) => value.split(","))
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  const uniqueValues = Array.from(new Set(values));
+  return uniqueValues.length ? uniqueValues.join(", ") : null;
+}
+
+function contentPlatformValue(formData: FormData) {
+  const otherName = text(formData, "platform_other_name");
+  const selected = formData
+    .getAll("platform")
+    .filter((value): value is string => typeof value === "string")
+    .flatMap((value) => value.split(","))
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .flatMap((value) => {
+      if (value === "Outra") return otherName ? [otherName] : [];
+      return [value];
+    });
+
+  const uniqueValues = Array.from(new Set([...selected, ...(otherName ? [otherName] : [])]));
+  return uniqueValues.length ? uniqueValues.join(", ") : null;
+}
+
 function requiredText(formData: FormData, key: string) {
   const value = text(formData, key);
   if (!value) {
@@ -414,10 +443,11 @@ export async function deleteClientAction(id: string) {
 }
 
 function contentPayload(formData: FormData) {
-  return {
+  const payload = {
     client_id: requiredText(formData, "client_id"),
     month: requiredText(formData, "month"),
     publish_date: text(formData, "publish_date"),
+    publish_time: text(formData, "publish_time"),
     design_due_date: text(formData, "design_due_date"),
     copy_due_date: text(formData, "copy_due_date"),
     approval_due_date: text(formData, "approval_due_date"),
@@ -429,13 +459,13 @@ function contentPayload(formData: FormData) {
     needs_design: formData.has("needs_design") ? checked(formData, "needs_design") : true,
     needs_copy: formData.has("needs_copy") ? checked(formData, "needs_copy") : true,
     needs_client_approval: checked(formData, "needs_client_approval"),
-    platform: requiredText(formData, "platform"),
+    platform: contentPlatformValue(formData) ?? "Sem plataforma",
     format: text(formData, "format"),
     title: requiredText(formData, "title"),
     creative_brief: text(formData, "creative_brief"),
     copy_text: text(formData, "copy_text"),
     status: requiredText(formData, "status") as ContentStatus,
-    assignee_name: text(formData, "assignee_name"),
+    assignee_name: textList(formData, "assignee_name"),
     media_url: text(formData, "media_url"),
     brief_url: text(formData, "brief_url"),
     media_folder_url: text(formData, "media_folder_url"),
@@ -451,25 +481,58 @@ function contentPayload(formData: FormData) {
     recording_date: text(formData, "recording_date"),
     notes: text(formData, "notes"),
   };
+
+  return payload;
+}
+
+type ContentPayload = ReturnType<typeof contentPayload>;
+
+function contentPayloadWithoutPublishTime(payload: ContentPayload) {
+  const fallbackPayload: Partial<ContentPayload> = { ...payload };
+  delete fallbackPayload.publish_time;
+  return fallbackPayload as ContentPayload;
+}
+
+function isMissingPublishTimeColumnError(error: { message?: string; code?: string } | null) {
+  return Boolean(
+    error &&
+      error.code === "PGRST204" &&
+      error.message?.includes("'publish_time' column"),
+  );
 }
 
 export async function createContentAction(formData: FormData) {
   const supabase = supabaseOrRedirect("/content");
-  const { error } = await supabase.from("content_items").insert(contentPayload(formData));
+  const payload = contentPayload(formData);
+  const { error } = await supabase.from("content_items").insert(payload);
 
-  if (error) throw new Error(error.message);
+  if (isMissingPublishTimeColumnError(error)) {
+    const fallback = await supabase.from("content_items").insert(contentPayloadWithoutPublishTime(payload));
+    if (fallback.error) throw new Error(fallback.error.message);
+  } else if (error) {
+    throw new Error(error.message);
+  }
   refreshAll();
   redirect("/content");
 }
 
 async function updateContent(id: string, formData: FormData) {
   const supabase = supabaseOrError();
+  const payload = contentPayload(formData);
   const { error } = await supabase
     .from("content_items")
-    .update(contentPayload(formData))
+    .update(payload)
     .eq("id", id);
 
-  if (error) throw new Error(error.message);
+  if (isMissingPublishTimeColumnError(error)) {
+    const fallback = await supabase
+      .from("content_items")
+      .update(contentPayloadWithoutPublishTime(payload))
+      .eq("id", id);
+    if (fallback.error) throw new Error(fallback.error.message);
+  } else if (error) {
+    throw new Error(error.message);
+  }
   refreshAll();
 }
 
@@ -479,12 +542,21 @@ export async function updateContentInlineAction(id: string, formData: FormData) 
 
 export async function updateContentAction(id: string, formData: FormData) {
   const supabase = supabaseOrRedirect("/content");
+  const payload = contentPayload(formData);
   const { error } = await supabase
     .from("content_items")
-    .update(contentPayload(formData))
+    .update(payload)
     .eq("id", id);
 
-  if (error) throw new Error(error.message);
+  if (isMissingPublishTimeColumnError(error)) {
+    const fallback = await supabase
+      .from("content_items")
+      .update(contentPayloadWithoutPublishTime(payload))
+      .eq("id", id);
+    if (fallback.error) throw new Error(fallback.error.message);
+  } else if (error) {
+    throw new Error(error.message);
+  }
   refreshAll();
   redirect("/content");
 }

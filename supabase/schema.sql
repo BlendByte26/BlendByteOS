@@ -150,6 +150,7 @@ create table if not exists public.content_items (
   client_id uuid not null references public.clients(id) on delete cascade,
   month text not null check (month ~ '^[0-9]{4}-[0-9]{2}$'),
   publish_date date,
+  publish_time time,
   design_due_date date,
   copy_due_date date,
   approval_due_date date,
@@ -245,6 +246,7 @@ alter table public.clients add column if not exists linkedin_campaign_manager_ur
 alter table public.clients add column if not exists notes text;
 
 alter table public.content_items add column if not exists brief_url text;
+alter table public.content_items add column if not exists publish_time time;
 alter table public.content_items add column if not exists design_due_date date;
 alter table public.content_items add column if not exists copy_due_date date;
 alter table public.content_items add column if not exists approval_due_date date;

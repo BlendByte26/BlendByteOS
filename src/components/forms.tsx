@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useFormStatus } from "react-dom";
-import { DatePicker } from "@/components/date-picker";
+import { DatePicker, MonthPicker } from "@/components/date-picker";
 import { SelectField, type SelectOption } from "@/components/select-field";
 import { getClientLabel } from "@/lib/client-display";
 import {
@@ -45,6 +45,8 @@ const clientPlatformOptions = [
   "Outro",
 ];
 
+const contentPlatformOptions = ["Instagram", "Facebook", "LinkedIn", "TikTok"];
+
 const taskPriorityOptions: SelectOption[] = [
   { value: "normal", label: taskPriorityLabels.normal },
   { value: "urgent", label: taskPriorityLabels.urgent },
@@ -58,6 +60,99 @@ function optionList<T extends readonly string[]>(
     value,
     label: labels[value],
   }));
+}
+
+function splitAssignees(value: string | null | undefined) {
+  return value
+    ?.split(",")
+    .map((item) => item.trim())
+    .filter(Boolean) ?? [];
+}
+
+function timeInputValue(value: string | null | undefined) {
+  return value?.slice(0, 5) ?? "";
+}
+
+function AssigneeMultiSelect({
+  name,
+  options,
+  defaultValue,
+}: {
+  name: string;
+  options: string[];
+  defaultValue?: string | null;
+}) {
+  const selected = new Set(splitAssignees(defaultValue));
+
+  if (!options.length) {
+    return <input name={name} defaultValue={defaultValue ?? ""} className={inputClass} />;
+  }
+
+  return (
+    <div className="flex min-h-11 flex-wrap gap-2 rounded-2xl border border-[var(--bb-border)] bg-white/75 p-1.5 shadow-[0_12px_28px_rgba(0,0,0,0.05)]">
+      {options.map((option) => (
+        <label key={option} className="group cursor-pointer">
+          <input
+            name={name}
+            type="checkbox"
+            value={option}
+            defaultChecked={selected.has(option)}
+            className="peer sr-only"
+          />
+          <span className="flex min-h-8 items-center rounded-full border border-[var(--bb-border)] bg-white px-3 text-xs font-extrabold text-[var(--bb-muted)] transition duration-200 group-hover:border-[rgba(83,183,223,0.5)] group-hover:text-[var(--bb-charcoal)] peer-checked:border-[var(--bb-black)] peer-checked:bg-[var(--bb-black)] peer-checked:text-white">
+            {option}
+          </span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
+function ContentPlatformMultiSelect({ defaultValue }: { defaultValue?: string | null }) {
+  const selectedPlatforms = splitAssignees(defaultValue);
+  const selected = new Set(selectedPlatforms);
+  const customPlatforms = selectedPlatforms.filter(
+    (platform) => !contentPlatformOptions.includes(platform),
+  );
+
+  return (
+    <div className="grid gap-2 rounded-2xl border border-[var(--bb-border)] bg-white/75 p-1.5 shadow-[0_12px_28px_rgba(0,0,0,0.05)]">
+      <div className="flex flex-wrap gap-2">
+        {contentPlatformOptions.map((platform) => (
+          <label key={platform} className="group cursor-pointer">
+            <input
+              name="platform"
+              type="checkbox"
+              value={platform}
+              defaultChecked={selected.has(platform)}
+              className="peer sr-only"
+            />
+            <span className="flex min-h-8 items-center rounded-full border border-[var(--bb-border)] bg-white px-3 text-xs font-extrabold text-[var(--bb-muted)] transition duration-200 group-hover:border-[rgba(83,183,223,0.5)] group-hover:text-[var(--bb-charcoal)] peer-checked:border-[var(--bb-black)] peer-checked:bg-[var(--bb-black)] peer-checked:text-white">
+              {platform}
+            </span>
+          </label>
+        ))}
+        <label className="group cursor-pointer">
+          <input
+            name="platform"
+            type="checkbox"
+            value="Outra"
+            defaultChecked={Boolean(customPlatforms.length)}
+            className="peer sr-only"
+          />
+          <span className="flex min-h-8 items-center rounded-full border border-[var(--bb-border)] bg-white px-3 text-xs font-extrabold text-[var(--bb-muted)] transition duration-200 group-hover:border-[rgba(83,183,223,0.5)] group-hover:text-[var(--bb-charcoal)] peer-checked:border-[var(--bb-black)] peer-checked:bg-[var(--bb-black)] peer-checked:text-white">
+            Outra
+          </span>
+        </label>
+      </div>
+      <input
+        name="platform_other_name"
+        defaultValue={customPlatforms.join(", ")}
+        placeholder="Outra plataforma"
+        className="min-h-9 rounded-xl border border-[var(--bb-border)] bg-white px-3 text-xs font-semibold text-[var(--bb-charcoal)] outline-none transition duration-200 placeholder:text-[var(--bb-muted)] focus:border-[rgba(83,183,223,0.72)] focus:shadow-[0_0_0_3px_var(--bb-primary-soft)]"
+      />
+    </div>
+  );
 }
 
 export function FormFrame({
@@ -291,6 +386,7 @@ export function ContentForm({
   item,
   defaultClientId,
   submitLabel,
+  teamMembers = [],
   onCancel,
 }: {
   action: FormAction;
@@ -298,13 +394,25 @@ export function ContentForm({
   item?: ContentItem;
   defaultClientId?: string;
   submitLabel: string;
+  teamMembers?: TeamMember[];
   onCancel?: () => void;
 }) {
   const selectedClientId = item?.client_id ?? defaultClientId ?? clients[0]?.id;
+  const currentAssignees = splitAssignees(item?.assignee_name);
+  const assigneeOptions = Array.from(
+    new Set([
+      ...teamMembers.map((member) => member.name),
+      ...currentAssignees,
+    ]),
+  );
 
   return (
     <form action={action} className="grid gap-4">
-      <div data-content-section="general" className="grid gap-4 md:grid-cols-4">
+      <input type="hidden" name="recording_date" value={item?.recording_date ?? ""} />
+      <input type="hidden" name="media_url" value={item?.media_url ?? ""} />
+      <input type="hidden" name="delivery_url" value={item?.delivery_url ?? ""} />
+      <input type="hidden" name="client_feedback" value={item?.client_feedback ?? ""} />
+      <div data-content-section="general" className="grid gap-4 md:grid-cols-5">
         <label className={labelClass}>
           Cliente
           <SelectField
@@ -316,11 +424,15 @@ export function ContentForm({
         </label>
         <label className={labelClass}>
           Mês
-          <input name="month" type="month" required defaultValue={item?.month} className={inputClass} />
+          <MonthPicker name="month" required defaultValue={item?.month} ariaLabel="Mês" />
         </label>
         <label className={labelClass}>
           Data de publicação
           <DatePicker name="publish_date" defaultValue={item?.publish_date ?? ""} ariaLabel="Data de publicação" />
+        </label>
+        <label className={labelClass}>
+          Hora de publicação
+          <input name="publish_time" type="time" defaultValue={timeInputValue(item?.publish_time)} className={inputClass} />
         </label>
         <label className={labelClass}>
           Estado
@@ -348,7 +460,7 @@ export function ContentForm({
       <div className="grid gap-4 md:grid-cols-4">
         <label className={labelClass}>
           Plataforma
-          <input name="platform" required defaultValue={item?.platform ?? ""} className={inputClass} />
+          <ContentPlatformMultiSelect defaultValue={item?.platform} />
         </label>
         <label className={labelClass}>
           Formato
@@ -356,11 +468,7 @@ export function ContentForm({
         </label>
         <label className={labelClass}>
           Responsável
-          <input name="assignee_name" defaultValue={item?.assignee_name ?? ""} className={inputClass} />
-        </label>
-        <label className={labelClass}>
-          Data de gravação
-          <DatePicker name="recording_date" defaultValue={item?.recording_date ?? ""} ariaLabel="Data de gravação" />
+          <AssigneeMultiSelect name="assignee_name" defaultValue={item?.assignee_name} options={assigneeOptions} />
         </label>
       </div>
       <label data-content-section="general-title" className={labelClass}>
@@ -377,16 +485,10 @@ export function ContentForm({
           <textarea name="copy_text" defaultValue={item?.copy_text ?? ""} className={textAreaClass} />
         </label>
       </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <label className={labelClass}>
-          Media antigo
-          <input name="media_url" type="url" defaultValue={item?.media_url ?? ""} className={inputClass} />
-        </label>
-        <label className={labelClass}>
-          Inspiração
-          <input name="inspiration_url" type="url" defaultValue={item?.inspiration_url ?? ""} className={inputClass} />
-        </label>
-      </div>
+      <label className={labelClass}>
+        Inspiração
+        <input name="inspiration_url" type="url" defaultValue={item?.inspiration_url ?? ""} className={inputClass} />
+      </label>
       <div data-content-section="links" className="rounded-[20px] border border-[var(--bb-border)] bg-white/35 p-4">
         <h3 className="mb-4 text-sm font-extrabold text-[var(--bb-charcoal)]">
           Materiais e links
@@ -405,10 +507,6 @@ export function ContentForm({
             <input name="export_url" type="url" defaultValue={item?.export_url ?? ""} className={inputClass} />
           </label>
           <label className={labelClass}>
-            Entrega
-            <input name="delivery_url" type="url" defaultValue={item?.delivery_url ?? ""} className={inputClass} />
-          </label>
-          <label className={labelClass}>
             Publicação
             <input name="published_url" type="url" defaultValue={item?.published_url ?? ""} className={inputClass} />
           </label>
@@ -418,16 +516,10 @@ export function ContentForm({
           </label>
         </div>
       </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <label className={labelClass}>
-          Notas internas
-          <textarea name="internal_review_notes" defaultValue={item?.internal_review_notes ?? ""} className={textAreaClass} />
-        </label>
-        <label className={labelClass}>
-          Feedback do cliente
-          <textarea name="client_feedback" defaultValue={item?.client_feedback ?? ""} className={textAreaClass} />
-        </label>
-      </div>
+      <label className={labelClass}>
+        Notas internas
+        <textarea name="internal_review_notes" defaultValue={item?.internal_review_notes ?? ""} className={textAreaClass} />
+      </label>
       <div data-content-section="workflow" className="rounded-[20px] border border-[var(--bb-border)] bg-white/35 p-4">
         <label className="flex items-center gap-3 text-sm font-extrabold text-[var(--bb-charcoal)]">
           <input

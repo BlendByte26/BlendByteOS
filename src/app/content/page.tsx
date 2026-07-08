@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ContentTable } from "@/components/content-table";
-import { ContentPipelineView } from "@/components/content-views";
+import { ContentCalendarView, ContentPipelineView } from "@/components/content-views";
 import { ContentFiltersBar } from "@/components/live-filters";
 import { deleteContentInlineAction, updateContentInlineAction, updateContentStatusAction } from "@/lib/actions";
 import { getClientLabel } from "@/lib/client-display";
@@ -21,16 +21,18 @@ function valueOf(params: Record<string, string | string[] | undefined>, key: str
   return Array.isArray(value) ? value[0] : value;
 }
 
-type ContentView = "pipeline" | "table";
+type ContentView = "pipeline" | "table" | "calendar";
 
 const viewOptions: Array<{ value: ContentView; label: string }> = [
   { value: "pipeline", label: "Pipeline" },
   { value: "table", label: "Tabela" },
+  { value: "calendar", label: "Calendário" },
 ];
 
 function parseView(value: string | undefined): ContentView {
   if (value === "pipeline") return value;
   if (value === "table") return value;
+  if (value === "calendar") return value;
   return "table";
 }
 
@@ -160,11 +162,16 @@ export default async function ContentPage({ searchParams }: Props) {
         />
       ) : null}
 
+      {currentView === "calendar" ? (
+        <ContentCalendarView items={items} month={filters.month} />
+      ) : null}
+
       {currentView === "table" ? (
         <ContentTable
           key={tableKey}
           items={items}
           clients={clients}
+          teamMembers={teamMembers}
           canPersist={isSupabaseConfigured()}
           updateContentAction={updateContentInlineAction}
           updateStatusAction={updateContentStatusAction}

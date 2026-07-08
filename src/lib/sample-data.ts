@@ -90,6 +90,7 @@ export const sampleContent: ContentItem[] = sampleClients.slice(0, 6).map(
     client_id: client.id,
     month: "2026-06",
     publish_date: `2026-06-${String(29 + (index % 2)).padStart(2, "0")}`,
+    publish_time: index % 3 === 0 ? "09:30" : index % 3 === 1 ? "14:30" : null,
     design_due_date: `2026-06-${String(20 + index).padStart(2, "0")}`,
     copy_due_date: `2026-06-${String(18 + index).padStart(2, "0")}`,
     approval_due_date: `2026-06-${String(24 + index).padStart(2, "0")}`,

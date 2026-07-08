@@ -10,7 +10,7 @@ import { ContentForm } from "@/components/forms";
 import { EmptyState, ExternalLink, Panel, TableWrap } from "@/components/ui";
 import { getClientVisualToken } from "@/lib/client-visuals";
 import { cleanPrefixedTitle } from "@/lib/title-display";
-import type { Client, ContentItem } from "@/lib/types";
+import type { Client, ContentItem, TeamMember } from "@/lib/types";
 
 type ContentFormAction = (id: string, formData: FormData) => void | Promise<void>;
 type DeleteContentAction = (id: string) => void | Promise<void>;
@@ -19,6 +19,7 @@ type ModalSection = "general" | "brief" | "copy" | "workflow" | "links";
 type ContentTableProps = {
   items: ContentItem[];
   clients: Client[];
+  teamMembers: TeamMember[];
   canPersist: boolean;
   updateContentAction: ContentFormAction;
   updateStatusAction: ContentFormAction;
@@ -42,6 +43,16 @@ function formatDate(value: string | null) {
   const [year, month, day] = value.split("-");
   if (!year || !month || !day) return value;
   return `${day}/${month}`;
+}
+
+function formatTime(value: string | null) {
+  return value?.slice(0, 5) ?? null;
+}
+
+function formatPublishDateTime(item: ContentItem) {
+  const date = formatDate(item.publish_date);
+  const time = formatTime(item.publish_time);
+  return time && date !== "-" ? `${date} · ${time}` : date;
 }
 
 function PreviewCell({
@@ -151,6 +162,7 @@ function ActionButton({
 export function ContentTable({
   items,
   clients,
+  teamMembers,
   canPersist,
   updateContentAction,
   updateStatusAction,
@@ -249,10 +261,9 @@ export function ContentTable({
                 {localItems.map((item) => {
                   const links = [
                     { href: item.brief_url, label: "Briefing" },
-                    { href: item.media_folder_url ?? item.media_url, label: "Media" },
+                    { href: item.media_folder_url, label: "Media" },
                     { href: item.figma_url, label: "Figma" },
                     { href: item.export_url, label: "Export" },
-                    { href: item.delivery_url, label: "Entrega" },
                     { href: item.published_url, label: "Publicação" },
                   ].filter((link): link is { href: string; label: string } => Boolean(link.href));
                   const clientToken = getClientVisualToken({
@@ -263,7 +274,7 @@ export function ContentTable({
 
                   return (
                     <tr key={item.id} className={item.is_blocked ? "bg-[var(--bb-red-soft)]" : "odd:bg-white/18"}>
-                      <td className={`border-l-4 px-4 py-4 font-medium whitespace-nowrap text-[var(--bb-muted)] ${clientToken.borderStrong}`}>{formatDate(item.publish_date)}</td>
+                      <td className={`border-l-4 px-4 py-4 font-medium whitespace-nowrap text-[var(--bb-muted)] ${clientToken.borderStrong}`}>{formatPublishDateTime(item)}</td>
                       <td className="max-w-56 px-4 py-4">
                         {item.clients ? (
                           <ClientBadge
@@ -395,6 +406,7 @@ export function ContentTable({
               <ContentForm
                 action={saveContent}
                 clients={clients}
+                teamMembers={teamMembers}
                 item={editing.item}
                 submitLabel="Guardar alterações"
                 onCancel={() => setEditing(null)}

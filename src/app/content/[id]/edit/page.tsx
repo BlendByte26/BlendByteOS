@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { deleteContentAction, updateContentAction } from "@/lib/actions";
-import { getClients, getContentItem } from "@/lib/data";
+import { getClients, getContentItem, getTeamMembers } from "@/lib/data";
 import { ContentForm, FormFrame } from "@/components/forms";
 import { PageHeader } from "@/components/ui";
 
@@ -10,7 +10,11 @@ type Props = {
 
 export default async function EditContentPage({ params }: Props) {
   const { id } = await params;
-  const [clients, item] = await Promise.all([getClients(), getContentItem(id)]);
+  const [clients, teamMembers, item] = await Promise.all([
+    getClients(),
+    getTeamMembers(),
+    getContentItem(id),
+  ]);
 
   if (!item) notFound();
 
@@ -26,6 +30,7 @@ export default async function EditContentPage({ params }: Props) {
         <ContentForm
           action={updateContentAction.bind(null, item.id)}
           clients={clients}
+          teamMembers={teamMembers}
           item={item}
           submitLabel="Guardar alterações"
         />
