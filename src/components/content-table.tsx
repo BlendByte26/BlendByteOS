@@ -26,14 +26,6 @@ type ContentTableProps = {
   deleteContentAction: DeleteContentAction;
 };
 
-const sectionLabels: Array<{ value: ModalSection; label: string }> = [
-  { value: "general", label: "Informação geral" },
-  { value: "brief", label: "Brief criativo" },
-  { value: "copy", label: "Copy" },
-  { value: "workflow", label: "Workflow" },
-  { value: "links", label: "Materiais e links" },
-];
-
 function displayTitle(item: ContentItem) {
   return cleanPrefixedTitle(item.title, item.clients);
 }
@@ -384,18 +376,6 @@ export function ContentTable({
               >
                 <X className="size-4" aria-hidden="true" />
               </button>
-            </div>
-            <div className="flex flex-wrap gap-2 border-b border-[var(--bb-border)] bg-white/35 px-5 py-3">
-              {sectionLabels.map((section) => (
-                <button
-                  key={section.value}
-                  type="button"
-                  onClick={() => setEditing({ item: editing.item, section: section.value })}
-                  className="rounded-full border border-[var(--bb-border)] bg-white/55 px-3 py-2 text-xs font-extrabold text-[var(--bb-charcoal)] transition hover:bg-[var(--bb-primary-soft)]"
-                >
-                  {section.label}
-                </button>
-              ))}
             </div>
             <div className="overflow-y-auto px-5 py-5">
               {saveMessage ? (
