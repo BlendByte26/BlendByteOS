@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CalendarDays, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Clock, X } from "lucide-react";
 
 type DatePickerProps = {
   name: string;
@@ -15,6 +15,7 @@ type DatePickerProps = {
 };
 
 type MonthPickerProps = DatePickerProps;
+type TimePickerProps = DatePickerProps;
 
 const monthNames = [
   "Janeiro",
@@ -32,6 +33,8 @@ const monthNames = [
 ];
 
 const weekDays = ["S", "T", "Q", "Q", "S", "S", "D"];
+const hours = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, "0"));
+const minutes = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, "0"));
 
 function parseIsoDate(value?: string | null) {
   if (!value) return null;
@@ -68,6 +71,17 @@ function formatMonthDisplay(value: string) {
   const date = parseIsoMonth(value);
   if (!date) return "Selecionar mês";
   return `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+function parseTime(value?: string | null) {
+  if (!value) return null;
+  const [hour, minute] = value.slice(0, 5).split(":");
+  if (!hours.includes(hour) || !minutes.includes(minute)) return null;
+  return { hour, minute };
+}
+
+function timeDisplay(value: string) {
+  return parseTime(value) ? value.slice(0, 5) : "--:--";
 }
 
 function sameDay(a: Date, b: Date) {
@@ -467,6 +481,198 @@ export function MonthPicker({
               </button>
             </div>
           ) : null}
+        </div>,
+        document.body,
+      ) : null}
+    </div>
+  );
+}
+
+export function TimePicker({
+  name,
+  defaultValue,
+  value: controlledValue,
+  onValueChange,
+  required,
+  ariaLabel,
+  className = "",
+}: TimePickerProps) {
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const isControlled = controlledValue !== undefined;
+  const [internalValue, setInternalValue] = useState(defaultValue ?? "");
+  const value = isControlled ? controlledValue : internalValue;
+  const selectedTime = parseTime(value);
+  const [position, setPosition] = useState({ left: 0, top: 0, width: 260 });
+
+  useEffect(() => {
+    if (!open) return;
+
+    function updatePosition() {
+      const rect = triggerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      const gap = 8;
+      const menuHeight = 320;
+      const viewportPadding = 12;
+      const availableBelow = window.innerHeight - rect.bottom - viewportPadding - gap;
+      const openAbove = availableBelow < menuHeight && rect.top > availableBelow;
+      const top = openAbove
+        ? Math.max(viewportPadding, rect.top - menuHeight - gap)
+        : Math.min(window.innerHeight - viewportPadding - menuHeight, rect.bottom + gap);
+
+      setPosition({
+        left: Math.max(viewportPadding, Math.min(rect.left, window.innerWidth - 260 - viewportPadding)),
+        top,
+        width: Math.max(240, Math.min(280, rect.width)),
+      });
+    }
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    function closeOnOutsideClick(event: MouseEvent) {
+      const target = event.target as Node;
+      if (!triggerRef.current?.contains(target) && !menuRef.current?.contains(target)) {
+        setOpen(false);
+      }
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, []);
+
+  function changeValue(nextValue: string) {
+    if (!isControlled) setInternalValue(nextValue);
+    onValueChange?.(nextValue);
+  }
+
+  function selectTime(part: Partial<{ hour: string; minute: string }>) {
+    const hour = part.hour ?? selectedTime?.hour ?? "09";
+    const minute = part.minute ?? selectedTime?.minute ?? "00";
+    changeValue(`${hour}:${minute}`);
+  }
+
+  function clearTime() {
+    changeValue("");
+    setOpen(false);
+  }
+
+  return (
+    <div className={`min-w-0 ${className}`}>
+      <input type="hidden" name={name} value={value} required={required} />
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-label={ariaLabel}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+        className="group flex min-h-11 w-full items-center justify-between gap-2 rounded-2xl border border-[var(--bb-border)] bg-white/75 px-3.5 text-left text-sm font-semibold text-[var(--bb-charcoal)] shadow-[0_12px_28px_rgba(0,0,0,0.05)] outline-none transition duration-200 hover:border-[rgba(83,183,223,0.45)] hover:bg-white focus:border-[rgba(83,183,223,0.72)] focus:shadow-[0_0_0_4px_var(--bb-primary-soft)]"
+      >
+        <span className={value ? "tabular-nums text-[var(--bb-charcoal)]" : "text-[var(--bb-muted)]"}>
+          {value ? timeDisplay(value) : "--:--"}
+        </span>
+        <Clock className="size-4 shrink-0 text-[var(--bb-muted)] transition group-hover:text-[var(--bb-charcoal)]" aria-hidden="true" />
+      </button>
+
+      {open && typeof document !== "undefined" ? createPortal(
+        <div
+          ref={menuRef}
+          data-portal="timepicker"
+          role="dialog"
+          aria-label={ariaLabel ?? "Hora"}
+          style={{
+            left: position.left,
+            top: position.top,
+            width: position.width,
+            zIndex: 99999,
+          }}
+          className="fixed rounded-[20px] border border-[var(--bb-border)] bg-white/95 p-3 font-sans shadow-[0_24px_60px_rgba(0,0,0,0.16)] backdrop-blur-xl"
+        >
+          <div className="mb-3 flex items-center justify-between">
+            <div className="text-sm font-extrabold text-[var(--bb-charcoal)]">Hora</div>
+            <div className="rounded-full bg-[var(--bb-primary-soft)] px-3 py-1 text-xs font-extrabold tabular-nums text-[var(--bb-black)]">
+              {value ? timeDisplay(value) : "--:--"}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <div className="mb-1 px-2 text-[11px] font-extrabold uppercase text-[var(--bb-muted)]">Horas</div>
+              <div className="max-h-52 overflow-y-auto rounded-2xl border border-[var(--bb-border)] bg-white/70 p-1">
+                {hours.map((hour) => {
+                  const selected = selectedTime?.hour === hour;
+
+                  return (
+                    <button
+                      key={hour}
+                      type="button"
+                      onClick={() => selectTime({ hour })}
+                      className={`mb-1 grid min-h-8 w-full place-items-center rounded-xl text-sm font-extrabold tabular-nums transition last:mb-0 ${
+                        selected
+                          ? "bg-[var(--bb-primary)] text-[var(--bb-black)]"
+                          : "text-[var(--bb-charcoal)] hover:bg-[var(--bb-primary-hover)]"
+                      }`}
+                    >
+                      {hour}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <div className="mb-1 px-2 text-[11px] font-extrabold uppercase text-[var(--bb-muted)]">Minutos</div>
+              <div className="max-h-52 overflow-y-auto rounded-2xl border border-[var(--bb-border)] bg-white/70 p-1">
+                {minutes.map((minute) => {
+                  const selected = selectedTime?.minute === minute;
+
+                  return (
+                    <button
+                      key={minute}
+                      type="button"
+                      onClick={() => selectTime({ minute })}
+                      className={`mb-1 grid min-h-8 w-full place-items-center rounded-xl text-sm font-extrabold tabular-nums transition last:mb-0 ${
+                        selected
+                          ? "bg-[var(--bb-primary)] text-[var(--bb-black)]"
+                          : "text-[var(--bb-charcoal)] hover:bg-[var(--bb-primary-hover)]"
+                      }`}
+                    >
+                      {minute}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-3 flex justify-end border-t border-[var(--bb-border)] pt-3">
+            <button
+              type="button"
+              onClick={clearTime}
+              className="inline-flex min-h-9 items-center gap-1 rounded-full border border-[var(--bb-border)] bg-white/70 px-3 text-xs font-extrabold text-[var(--bb-charcoal)] transition hover:bg-[var(--bb-red-soft)] hover:text-[#8f2415]"
+            >
+              <X className="size-3.5" aria-hidden="true" />
+              Limpar
+            </button>
+          </div>
         </div>,
         document.body,
       ) : null}

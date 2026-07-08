@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useFormStatus } from "react-dom";
-import { DatePicker, MonthPicker } from "@/components/date-picker";
+import { DatePicker, MonthPicker, TimePicker } from "@/components/date-picker";
 import { SelectField, type SelectOption } from "@/components/select-field";
 import { getClientLabel } from "@/lib/client-display";
 import {
@@ -46,6 +46,7 @@ const clientPlatformOptions = [
 ];
 
 const contentPlatformOptions = ["Instagram", "Facebook", "LinkedIn", "TikTok"];
+const contentFormatOptions = ["Post", "Carousel", "Story", "Reels", "Newsletter"];
 
 const taskPriorityOptions: SelectOption[] = [
   { value: "normal", label: taskPriorityLabels.normal },
@@ -149,6 +150,51 @@ function ContentPlatformMultiSelect({ defaultValue }: { defaultValue?: string | 
         name="platform_other_name"
         defaultValue={customPlatforms.join(", ")}
         placeholder="Outra plataforma"
+        className="min-h-9 rounded-xl border border-[var(--bb-border)] bg-white px-3 text-xs font-semibold text-[var(--bb-charcoal)] outline-none transition duration-200 placeholder:text-[var(--bb-muted)] focus:border-[rgba(83,183,223,0.72)] focus:shadow-[0_0_0_3px_var(--bb-primary-soft)]"
+      />
+    </div>
+  );
+}
+
+function ContentFormatMultiSelect({ defaultValue }: { defaultValue?: string | null }) {
+  const selectedFormats = splitAssignees(defaultValue);
+  const selected = new Set(selectedFormats);
+  const customFormats = selectedFormats.filter((format) => !contentFormatOptions.includes(format));
+
+  return (
+    <div className="grid gap-2 rounded-2xl border border-[var(--bb-border)] bg-white/75 p-1.5 shadow-[0_12px_28px_rgba(0,0,0,0.05)]">
+      <div className="flex flex-wrap gap-2">
+        {contentFormatOptions.map((format) => (
+          <label key={format} className="group cursor-pointer">
+            <input
+              name="format"
+              type="checkbox"
+              value={format}
+              defaultChecked={selected.has(format)}
+              className="peer sr-only"
+            />
+            <span className="flex min-h-8 items-center rounded-full border border-[var(--bb-border)] bg-white px-3 text-xs font-extrabold text-[var(--bb-muted)] transition duration-200 group-hover:border-[rgba(83,183,223,0.5)] group-hover:text-[var(--bb-charcoal)] peer-checked:border-[var(--bb-black)] peer-checked:bg-[var(--bb-black)] peer-checked:text-white">
+              {format}
+            </span>
+          </label>
+        ))}
+        <label className="group cursor-pointer">
+          <input
+            name="format"
+            type="checkbox"
+            value="Outro"
+            defaultChecked={Boolean(customFormats.length)}
+            className="peer sr-only"
+          />
+          <span className="flex min-h-8 items-center rounded-full border border-[var(--bb-border)] bg-white px-3 text-xs font-extrabold text-[var(--bb-muted)] transition duration-200 group-hover:border-[rgba(83,183,223,0.5)] group-hover:text-[var(--bb-charcoal)] peer-checked:border-[var(--bb-black)] peer-checked:bg-[var(--bb-black)] peer-checked:text-white">
+            Outro
+          </span>
+        </label>
+      </div>
+      <input
+        name="format_other_name"
+        defaultValue={customFormats.join(", ")}
+        placeholder="Outro formato"
         className="min-h-9 rounded-xl border border-[var(--bb-border)] bg-white px-3 text-xs font-semibold text-[var(--bb-charcoal)] outline-none transition duration-200 placeholder:text-[var(--bb-muted)] focus:border-[rgba(83,183,223,0.72)] focus:shadow-[0_0_0_3px_var(--bb-primary-soft)]"
       />
     </div>
@@ -432,7 +478,7 @@ export function ContentForm({
         </label>
         <label className={labelClass}>
           Hora de publicação
-          <input name="publish_time" type="time" defaultValue={timeInputValue(item?.publish_time)} className={inputClass} />
+          <TimePicker name="publish_time" defaultValue={timeInputValue(item?.publish_time)} ariaLabel="Hora de publicação" />
         </label>
         <label className={labelClass}>
           Estado
@@ -464,7 +510,7 @@ export function ContentForm({
         </label>
         <label className={labelClass}>
           Formato
-          <input name="format" defaultValue={item?.format ?? ""} className={inputClass} />
+          <ContentFormatMultiSelect defaultValue={item?.format} />
         </label>
         <label className={labelClass}>
           Responsável

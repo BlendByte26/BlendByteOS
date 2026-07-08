@@ -64,6 +64,23 @@ function contentPlatformValue(formData: FormData) {
   return uniqueValues.length ? uniqueValues.join(", ") : null;
 }
 
+function contentFormatValue(formData: FormData) {
+  const otherName = text(formData, "format_other_name");
+  const selected = formData
+    .getAll("format")
+    .filter((value): value is string => typeof value === "string")
+    .flatMap((value) => value.split(","))
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .flatMap((value) => {
+      if (value === "Outro") return otherName ? [otherName] : [];
+      return [value];
+    });
+
+  const uniqueValues = Array.from(new Set([...selected, ...(otherName ? [otherName] : [])]));
+  return uniqueValues.length ? uniqueValues.join(", ") : null;
+}
+
 function requiredText(formData: FormData, key: string) {
   const value = text(formData, key);
   if (!value) {
@@ -460,7 +477,7 @@ function contentPayload(formData: FormData) {
     needs_copy: formData.has("needs_copy") ? checked(formData, "needs_copy") : true,
     needs_client_approval: checked(formData, "needs_client_approval"),
     platform: contentPlatformValue(formData) ?? "Sem plataforma",
-    format: text(formData, "format"),
+    format: contentFormatValue(formData),
     title: requiredText(formData, "title"),
     creative_brief: text(formData, "creative_brief"),
     copy_text: text(formData, "copy_text"),
