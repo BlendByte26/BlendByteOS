@@ -1,5 +1,6 @@
 import { getSupabase, isSupabaseConfigured, isSupabaseSchemaError } from "./supabase";
 import { compareClients } from "./client-display";
+import { contentMonthRange, isPublishDateInMonth, isValidContentMonth } from "./content-month";
 import { getClientMissingSetup } from "./onboarding";
 import { sampleClients, sampleContent, sampleTasks } from "./sample-data";
 import type { OperationalProfileKey } from "./operational-profiles";
@@ -276,6 +277,7 @@ export async function getQuickNotes(view: QuickTodoView, profileKey: Operational
 
 export async function getContentItems(filters: ContentFilters = {}) {
   const supabase = getSupabase();
+  const filteredMonth = isValidContentMonth(filters.month) ? filters.month : "";
 
   if (!supabase) {
     return sampleContent.filter((item) => {
@@ -283,7 +285,7 @@ export async function getContentItems(filters: ContentFilters = {}) {
         (!filters.client || item.client_id === filters.client) &&
         (!filters.assignee ||
           item.assignee_name?.toLowerCase().includes(filters.assignee.toLowerCase())) &&
-        (!filters.month || item.month === filters.month) &&
+        (!filteredMonth || isPublishDateInMonth(item.publish_date, filteredMonth)) &&
         (!filters.status || item.status === filters.status) &&
         (!filters.platform || item.platform === filters.platform) &&
         (!filters.publishUntil ||
@@ -300,7 +302,10 @@ export async function getContentItems(filters: ContentFilters = {}) {
 
   if (filters.client) query = query.eq("client_id", filters.client);
   if (filters.assignee) query = query.ilike("assignee_name", `%${filters.assignee}%`);
-  if (filters.month) query = query.eq("month", filters.month);
+  if (filteredMonth) {
+    const range = contentMonthRange(filteredMonth);
+    query = query.gte("publish_date", range.start).lt("publish_date", range.end);
+  }
   if (filters.status) query = query.eq("status", filters.status as ContentStatus);
   if (filters.platform) query = query.ilike("platform", filters.platform);
   if (filters.publishUntil) query = query.lte("publish_date", filters.publishUntil);
@@ -315,7 +320,7 @@ export async function getContentItems(filters: ContentFilters = {}) {
           (!filters.client || item.client_id === filters.client) &&
           (!filters.assignee ||
             item.assignee_name?.toLowerCase().includes(filters.assignee.toLowerCase())) &&
-          (!filters.month || item.month === filters.month) &&
+          (!filteredMonth || isPublishDateInMonth(item.publish_date, filteredMonth)) &&
           (!filters.status || item.status === filters.status) &&
           (!filters.platform || item.platform === filters.platform) &&
           (!filters.publishUntil ||

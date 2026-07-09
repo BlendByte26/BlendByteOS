@@ -14,6 +14,7 @@ import {
   updateContentStatusAction,
 } from "@/lib/actions";
 import { getClientLabel } from "@/lib/client-display";
+import { formatContentMonthLabel, publishMonth } from "@/lib/content-month";
 import { getClients, getContentItems, getTeamMembers, uniqueValues } from "@/lib/data";
 import { contentStatusLabels } from "@/lib/labels";
 import {
@@ -116,7 +117,7 @@ export default async function ContentPage({ searchParams }: Props) {
   const items = attention ? filteredItems.filter(contentNeedsAttention) : filteredItems;
   const platforms = uniqueValues(itemsForOptions, (item) => item.platform);
   const months = Array.from(
-    new Set([filters.month, ...itemsForOptions.map((item) => item.month)].filter(Boolean)),
+    new Set([filters.month, ...itemsForOptions.map(publishMonth)].filter(Boolean)),
   ).sort();
   const tableKey = [
     JSON.stringify(filters),
@@ -156,7 +157,7 @@ export default async function ContentPage({ searchParams }: Props) {
             ]}
             monthOptions={[
               { value: "", label: "Todos os meses" },
-              ...months.map((month) => ({ value: month, label: month })),
+              ...months.map((month) => ({ value: month, label: formatContentMonthLabel(month) })),
             ]}
             ownerOptions={[
               { value: "", label: "Todos" },
