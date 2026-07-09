@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getClient, getContentItems, getTasks } from "@/lib/data";
+import { displayContentPlatform } from "@/lib/content-platform";
 import {
   createDefaultClientChecklistAction,
   updateClientLinksAction,
@@ -223,7 +224,7 @@ export default async function ClientDetailPage({ params }: Props) {
                 {content.map((item) => (
                   <tr key={item.id} className={item.is_blocked ? "bg-[var(--bb-red-soft)]" : ""}>
                     <td className="px-5 py-4 font-medium whitespace-nowrap text-[var(--bb-muted)]">{compactDate(item.publish_date)}</td>
-                    <td className="px-4 py-4 font-medium text-[var(--bb-muted)]">{item.platform}</td>
+                    <td className="px-4 py-4 font-medium text-[var(--bb-muted)]">{displayContentPlatform(item.platform)}</td>
                     <td className="px-4 py-4 font-medium text-[var(--bb-muted)]">{item.format ?? "-"}</td>
                     <td className="max-w-[320px] px-4 py-4 font-bold text-[var(--bb-charcoal)]">
                       <span className="bb-line-clamp-2">{cleanPrefixedTitle(item.title, item.clients)}</span>

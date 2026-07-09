@@ -243,7 +243,18 @@ export function TeamDirectory({
                         >
                           <Pencil className="size-3.5" aria-hidden="true" />
                         </button>
-                        <form action={deleteCompanyContactAction.bind(null, contact.id)}>
+                        <form
+                          action={deleteCompanyContactAction.bind(null, contact.id)}
+                          onSubmit={(event) => {
+                            if (
+                              !window.confirm(
+                                `Apagar definitivamente o contacto "${contact.label}"?\n\nEsta ação não pode ser anulada.`,
+                              )
+                            ) {
+                              event.preventDefault();
+                            }
+                          }}
+                        >
                           <button
                             type="submit"
                             className="grid size-8 place-items-center rounded-full border border-[var(--bb-border)] bg-white/70 text-[#a73522] transition hover:bg-[var(--bb-red-soft)]"

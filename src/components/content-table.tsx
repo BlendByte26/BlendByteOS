@@ -3,17 +3,19 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Copy, FileText, Pencil, Trash2, X } from "lucide-react";
+import { Archive, Copy, FileText, Pencil, Trash2, X } from "lucide-react";
 import { ClientBadge } from "@/components/client-badge";
 import { ContentEditorTabs } from "@/components/content-editor-tabs";
 import { ContentStatusControl } from "@/components/content-status-control";
 import { EmptyState, ExternalLink, Panel, TableWrap } from "@/components/ui";
+import { displayContentPlatform } from "@/lib/content-platform";
 import { getClientVisualToken } from "@/lib/client-visuals";
 import { cleanPrefixedTitle } from "@/lib/title-display";
 import type { OperationalProfile } from "@/lib/operational-profiles";
 import type { Client, ContentComment, ContentItem, TeamMember } from "@/lib/types";
 
 type ContentFormAction = (id: string, formData: FormData) => void | Promise<void>;
+type ArchiveContentAction = (id: string) => void | Promise<void>;
 type DeleteContentAction = (id: string) => void | Promise<void>;
 type ModalSection = "general" | "brief" | "copy" | "workflow" | "links";
 type ListContentCommentsAction = (contentId: string) => Promise<
@@ -37,6 +39,7 @@ type ContentTableProps = {
   canPersist: boolean;
   updateContentAction: ContentFormAction;
   updateStatusAction: ContentFormAction;
+  archiveContentAction: ArchiveContentAction;
   deleteContentAction: DeleteContentAction;
   listCommentsAction: ListContentCommentsAction;
   createCommentAction: ContentCommentAction;
@@ -176,6 +179,7 @@ export function ContentTable({
   canPersist,
   updateContentAction,
   updateStatusAction,
+  archiveContentAction,
   deleteContentAction,
   listCommentsAction,
   createCommentAction,
@@ -227,16 +231,43 @@ export function ContentTable({
     }
   }
 
-  async function deleteContent(id: string) {
+  async function archiveContent(item: ContentItem) {
+    if (!canPersist) {
+      setTableError("Modo demo: configure o Supabase para arquivar conteúdos.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Arquivar o conteúdo "${displayTitle(item)}"?\n\nEle deixa a tabela ativa e passa a aparecer no Arquivo.`,
+    );
+    if (!confirmed) return;
+
+    setTableError(null);
+    try {
+      await archiveContentAction(item.id);
+      setLocalItems((current) => current.filter((currentItem) => currentItem.id !== item.id));
+      router.refresh();
+    } catch (error) {
+      console.error("Erro ao arquivar conteúdo", error);
+      setTableError(error instanceof Error ? error.message : "Não foi possível arquivar o conteúdo.");
+    }
+  }
+
+  async function deleteContent(item: ContentItem) {
     if (!canPersist) {
       setTableError("Modo demo: configure o Supabase para apagar conteúdos.");
       return;
     }
 
+    const confirmed = window.confirm(
+      `Apagar definitivamente o conteúdo "${displayTitle(item)}"?\n\nEsta ação não pode ser anulada.`,
+    );
+    if (!confirmed) return;
+
     setTableError(null);
     try {
-      await deleteContentAction(id);
-      setLocalItems((current) => current.filter((item) => item.id !== id));
+      await deleteContentAction(item.id);
+      setLocalItems((current) => current.filter((currentItem) => currentItem.id !== item.id));
       router.refresh();
     } catch (error) {
       console.error("Erro ao apagar conteúdo", error);
@@ -303,7 +334,7 @@ export function ContentTable({
                           <span className="text-xs font-bold text-[var(--bb-muted)]">—</span>
                         )}
                       </td>
-                      <td className="px-4 py-4 font-medium text-[var(--bb-muted)]">{item.platform}</td>
+                      <td className="px-4 py-4 font-medium text-[var(--bb-muted)]">{displayContentPlatform(item.platform)}</td>
                       <td className="px-4 py-4 font-medium text-[var(--bb-muted)]">{item.format ?? "-"}</td>
                       <td className="max-w-[260px] px-4 py-4 font-bold text-[var(--bb-charcoal)]">
                         <button
@@ -348,11 +379,19 @@ export function ContentTable({
                           <ActionButton label="Editar" onClick={() => setEditing({ item, section: "general" })}>
                             <Pencil className="size-4" aria-hidden="true" />
                           </ActionButton>
-                        <form action={() => deleteContent(item.id)}>
-                          <ActionButton label="Apagar" tone="danger">
+                          {item.status === "archived" ? (
+                            <form action={() => deleteContent(item)}>
+                              <ActionButton label="Apagar definitivamente" tone="danger">
                               <Trash2 className="size-4" aria-hidden="true" />
-                            </ActionButton>
-                          </form>
+                              </ActionButton>
+                            </form>
+                          ) : (
+                            <form action={() => archiveContent(item)}>
+                              <ActionButton label="Arquivar">
+                                <Archive className="size-4" aria-hidden="true" />
+                              </ActionButton>
+                            </form>
+                          )}
                         </div>
                       </td>
                     </tr>

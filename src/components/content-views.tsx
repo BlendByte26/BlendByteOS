@@ -6,6 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { ClientBadge } from "@/components/client-badge";
 import { ContentStatusControl } from "@/components/content-status-control";
 import { Badge, EmptyState } from "@/components/ui";
+import { displayContentPlatform } from "@/lib/content-platform";
 import { getClientVisualToken } from "@/lib/client-visuals";
 import { contentStatusLabels } from "@/lib/labels";
 import { cleanPrefixedTitle } from "@/lib/title-display";
@@ -314,7 +315,7 @@ function ContentMiniCard({
       </h3>
 
       <div className="mt-1.5 flex flex-wrap gap-x-1.5 gap-y-1 text-[11px] font-bold leading-4 text-[var(--bb-muted)]">
-        <span>{item.platform || "Sem plataforma"}</span>
+        <span>{displayContentPlatform(item.platform)}</span>
         <span>·</span>
         <span>{item.format || "Sem formato"}</span>
         {item.assignee_name ? (
@@ -413,7 +414,7 @@ function MonthEvent({ item }: { item: ContentItem }) {
   return (
     <Link
       href={`/content/${item.id}/edit`}
-      title={`${time ? `${time} · ` : ""}${contentTitle(item)} · ${clientLabel(item)} · ${item.platform || "Sem plataforma"} · ${contentStatusLabels[item.status]}`}
+      title={`${time ? `${time} · ` : ""}${contentTitle(item)} · ${clientLabel(item)} · ${displayContentPlatform(item.platform)} · ${contentStatusLabels[item.status]}`}
       className={`block min-w-0 rounded-md border border-transparent px-1.5 py-1 text-left transition hover:border-current ${clientToken.bg} ${clientToken.text}`}
     >
       <div className="flex min-w-0 items-center gap-1.5 text-[11px] font-extrabold leading-4">
@@ -422,7 +423,7 @@ function MonthEvent({ item }: { item: ContentItem }) {
         <span className="truncate">{contentTitle(item)}</span>
       </div>
       <div className="truncate pl-3 text-[10px] font-bold leading-3 text-[var(--bb-muted)]">
-        {clientLabel(item)} · {item.platform || "Sem plataforma"} · {contentStatusLabels[item.status]}
+        {clientLabel(item)} · {displayContentPlatform(item.platform)} · {contentStatusLabels[item.status]}
       </div>
     </Link>
   );
@@ -454,7 +455,7 @@ function AgendaItem({ item, compact = false }: { item: ContentItem; compact?: bo
       <div className="flex flex-wrap gap-x-2 gap-y-1 text-[11px] font-bold text-[var(--bb-muted)]">
         <span>{clientLabel(item)}</span>
         <span>·</span>
-        <span>{item.platform || "Sem plataforma"}</span>
+        <span>{displayContentPlatform(item.platform)}</span>
         {!compact && item.assignee_name ? (
           <>
             <span>·</span>
@@ -484,7 +485,7 @@ function UnscheduledItem({ item }: { item: ContentItem }) {
     >
       <div className="truncate text-xs font-extrabold text-[var(--bb-charcoal)]">{contentTitle(item)}</div>
       <div className="mt-0.5 truncate text-[11px] font-bold text-[var(--bb-muted)]">
-        {clientLabel(item)} · {item.platform || "Sem plataforma"} · {contentStatusLabels[item.status]}
+        {clientLabel(item)} · {displayContentPlatform(item.platform)} · {contentStatusLabels[item.status]}
       </div>
     </Link>
   );

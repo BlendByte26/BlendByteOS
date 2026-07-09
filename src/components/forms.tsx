@@ -112,7 +112,9 @@ function AssigneeMultiSelect({
 }
 
 function ContentPlatformMultiSelect({ defaultValue }: { defaultValue?: string | null }) {
-  const selectedPlatforms = splitAssignees(defaultValue);
+  const selectedPlatforms = splitAssignees(defaultValue).filter(
+    (platform) => platform !== "Sem plataforma",
+  );
   const selected = new Set(selectedPlatforms);
   const customPlatforms = selectedPlatforms.filter(
     (platform) => !contentPlatformOptions.includes(platform),

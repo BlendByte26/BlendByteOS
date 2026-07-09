@@ -17,6 +17,7 @@ import {
   getOperationalProfile,
 } from "@/lib/operational-profiles";
 import { isSupabaseConfigured } from "@/lib/supabase";
+import { ConfirmSubmitForm } from "@/components/confirm-submit-form";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -59,11 +60,15 @@ export default async function EditContentPage({ params }: Props) {
           createCommentAction={createContentCommentAction}
           deleteCommentAction={deleteContentCommentAction}
           footer={
-            <form action={deleteContentAction.bind(null, item.id)} className="mt-4 border-t border-[var(--bb-border)] pt-4">
+            <ConfirmSubmitForm
+              action={deleteContentAction.bind(null, item.id)}
+              message={`Apagar definitivamente o conteúdo "${item.title}"?\n\nEsta ação não pode ser anulada.`}
+              className="mt-4 border-t border-[var(--bb-border)] pt-4"
+            >
               <button type="submit" className="rounded-full px-3 py-1.5 text-sm font-bold text-[#8f2415] transition hover:bg-[var(--bb-red-soft)]">
-                Apagar conteúdo
+                Apagar definitivamente
               </button>
-            </form>
+            </ConfirmSubmitForm>
           }
         />
       </FormFrame>

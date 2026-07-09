@@ -270,6 +270,12 @@ export function TasksTable({
       return;
     }
 
+    const task = localTasks.find((item) => item.id === id);
+    const confirmed = window.confirm(
+      `Arquivar a tarefa "${task ? getTaskDisplayTitle(task) : "selecionada"}"?\n\nEla passa para a vista Arquivadas.`,
+    );
+    if (!confirmed) return;
+
     setTableError(null);
     try {
       await archiveTaskAction(id);
@@ -286,6 +292,12 @@ export function TasksTable({
       setTableError("Modo demo: configure o Supabase para apagar tarefas.");
       return;
     }
+
+    const task = localTasks.find((item) => item.id === id);
+    const confirmed = window.confirm(
+      `Apagar definitivamente a tarefa "${task ? getTaskDisplayTitle(task) : "selecionada"}"?\n\nEsta ação não pode ser anulada.`,
+    );
+    if (!confirmed) return;
 
     setTableError(null);
     try {

@@ -5,6 +5,7 @@ import { ContentTable } from "@/components/content-table";
 import { ContentCalendarView, ContentPipelineView } from "@/components/content-views";
 import { ContentFiltersBar } from "@/components/live-filters";
 import {
+  archiveContentInlineAction,
   bulkCreateContentAction,
   createContentCommentAction,
   deleteContentCommentAction,
@@ -14,6 +15,7 @@ import {
   updateContentStatusAction,
 } from "@/lib/actions";
 import { getClientLabel } from "@/lib/client-display";
+import { displayContentPlatform } from "@/lib/content-platform";
 import { formatContentMonthLabel, publishMonth } from "@/lib/content-month";
 import { getClients, getContentItems, getTeamMembers, uniqueValues } from "@/lib/data";
 import { contentStatusLabels } from "@/lib/labels";
@@ -114,8 +116,12 @@ export default async function ContentPage({ searchParams }: Props) {
     getContentItems(),
     getContentItems(filters),
   ]);
-  const items = attention ? filteredItems.filter(contentNeedsAttention) : filteredItems;
-  const platforms = uniqueValues(itemsForOptions, (item) => item.platform);
+  const platformFilteredItems =
+    filters.platform === "Sem plataforma"
+      ? filteredItems.filter((item) => displayContentPlatform(item.platform) === "Sem plataforma")
+      : filteredItems;
+  const items = attention ? platformFilteredItems.filter(contentNeedsAttention) : platformFilteredItems;
+  const platforms = uniqueValues(itemsForOptions, (item) => displayContentPlatform(item.platform));
   const months = Array.from(
     new Set([filters.month, ...itemsForOptions.map(publishMonth)].filter(Boolean)),
   ).sort();
@@ -197,6 +203,7 @@ export default async function ContentPage({ searchParams }: Props) {
           canPersist={isSupabaseConfigured()}
           updateContentAction={updateContentInlineAction}
           updateStatusAction={updateContentStatusAction}
+          archiveContentAction={archiveContentInlineAction}
           deleteContentAction={deleteContentInlineAction}
           listCommentsAction={listContentCommentsAction}
           createCommentAction={createContentCommentAction}

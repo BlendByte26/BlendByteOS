@@ -292,6 +292,13 @@ function QuickTodosList({
 
   async function handleDelete(todo: QuickTodo) {
     if (todo.id.startsWith("temp-") || deletingIds.has(todo.id)) return;
+    if (
+      !window.confirm(
+        `Apagar definitivamente este to-do?\n\n"${todo.text}"\n\nEsta ação não pode ser anulada.`,
+      )
+    ) {
+      return;
+    }
 
     const deletedTodo = todo;
 

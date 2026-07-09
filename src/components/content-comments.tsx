@@ -139,6 +139,11 @@ export function ContentComments({
   }
 
   function deleteComment(commentId: string) {
+    const confirmed = window.confirm(
+      "Apagar definitivamente este comentário?\n\nEsta ação não pode ser anulada.",
+    );
+    if (!confirmed) return;
+
     setMessage(null);
     startTransition(async () => {
       const result = await deleteAction(commentId);

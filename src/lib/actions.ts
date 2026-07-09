@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { fallbackContentPlatform } from "./content-platform";
 import { baseChecklist } from "./onboarding";
 import {
   OPERATIONAL_PROFILE_COOKIE,
@@ -80,6 +81,11 @@ function formDataStringAt(values: FormDataEntryValue[], index: number) {
 
 function contentPlatformValue(formData: FormData) {
   const otherName = text(formData, "platform_other_name");
+  const otherPlatforms =
+    otherName
+      ?.split(",")
+      .map((value) => value.trim())
+      .filter((value) => value && value !== "Sem plataforma") ?? [];
   const selected = formData
     .getAll("platform")
     .filter((value): value is string => typeof value === "string")
@@ -87,11 +93,12 @@ function contentPlatformValue(formData: FormData) {
     .map((value) => value.trim())
     .filter(Boolean)
     .flatMap((value) => {
-      if (value === "Outra") return otherName ? [otherName] : [];
+      if (value === "Outra") return otherPlatforms;
       return [value];
-    });
+    })
+    .filter((value) => value !== "Sem plataforma");
 
-  const uniqueValues = Array.from(new Set([...selected, ...(otherName ? [otherName] : [])]));
+  const uniqueValues = Array.from(new Set([...selected, ...otherPlatforms]));
   return uniqueValues.length ? uniqueValues.join(", ") : null;
 }
 
@@ -509,6 +516,26 @@ export async function updateClientLinksAction(id: string, formData: FormData) {
 
 export async function deleteClientAction(id: string) {
   const supabase = supabaseOrRedirect("/clients");
+  const [{ count: contentCount, error: contentError }, { count: taskCount, error: taskError }] =
+    await Promise.all([
+      supabase
+        .from("content_items")
+        .select("id", { count: "exact", head: true })
+        .eq("client_id", id),
+      supabase
+        .from("tasks")
+        .select("id", { count: "exact", head: true })
+        .eq("client_id", id),
+    ]);
+
+  if (contentError) throw new Error(contentError.message);
+  if (taskError) throw new Error(taskError.message);
+  if ((contentCount ?? 0) > 0 || (taskCount ?? 0) > 0) {
+    throw new Error(
+      "Este cliente tem conteúdos ou tarefas associados. Arquive/limpe esses itens antes de apagar definitivamente.",
+    );
+  }
+
   const { error } = await supabase.from("clients").delete().eq("id", id);
 
   if (error) throw new Error(error.message);
@@ -533,7 +560,7 @@ function contentPayload(formData: FormData) {
     needs_design: formData.has("needs_design") ? checked(formData, "needs_design") : true,
     needs_copy: formData.has("needs_copy") ? checked(formData, "needs_copy") : true,
     needs_client_approval: checked(formData, "needs_client_approval"),
-    platform: contentPlatformValue(formData) ?? "Sem plataforma",
+    platform: contentPlatformValue(formData) ?? fallbackContentPlatform,
     format: contentFormatValue(formData),
     title: requiredText(formData, "title"),
     creative_brief: text(formData, "creative_brief"),
@@ -608,7 +635,7 @@ export async function bulkCreateContentAction(formData: FormData): Promise<BulkC
   const month = requiredText(formData, "month");
   const status = requiredText(formData, "status") as ContentStatus;
   const globalAssignee = text(formData, "global_assignee_name");
-  const defaultPlatform = text(formData, "default_platform") ?? "Sem plataforma";
+  const defaultPlatform = text(formData, "default_platform") ?? fallbackContentPlatform;
   const defaultFormat = text(formData, "default_format");
   const publishDates = formData.getAll("row_publish_date");
   const publishTimes = formData.getAll("row_publish_time");
@@ -847,6 +874,17 @@ export async function updateContentStatusAction(id: string, formData: FormData) 
     .eq("id", id);
 
   if (error) throw new Error(error.message);
+}
+
+export async function archiveContentInlineAction(id: string) {
+  const supabase = supabaseOrError();
+  const { error } = await supabase
+    .from("content_items")
+    .update({ status: "archived" as ContentStatus })
+    .eq("id", id);
+
+  if (error) throw new Error(error.message);
+  refreshAll();
 }
 
 async function deleteContent(id: string) {

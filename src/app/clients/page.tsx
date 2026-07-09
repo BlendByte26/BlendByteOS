@@ -1,12 +1,12 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { ClientBadge } from "@/components/client-badge";
+import { ClientDeleteControl } from "@/components/client-delete-control";
 import { ClientLogo } from "@/components/client-logo";
-import { deleteClientAction } from "@/lib/actions";
 import { getClientDisplayCode, getClientVisualToken } from "@/lib/client-visuals";
 import { clientStatusLabels, clientTypeLabels } from "@/lib/labels";
-import { getClients } from "@/lib/data";
-import { Badge, DeleteIconButton, EditIconLink, EmptyState, ExternalLink, Panel, TableWrap } from "@/components/ui";
+import { getClients, getContentItems, getTasks } from "@/lib/data";
+import { Badge, EditIconLink, EmptyState, ExternalLink, Panel, TableWrap } from "@/components/ui";
 
 function getStaticClientLogoPath(clientCode: string | null) {
   if (!clientCode) return null;
@@ -18,7 +18,21 @@ function getStaticClientLogoPath(clientCode: string | null) {
 }
 
 export default async function ClientsPage() {
-  const clients = await getClients();
+  const [clients, content, tasks] = await Promise.all([
+    getClients(),
+    getContentItems(),
+    getTasks(),
+  ]);
+  const contentCountByClient = new Map<string, number>();
+  const taskCountByClient = new Map<string, number>();
+
+  content.forEach((item) => {
+    contentCountByClient.set(item.client_id, (contentCountByClient.get(item.client_id) ?? 0) + 1);
+  });
+  tasks.forEach((task) => {
+    if (!task.client_id) return;
+    taskCountByClient.set(task.client_id, (taskCountByClient.get(task.client_id) ?? 0) + 1);
+  });
 
   return (
     <>
@@ -90,9 +104,12 @@ export default async function ClientsPage() {
                       <td className="bb-actions-col sticky right-0 px-2 py-4">
                         <div className="bb-actions-row">
                           <EditIconLink href={`/clients/${client.id}/edit`} />
-                          <form action={deleteClientAction.bind(null, client.id)}>
-                            <DeleteIconButton />
-                          </form>
+                          <ClientDeleteControl
+                            clientId={client.id}
+                            clientName={client.name}
+                            contentCount={contentCountByClient.get(client.id) ?? 0}
+                            taskCount={taskCountByClient.get(client.id) ?? 0}
+                          />
                         </div>
                       </td>
                     </tr>

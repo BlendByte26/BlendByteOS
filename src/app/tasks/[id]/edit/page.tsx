@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { deleteTaskAction, updateTaskAction } from "@/lib/actions";
 import { getClients, getTask, getTeamMembers } from "@/lib/data";
+import { ConfirmSubmitForm } from "@/components/confirm-submit-form";
 import { FormFrame, TaskForm } from "@/components/forms";
 import { PageHeader } from "@/components/ui";
 
@@ -30,11 +31,15 @@ export default async function EditTaskPage({ params }: Props) {
           task={task}
           submitLabel="Guardar alterações"
         />
-        <form action={deleteTaskAction.bind(null, task.id)} className="mt-4 border-t border-[var(--bb-border)] pt-4">
+        <ConfirmSubmitForm
+          action={deleteTaskAction.bind(null, task.id)}
+          message={`Apagar definitivamente a tarefa "${task.title}"?\n\nEsta ação não pode ser anulada.`}
+          className="mt-4 border-t border-[var(--bb-border)] pt-4"
+        >
           <button type="submit" className="rounded-full px-3 py-1.5 text-sm font-bold text-[#8f2415] transition hover:bg-[var(--bb-red-soft)]">
-            Apagar tarefa
+            Apagar definitivamente
           </button>
-        </form>
+        </ConfirmSubmitForm>
       </FormFrame>
     </>
   );
