@@ -4,6 +4,7 @@ import { TasksTable } from "@/components/tasks-table";
 import {
   archiveTaskInlineAction,
   deleteTaskInlineAction,
+  sendTaskToDesignInlineAction,
   updateTaskStatusInlineAction,
   updateTaskInlineAction,
 } from "@/lib/actions";
@@ -195,6 +196,7 @@ export default async function TasksPage({ searchParams }: Props) {
         canPersist={isSupabaseConfigured()}
         updateTaskAction={updateTaskInlineAction}
         updateStatusAction={updateTaskStatusInlineAction}
+        sendToDesignAction={sendTaskToDesignInlineAction}
         archiveTaskAction={archiveTaskInlineAction}
         deleteTaskAction={deleteTaskInlineAction}
       />

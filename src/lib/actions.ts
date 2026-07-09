@@ -26,6 +26,7 @@ import type {
   QuickTodoView,
   ServiceType,
   SetupChecklistItem,
+  Task,
   TaskPriority,
   TaskStatus,
   TaskType,
@@ -924,6 +925,30 @@ function taskPayload(formData: FormData) {
   };
 }
 
+function handoffDateLabel(date: Date) {
+  return new Intl.DateTimeFormat("pt-PT", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "Europe/Lisbon",
+  }).format(date);
+}
+
+function appendDesignHandoffNote(notes: string | null, profileName: string, date: Date) {
+  const existingNotes = notes?.trimEnd() ?? "";
+  const handoffNote = `Enviado para Design por ${profileName} em ${handoffDateLabel(date)}.`;
+  return existingNotes ? `${existingNotes}\n${handoffNote}` : handoffNote;
+}
+
+function assigneeIncludesDesign(assigneeName: string | null) {
+  return (
+    assigneeName
+      ?.split(",")
+      .map((item) => item.trim().toLowerCase())
+      .includes("carlota") ?? false
+  );
+}
+
 export async function createTaskAction(formData: FormData) {
   const supabase = supabaseOrRedirect("/tasks");
   const { error } = await supabase.from("tasks").insert(taskPayload(formData));
@@ -956,6 +981,44 @@ export async function updateTaskStatusInlineAction(id: string, formData: FormDat
   refreshAll();
 }
 
+async function sendTaskToDesign(id: string) {
+  const supabase = supabaseOrError();
+  const profile = await currentOperationalProfile();
+  const { data: task, error: readError } = await supabase
+    .from("tasks")
+    .select("*, clients(*)")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (readError) throw new Error(readError.message);
+  if (!task) throw new Error("Tarefa não encontrada.");
+  if (task.status === "archived") {
+    throw new Error("Tarefas arquivadas não podem ser enviadas para Design.");
+  }
+  if (assigneeIncludesDesign(task.assignee_name)) return task as Task;
+
+  const priority = task.priority && String(task.priority).trim() ? task.priority : "normal";
+  const { data, error } = await supabase
+    .from("tasks")
+    .update({
+      assignee_name: "Carlota",
+      status: "todo" as TaskStatus,
+      priority: priority as TaskPriority,
+      notes: appendDesignHandoffNote(task.notes, profile.name, new Date()),
+    })
+    .eq("id", id)
+    .select("*, clients(*)")
+    .single();
+
+  if (error) throw new Error(error.message);
+  refreshAll();
+  return data as Task;
+}
+
+export async function sendTaskToDesignInlineAction(id: string) {
+  return sendTaskToDesign(id);
+}
+
 export async function archiveTaskInlineAction(id: string) {
   const supabase = supabaseOrError();
   const { error } = await supabase.from("tasks").update({ status: "archived" }).eq("id", id);
@@ -970,6 +1033,11 @@ export async function updateTaskAction(id: string, formData: FormData) {
 
   if (error) throw new Error(error.message);
   refreshAll();
+  redirect("/tasks");
+}
+
+export async function sendTaskToDesignAction(id: string) {
+  await sendTaskToDesign(id);
   redirect("/tasks");
 }
 

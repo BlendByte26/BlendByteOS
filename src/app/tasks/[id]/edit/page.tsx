@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { deleteTaskAction, updateTaskAction } from "@/lib/actions";
+import { Send } from "lucide-react";
+import { deleteTaskAction, sendTaskToDesignAction, updateTaskAction } from "@/lib/actions";
 import { getClients, getTask, getTeamMembers } from "@/lib/data";
 import { ConfirmSubmitForm } from "@/components/confirm-submit-form";
 import { FormFrame, TaskForm } from "@/components/forms";
@@ -9,9 +10,17 @@ type Props = {
   params: Promise<{ id: string }>;
 };
 
+function isAssignedToDesign(assigneeName: string | null) {
+  return assigneeName
+    ?.split(",")
+    .map((item) => item.trim().toLowerCase())
+    .includes("carlota") ?? false;
+}
+
 export default async function EditTaskPage({ params }: Props) {
   const { id } = await params;
   const [clients, teamMembers, task] = await Promise.all([getClients(), getTeamMembers(), getTask(id)]);
+  const showDesignHandoff = task ? task.status !== "archived" && !isAssignedToDesign(task.assignee_name) : false;
 
   if (!task) notFound();
 
@@ -24,6 +33,21 @@ export default async function EditTaskPage({ params }: Props) {
         </div>
       ) : null}
       <FormFrame title="Dados da tarefa">
+        {showDesignHandoff ? (
+          <ConfirmSubmitForm
+            action={sendTaskToDesignAction.bind(null, task.id)}
+            message="Enviar esta tarefa para a Carlota/Design?"
+            className="mb-4 flex justify-end"
+          >
+            <button
+              type="submit"
+              className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[var(--bb-border)] bg-white/70 px-4 text-sm font-extrabold text-[var(--bb-charcoal)] transition hover:border-[rgba(83,183,223,0.42)] hover:bg-[var(--bb-primary-soft)]"
+            >
+              <Send className="size-4" aria-hidden="true" />
+              Enviar para Design
+            </button>
+          </ConfirmSubmitForm>
+        ) : null}
         <TaskForm
           action={updateTaskAction.bind(null, task.id)}
           clients={clients}

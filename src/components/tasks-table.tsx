@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Archive, ClipboardList, Pencil, Trash2, X } from "lucide-react";
+import { Archive, ClipboardList, Pencil, Send, Trash2, X } from "lucide-react";
 import { ClientBadge } from "@/components/client-badge";
 import { TaskForm } from "@/components/forms";
 import { SelectField } from "@/components/select-field";
@@ -16,6 +16,7 @@ import { taskStatuses, type Client, type Task, type TaskStatus, type TeamMember 
 
 type UpdateTaskAction = (id: string, formData: FormData) => void | Promise<void>;
 type UpdateTaskStatusAction = (id: string, formData: FormData) => void | Promise<void>;
+type SendToDesignAction = (id: string) => Promise<Task>;
 type ArchiveTaskAction = (id: string) => void | Promise<void>;
 type DeleteTaskAction = (id: string) => void | Promise<void>;
 type TasksView = "all" | "today" | "week" | "archived";
@@ -29,6 +30,7 @@ type TasksTableProps = {
   canPersist: boolean;
   updateTaskAction: UpdateTaskAction;
   updateStatusAction: UpdateTaskStatusAction;
+  sendToDesignAction: SendToDesignAction;
   archiveTaskAction: ArchiveTaskAction;
   deleteTaskAction: DeleteTaskAction;
 };
@@ -141,6 +143,17 @@ function taskBelongsInView(task: Task, view: TasksView) {
   return task.status !== "archived";
 }
 
+function isAssignedToDesign(assigneeName: string | null) {
+  return assigneeName
+    ?.split(",")
+    .map((item) => item.trim().toLowerCase())
+    .includes("carlota") ?? false;
+}
+
+function canSendToDesign(task: Task) {
+  return task.status !== "archived" && !isAssignedToDesign(task.assignee_name);
+}
+
 function TaskStatusControl({
   task,
   view,
@@ -220,6 +233,7 @@ export function TasksTable({
   canPersist,
   updateTaskAction,
   updateStatusAction,
+  sendToDesignAction,
   archiveTaskAction,
   deleteTaskAction,
 }: TasksTableProps) {
@@ -310,6 +324,33 @@ export function TasksTable({
     }
   }
 
+  async function sendTaskToDesign(task: Task) {
+    if (!canPersist) {
+      setTableError("Modo demo: configure o Supabase para enviar tarefas para Design.");
+      return;
+    }
+
+    const confirmed = window.confirm("Enviar esta tarefa para a Carlota/Design?");
+    if (!confirmed) return;
+
+    setTableError(null);
+    setSaveMessage("A enviar para Design...");
+    try {
+      const updatedTask = await sendToDesignAction(task.id);
+      setLocalTasks((current) =>
+        current.map((item) => (item.id === updatedTask.id ? updatedTask : item)),
+      );
+      if (editing?.id === updatedTask.id) setEditing(updatedTask);
+      setSaveMessage("Enviado para Design.");
+      router.refresh();
+    } catch (error) {
+      console.error("Erro ao enviar tarefa para Design", error);
+      const message = error instanceof Error ? error.message : "Não foi possível enviar para Design.";
+      setTableError(message);
+      setSaveMessage(message);
+    }
+  }
+
   function applyStatusChange(taskId: string, status: TaskStatus, visible: boolean) {
     setLocalTasks((current) => {
       const updated = current.map((task) => (task.id === taskId ? { ...task, status } : task));
@@ -358,6 +399,7 @@ export function TasksTable({
                     colorKey: task.clients?.color_key,
                   });
                   const isArchived = task.status === "archived";
+                  const showDesignHandoff = canSendToDesign(task);
 
                   return (
                     <tr key={task.id} className="odd:bg-white/18">
@@ -422,6 +464,11 @@ export function TasksTable({
                           >
                             <Pencil className="size-4" aria-hidden="true" />
                           </ActionButton>
+                          {showDesignHandoff ? (
+                            <ActionButton label="Enviar para Design" onClick={() => sendTaskToDesign(task)}>
+                              <Send className="size-4" aria-hidden="true" />
+                            </ActionButton>
+                          ) : null}
                           {isArchived ? (
                             <form action={() => deleteTask(task.id)}>
                               <ActionButton label="Apagar" tone="danger">
@@ -457,6 +504,18 @@ export function TasksTable({
           {saveMessage ? (
             <div className="mb-4 rounded-[16px] border border-[var(--bb-border)] bg-white/55 px-4 py-3 text-sm font-bold text-[var(--bb-muted)]">
               {saveMessage}
+            </div>
+          ) : null}
+          {canSendToDesign(editing) ? (
+            <div className="mb-4 flex justify-end">
+              <button
+                type="button"
+                onClick={() => sendTaskToDesign(editing)}
+                className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[var(--bb-border)] bg-white/70 px-4 text-sm font-extrabold text-[var(--bb-charcoal)] transition hover:border-[rgba(83,183,223,0.42)] hover:bg-[var(--bb-primary-soft)]"
+              >
+                <Send className="size-4" aria-hidden="true" />
+                Enviar para Design
+              </button>
             </div>
           ) : null}
           <TaskForm
