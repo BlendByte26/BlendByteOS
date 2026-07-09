@@ -270,6 +270,7 @@ function ContentMiniCard({
     clientCode: item.clients?.client_code,
     clientName: item.clients?.name,
     shortName: item.clients?.short_name,
+    colorKey: item.clients?.color_key,
   });
   const missing = attentionFields(item);
   const attention = item.is_blocked || missing.length ? attentionLabel(item, missing) : null;
@@ -286,6 +287,7 @@ function ContentMiniCard({
             clientCode={item.clients.client_code}
             clientName={item.clients.name}
             shortName={item.clients.short_name}
+            colorKey={item.clients.color_key}
             variant="compact"
           />
         ) : (
@@ -401,15 +403,21 @@ function capitalize(value: string) {
 
 function MonthEvent({ item }: { item: ContentItem }) {
   const time = formatTime(item.publish_time);
+  const clientToken = getClientVisualToken({
+    clientCode: item.clients?.client_code,
+    clientName: item.clients?.name,
+    shortName: item.clients?.short_name,
+    colorKey: item.clients?.color_key,
+  });
 
   return (
     <Link
       href={`/content/${item.id}/edit`}
       title={`${time ? `${time} · ` : ""}${contentTitle(item)} · ${clientLabel(item)} · ${item.platform || "Sem plataforma"} · ${contentStatusLabels[item.status]}`}
-      className="block min-w-0 rounded-md px-1.5 py-1 text-left transition hover:bg-[var(--bb-primary-soft)]"
+      className={`block min-w-0 rounded-md border border-transparent px-1.5 py-1 text-left transition hover:border-current ${clientToken.bg} ${clientToken.text}`}
     >
-      <div className="flex min-w-0 items-center gap-1.5 text-[11px] font-extrabold leading-4 text-[var(--bb-charcoal)]">
-        <span className="size-1.5 shrink-0 rounded-full bg-[var(--bb-primary)]" />
+      <div className="flex min-w-0 items-center gap-1.5 text-[11px] font-extrabold leading-4">
+        <span className={`size-1.5 shrink-0 rounded-full ${clientToken.dot}`} />
         {time ? <span className="shrink-0 tabular-nums">{time}</span> : null}
         <span className="truncate">{contentTitle(item)}</span>
       </div>
@@ -422,9 +430,15 @@ function MonthEvent({ item }: { item: ContentItem }) {
 
 function AgendaItem({ item, compact = false }: { item: ContentItem; compact?: boolean }) {
   const time = formatTime(item.publish_time);
+  const clientToken = getClientVisualToken({
+    clientCode: item.clients?.client_code,
+    clientName: item.clients?.name,
+    shortName: item.clients?.short_name,
+    colorKey: item.clients?.color_key,
+  });
 
   return (
-    <article className="grid gap-2 rounded-lg border border-[var(--bb-border)] bg-white/62 px-3 py-2.5">
+    <article className={`grid gap-2 rounded-lg border border-l-4 px-3 py-2.5 ${clientToken.bg} ${clientToken.border} ${clientToken.borderStrong}`}>
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         <span className="min-w-[3.25rem] text-xs font-extrabold tabular-nums text-[var(--bb-charcoal)]">
           {time ?? "Sem hora"}
@@ -456,10 +470,17 @@ function AgendaItem({ item, compact = false }: { item: ContentItem; compact?: bo
 }
 
 function UnscheduledItem({ item }: { item: ContentItem }) {
+  const clientToken = getClientVisualToken({
+    clientCode: item.clients?.client_code,
+    clientName: item.clients?.name,
+    shortName: item.clients?.short_name,
+    colorKey: item.clients?.color_key,
+  });
+
   return (
     <Link
       href={`/content/${item.id}/edit`}
-      className="block min-w-0 rounded-md border border-[var(--bb-border)] bg-white/62 px-2.5 py-2 text-left transition hover:bg-[var(--bb-primary-soft)]"
+      className={`block min-w-0 rounded-md border border-l-4 px-2.5 py-2 text-left transition hover:bg-white/82 ${clientToken.bg} ${clientToken.border} ${clientToken.borderStrong}`}
     >
       <div className="truncate text-xs font-extrabold text-[var(--bb-charcoal)]">{contentTitle(item)}</div>
       <div className="mt-0.5 truncate text-[11px] font-bold text-[var(--bb-muted)]">

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Plus } from "lucide-react";
+import { ListPlus, Plus } from "lucide-react";
+import type { MouseEvent } from "react";
 import type { OperationalProfile } from "@/lib/operational-profiles";
 
 const navItems = [
@@ -32,6 +33,16 @@ export function TopNav({ profile }: { profile: OperationalProfile | null }) {
   const rawAction = pageActions[pathname];
   const action = rawAction && (pathname !== "/team" || profile?.key === "guilherme") ? rawAction : null;
   const showProfileControls = isDashboard && profile;
+  const bulkContentHref = pathname === "/content" ? "/content?bulk=1" : null;
+
+  function openBulkContent(event: MouseEvent<HTMLAnchorElement>) {
+    if (typeof window === "undefined") return;
+
+    event.preventDefault();
+    const params = new URLSearchParams(window.location.search);
+    params.set("bulk", "1");
+    window.location.assign(`/content?${params.toString()}`);
+  }
 
   return (
     <header className="sticky top-0 z-30 border-b border-[rgba(0,0,0,0.04)] bg-[rgba(247,247,242,0.82)] px-4 py-4 backdrop-blur-xl md:px-6">
@@ -78,6 +89,16 @@ export function TopNav({ profile }: { profile: OperationalProfile | null }) {
                 Trocar perfil
               </Link>
             </div>
+          ) : null}
+          {bulkContentHref ? (
+            <Link
+              href={bulkContentHref}
+              onClick={openBulkContent}
+              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--bb-border)] bg-white/65 px-4 text-sm font-bold text-[var(--bb-charcoal)] shadow-[0_12px_28px_rgba(0,0,0,0.07)] transition duration-200 hover:bg-[var(--bb-primary-hover)]"
+            >
+              <ListPlus className="size-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Criar em lote</span>
+            </Link>
           ) : null}
           {action ? (
             <Link

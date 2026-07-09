@@ -1,8 +1,22 @@
 import { notFound } from "next/navigation";
-import { deleteContentAction, updateContentAction } from "@/lib/actions";
-import { getClients, getContentItem, getTeamMembers } from "@/lib/data";
-import { ContentForm, FormFrame } from "@/components/forms";
+import { cookies } from "next/headers";
+import {
+  createContentCommentAction,
+  deleteContentAction,
+  deleteContentCommentAction,
+  listContentCommentsAction,
+  updateContentAction,
+} from "@/lib/actions";
+import { getClients, getContentComments, getContentItem, getTeamMembers } from "@/lib/data";
+import { ContentEditorTabs } from "@/components/content-editor-tabs";
+import { FormFrame } from "@/components/forms";
 import { PageHeader } from "@/components/ui";
+import {
+  OPERATIONAL_PROFILE_COOKIE,
+  fallbackOperationalProfile,
+  getOperationalProfile,
+} from "@/lib/operational-profiles";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -10,10 +24,15 @@ type Props = {
 
 export default async function EditContentPage({ params }: Props) {
   const { id } = await params;
-  const [clients, teamMembers, item] = await Promise.all([
+  const cookieStore = await cookies();
+  const activeProfile =
+    getOperationalProfile(cookieStore.get(OPERATIONAL_PROFILE_COOKIE)?.value) ??
+    fallbackOperationalProfile();
+  const [clients, teamMembers, item, comments] = await Promise.all([
     getClients(),
     getTeamMembers(),
     getContentItem(id),
+    getContentComments(id),
   ]);
 
   if (!item) notFound();
@@ -26,19 +45,27 @@ export default async function EditContentPage({ params }: Props) {
           Bloqueado: {item.blocker_reason ?? "Motivo do bloqueio por adicionar"}
         </div>
       ) : null}
-      <FormFrame title="Dados do conteúdo">
-        <ContentForm
-          action={updateContentAction.bind(null, item.id)}
+      <FormFrame title="Editar conteúdo">
+        <ContentEditorTabs
+          item={item}
           clients={clients}
           teamMembers={teamMembers}
-          item={item}
+          activeProfile={activeProfile}
+          canPersist={isSupabaseConfigured()}
+          contentAction={updateContentAction.bind(null, item.id)}
           submitLabel="Guardar alterações"
+          initialComments={comments}
+          listCommentsAction={listContentCommentsAction}
+          createCommentAction={createContentCommentAction}
+          deleteCommentAction={deleteContentCommentAction}
+          footer={
+            <form action={deleteContentAction.bind(null, item.id)} className="mt-4 border-t border-[var(--bb-border)] pt-4">
+              <button type="submit" className="rounded-full px-3 py-1.5 text-sm font-bold text-[#8f2415] transition hover:bg-[var(--bb-red-soft)]">
+                Apagar conteúdo
+              </button>
+            </form>
+          }
         />
-        <form action={deleteContentAction.bind(null, item.id)} className="mt-4 border-t border-[var(--bb-border)] pt-4">
-          <button type="submit" className="rounded-full px-3 py-1.5 text-sm font-bold text-[#8f2415] transition hover:bg-[var(--bb-red-soft)]">
-            Apagar conteúdo
-          </button>
-        </form>
       </FormFrame>
     </>
   );

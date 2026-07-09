@@ -73,6 +73,7 @@ export default async function ClientDetailPage({ params }: Props) {
     clientCode: client.client_code,
     clientName: client.name,
     shortName: client.short_name,
+    colorKey: client.color_key,
   });
 
   return (
@@ -88,6 +89,7 @@ export default async function ClientDetailPage({ params }: Props) {
                   clientName={client.name}
                   shortName={client.short_name}
                   logoUrl={client.logo_url}
+                  colorKey={client.color_key}
                   variant="header"
                 />
                 <Badge value={client.status} label={clientStatusLabels[client.status]} />

@@ -1,11 +1,26 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
+import { BulkContentModal } from "@/components/bulk-content-modal";
 import { ContentTable } from "@/components/content-table";
 import { ContentCalendarView, ContentPipelineView } from "@/components/content-views";
 import { ContentFiltersBar } from "@/components/live-filters";
-import { deleteContentInlineAction, updateContentInlineAction, updateContentStatusAction } from "@/lib/actions";
+import {
+  bulkCreateContentAction,
+  createContentCommentAction,
+  deleteContentCommentAction,
+  deleteContentInlineAction,
+  listContentCommentsAction,
+  updateContentInlineAction,
+  updateContentStatusAction,
+} from "@/lib/actions";
 import { getClientLabel } from "@/lib/client-display";
 import { getClients, getContentItems, getTeamMembers, uniqueValues } from "@/lib/data";
 import { contentStatusLabels } from "@/lib/labels";
+import {
+  OPERATIONAL_PROFILE_COOKIE,
+  fallbackOperationalProfile,
+  getOperationalProfile,
+} from "@/lib/operational-profiles";
 import { parseContentStatusParam } from "@/lib/smart-links";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import type { ContentItem } from "@/lib/types";
@@ -76,8 +91,13 @@ function hrefForView(params: Record<string, string | string[] | undefined>, view
 
 export default async function ContentPage({ searchParams }: Props) {
   const params = (await searchParams) ?? {};
+  const cookieStore = await cookies();
+  const activeProfile =
+    getOperationalProfile(cookieStore.get(OPERATIONAL_PROFILE_COOKIE)?.value) ??
+    fallbackOperationalProfile();
   const currentView = parseView(valueOf(params, "view"));
   const attention = isAttentionParam(valueOf(params, "attention"));
+  const bulkOpen = valueOf(params, "bulk") === "1";
   const status = parseContentStatusParam(valueOf(params, "status"));
   const filters = {
     assignee: valueOf(params, "assignee") ?? valueOf(params, "owner") ?? "",
@@ -172,12 +192,26 @@ export default async function ContentPage({ searchParams }: Props) {
           items={items}
           clients={clients}
           teamMembers={teamMembers}
+          activeProfile={activeProfile}
           canPersist={isSupabaseConfigured()}
           updateContentAction={updateContentInlineAction}
           updateStatusAction={updateContentStatusAction}
           deleteContentAction={deleteContentInlineAction}
+          listCommentsAction={listContentCommentsAction}
+          createCommentAction={createContentCommentAction}
+          deleteCommentAction={deleteContentCommentAction}
         />
       ) : null}
+
+      <BulkContentModal
+        action={bulkCreateContentAction}
+        clients={clients}
+        teamMembers={teamMembers}
+        canPersist={isSupabaseConfigured()}
+        defaultClientId={filters.client}
+        defaultMonth={filters.month}
+        initialOpen={bulkOpen}
+      />
     </>
   );
 }

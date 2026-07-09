@@ -5,7 +5,14 @@ import { QuickTodosPanel } from "@/components/quick-todos";
 import { Badge, ExternalLink, Panel } from "@/components/ui";
 import { APP_ACCESS_VIEW_COOKIE, isAppAccessView } from "@/lib/app-access";
 import { getClientVisualToken } from "@/lib/client-visuals";
-import { getClients, getContentItems, getQuickTodos, getTasks } from "@/lib/data";
+import {
+  getClients,
+  getContentItems,
+  getMentionedContentComments,
+  getQuickNotes,
+  getQuickTodos,
+  getTasks,
+} from "@/lib/data";
 import {
   contentStatusLabels,
   taskPriorityLabels,
@@ -19,7 +26,7 @@ import {
   fallbackOperationalProfile,
   getOperationalProfile,
 } from "@/lib/operational-profiles";
-import type { Client, ContentItem, Task } from "@/lib/types";
+import type { Client, ContentItem, ContentMention, Task } from "@/lib/types";
 
 type Props = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -93,6 +100,24 @@ function compactDate(value: string | null) {
   const [year, month, day] = value.split("-");
   if (!year || !month || !day) return value;
   return `${day}/${month}`;
+}
+
+function compactDateTime(value: string | null) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat("pt-PT", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function excerpt(value: string, maxLength = 110) {
+  const compact = value.replace(/\s+/g, " ").trim();
+  return compact.length > maxLength ? `${compact.slice(0, maxLength - 1)}…` : compact;
 }
 
 function sortByDate(a: string | null, b: string | null) {
@@ -343,8 +368,10 @@ export default async function DashboardPage({ searchParams }: Props) {
     getContentItems(),
     getTasks(),
   ]);
-  const [quickTodos] = await Promise.all([
+  const [quickTodos, quickNotes, mentionedComments] = await Promise.all([
     getQuickTodos(currentView, currentProfile.key),
+    getQuickNotes(currentView, currentProfile.key),
+    getMentionedContentComments(currentProfile.key, 5),
   ]);
   const clientsById = new Map(clients.map((client) => [client.id, client]));
   const activeTasks = tasks.filter(isActiveTask);
@@ -421,7 +448,10 @@ export default async function DashboardPage({ searchParams }: Props) {
         view={currentView}
         profile={currentProfile}
         todos={quickTodos}
+        notes={quickNotes}
       />
+
+      <MentionsPanel mentions={mentionedComments} />
 
       {currentView === "design" ? (
         <DesignView
@@ -442,6 +472,61 @@ export default async function DashboardPage({ searchParams }: Props) {
         />
       )}
     </>
+  );
+}
+
+function MentionsPanel({ mentions }: { mentions: ContentMention[] }) {
+  return (
+    <div className="mt-3">
+      <DashboardBlock title="Menções">
+        {mentions.length ? (
+          <div className="grid gap-1.5 md:grid-cols-2 xl:grid-cols-5">
+            {mentions.map((mention) => {
+              const content = mention.content_items;
+              const client = content?.clients ?? null;
+              const clientToken = getClientVisualToken({
+                clientCode: client?.client_code,
+                clientName: client?.name,
+                shortName: client?.short_name,
+                colorKey: client?.color_key,
+              });
+              const title = content ? cleanPrefixedTitle(content.title, client) : "Conteúdo";
+
+              return (
+                <div
+                  key={mention.id}
+                  className={`rounded-[14px] border border-l-4 border-[var(--bb-border)] bg-white/58 px-3 py-2 ${clientToken.borderStrong}`}
+                >
+                  <div className="mb-1 flex flex-wrap items-center gap-1.5 text-[11px] font-extrabold text-[var(--bb-muted)]">
+                    <span className="text-[var(--bb-charcoal)]">{mention.author_name}</span>
+                    <span>·</span>
+                    <span>{compactDateTime(mention.created_at)}</span>
+                  </div>
+                  <p className="bb-line-clamp-2 text-sm font-bold leading-5 text-[var(--bb-charcoal)]">
+                    {excerpt(mention.body)}
+                  </p>
+                  <div className="mt-2 grid gap-1 text-xs font-bold text-[var(--bb-muted)]">
+                    <span className="bb-line-clamp-1">{title}</span>
+                    {client ? (
+                      <span className={`inline-flex w-fit items-center rounded-full px-2 py-0.5 ${clientToken.bg} ${clientToken.text}`}>
+                        {client.short_name ?? client.client_code ?? client.name}
+                      </span>
+                    ) : null}
+                  </div>
+                  {content ? (
+                    <div className="mt-2">
+                      <ActionLink href={`/content/${content.id}/edit`} label="Abrir" />
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <CompactEmpty title="Sem menções por agora." />
+        )}
+      </DashboardBlock>
+    </div>
   );
 }
 
@@ -817,7 +902,7 @@ function SmallLink({ href, children }: { href: string; children: React.ReactNode
 function ClientLink({
   client,
 }: {
-  client: Pick<Client, "id" | "name" | "client_code" | "short_name" | "logo_url"> | null;
+  client: Pick<Client, "id" | "name" | "client_code" | "short_name" | "logo_url" | "color_key"> | null;
 }) {
   if (!client) return <span>-</span>;
 
@@ -828,6 +913,7 @@ function ClientLink({
       clientName={client.name}
       shortName={client.short_name}
       logoUrl={client.logo_url}
+      colorKey={client.color_key}
       href={`/clients/${client.id}`}
       variant="pill"
       className="max-w-[220px]"
@@ -914,6 +1000,7 @@ function QueueItem({
     clientCode: client?.client_code,
     clientName: client?.name,
     shortName: client?.short_name,
+    colorKey: client?.color_key,
   });
 
   return (
@@ -970,6 +1057,7 @@ function TaskCard({
     clientCode: client?.client_code,
     clientName: client?.name,
     shortName: client?.short_name,
+    colorKey: client?.color_key,
   });
 
   return (
@@ -1028,6 +1116,7 @@ function ContentCard({
     clientCode: client?.client_code,
     clientName: client?.name,
     shortName: client?.short_name,
+    colorKey: client?.color_key,
   });
 
   return (

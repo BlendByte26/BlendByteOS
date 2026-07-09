@@ -5,25 +5,42 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Copy, FileText, Pencil, Trash2, X } from "lucide-react";
 import { ClientBadge } from "@/components/client-badge";
+import { ContentEditorTabs } from "@/components/content-editor-tabs";
 import { ContentStatusControl } from "@/components/content-status-control";
-import { ContentForm } from "@/components/forms";
 import { EmptyState, ExternalLink, Panel, TableWrap } from "@/components/ui";
 import { getClientVisualToken } from "@/lib/client-visuals";
 import { cleanPrefixedTitle } from "@/lib/title-display";
-import type { Client, ContentItem, TeamMember } from "@/lib/types";
+import type { OperationalProfile } from "@/lib/operational-profiles";
+import type { Client, ContentComment, ContentItem, TeamMember } from "@/lib/types";
 
 type ContentFormAction = (id: string, formData: FormData) => void | Promise<void>;
 type DeleteContentAction = (id: string) => void | Promise<void>;
 type ModalSection = "general" | "brief" | "copy" | "workflow" | "links";
+type ListContentCommentsAction = (contentId: string) => Promise<
+  | { ok: true; comments: ContentComment[] }
+  | { ok: false; message: string }
+>;
+type ContentCommentAction = (formData: FormData) => Promise<
+  | { ok: true; comment?: ContentComment }
+  | { ok: false; message: string }
+>;
+type DeleteContentCommentAction = (commentId: string) => Promise<
+  | { ok: true; comment?: ContentComment }
+  | { ok: false; message: string }
+>;
 
 type ContentTableProps = {
   items: ContentItem[];
   clients: Client[];
   teamMembers: TeamMember[];
+  activeProfile: OperationalProfile;
   canPersist: boolean;
   updateContentAction: ContentFormAction;
   updateStatusAction: ContentFormAction;
   deleteContentAction: DeleteContentAction;
+  listCommentsAction: ListContentCommentsAction;
+  createCommentAction: ContentCommentAction;
+  deleteCommentAction: DeleteContentCommentAction;
 };
 
 function displayTitle(item: ContentItem) {
@@ -155,10 +172,14 @@ export function ContentTable({
   items,
   clients,
   teamMembers,
+  activeProfile,
   canPersist,
   updateContentAction,
   updateStatusAction,
   deleteContentAction,
+  listCommentsAction,
+  createCommentAction,
+  deleteCommentAction,
 }: ContentTableProps) {
   const router = useRouter();
   const [localItems, setLocalItems] = useState(items);
@@ -262,6 +283,7 @@ export function ContentTable({
                     clientCode: item.clients?.client_code,
                     clientName: item.clients?.name,
                     shortName: item.clients?.short_name,
+                    colorKey: item.clients?.color_key,
                   });
 
                   return (
@@ -274,6 +296,7 @@ export function ContentTable({
                             clientCode={item.clients.client_code}
                             clientName={item.clients.name}
                             shortName={item.clients.short_name}
+                            colorKey={item.clients.color_key}
                             variant="compact"
                           />
                         ) : (
@@ -383,12 +406,18 @@ export function ContentTable({
                   {saveMessage}
                 </div>
               ) : null}
-              <ContentForm
-                action={saveContent}
+              <ContentEditorTabs
+                item={editing.item}
                 clients={clients}
                 teamMembers={teamMembers}
-                item={editing.item}
+                activeProfile={activeProfile}
+                canPersist={canPersist}
+                contentAction={saveContent}
                 submitLabel="Guardar alterações"
+                initialComments={[]}
+                listCommentsAction={listCommentsAction}
+                createCommentAction={createCommentAction}
+                deleteCommentAction={deleteCommentAction}
                 onCancel={() => setEditing(null)}
               />
             </div>

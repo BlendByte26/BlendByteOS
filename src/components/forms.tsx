@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 import { DatePicker, MonthPicker, TimePicker } from "@/components/date-picker";
 import { SelectField, type SelectOption } from "@/components/select-field";
 import { getClientLabel } from "@/lib/client-display";
+import { clientColorLabels, getClientVisualToken } from "@/lib/client-visuals";
 import {
   clientStatusLabels,
   clientTypeLabels,
@@ -15,6 +16,7 @@ import {
 import {
   clientStatuses,
   clientTypes,
+  clientColorKeys,
   serviceTypes,
   contentStatuses,
   taskStatuses,
@@ -270,6 +272,30 @@ export function ClientForm({
           Upload de logo será suportado numa fase seguinte.
         </span>
       </label>
+      <div className={labelClass}>
+        Cor operacional
+        <div className="grid gap-2 rounded-[18px] border border-[var(--bb-border)] bg-white/35 p-3 sm:grid-cols-2 lg:grid-cols-4">
+          {clientColorKeys.map((colorKey) => {
+            const token = getClientVisualToken({ colorKey });
+
+            return (
+              <label key={colorKey} className="group cursor-pointer">
+                <input
+                  name="color_key"
+                  type="radio"
+                  value={colorKey}
+                  defaultChecked={(client?.color_key ?? "slate") === colorKey}
+                  className="peer sr-only"
+                />
+                <span className={`flex min-h-10 items-center gap-2 rounded-full border px-3 text-xs font-extrabold transition duration-200 ${token.bg} ${token.border} ${token.text} peer-checked:border-[var(--bb-black)] peer-checked:ring-2 peer-checked:ring-[var(--bb-black)]/10 group-hover:bg-white`}>
+                  <span className={`size-2.5 rounded-full ${token.dot}`} />
+                  {clientColorLabels[colorKey]}
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      </div>
       <div className="grid gap-4 md:grid-cols-2">
         <label className={labelClass}>
           Responsável interno
@@ -562,10 +588,7 @@ export function ContentForm({
           </label>
         </div>
       </div>
-      <label className={labelClass}>
-        Notas internas
-        <textarea name="internal_review_notes" defaultValue={item?.internal_review_notes ?? ""} className={textAreaClass} />
-      </label>
+      <input type="hidden" name="internal_review_notes" value={item?.internal_review_notes ?? ""} />
       <div data-content-section="workflow" className="rounded-[20px] border border-[var(--bb-border)] bg-white/35 p-4">
         <label className="flex items-center gap-3 text-sm font-extrabold text-[var(--bb-charcoal)]">
           <input

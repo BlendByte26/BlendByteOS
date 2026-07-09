@@ -2,6 +2,20 @@ import type { OperationalProfileKey } from "./operational-profiles";
 
 export const clientTypes = ["internal", "external", "grupo_investe", "partner"] as const;
 export const clientStatuses = ["setup", "active", "paused", "archived"] as const;
+export const clientColorKeys = [
+  "slate",
+  "blue",
+  "cyan",
+  "green",
+  "emerald",
+  "lime",
+  "yellow",
+  "orange",
+  "red",
+  "pink",
+  "purple",
+  "violet",
+] as const;
 export const serviceTypes = [
   "Gestão de Redes Sociais",
   "Marketing de Performance",
@@ -34,6 +48,7 @@ export const taskPriorities = ["low", "normal", "urgent"] as const;
 
 export type ClientType = (typeof clientTypes)[number];
 export type ClientStatus = (typeof clientStatuses)[number];
+export type ClientColorKey = (typeof clientColorKeys)[number];
 export type ServiceType = (typeof serviceTypes)[number];
 export type ContentStatus = (typeof contentStatuses)[number];
 export type TaskStatus = (typeof taskStatuses)[number];
@@ -52,6 +67,7 @@ export type Client = {
   short_name: string | null;
   display_order: number | null;
   logo_url: string | null;
+  color_key: ClientColorKey | null;
   type: ClientType;
   status: ClientStatus;
   owner_name: string | null;
@@ -179,7 +195,24 @@ export type ContentItem = {
   notes: string | null;
   created_at: string;
   updated_at: string;
-  clients?: Pick<Client, "id" | "name" | "client_code" | "short_name" | "display_order" | "logo_url"> | null;
+  clients?: Pick<Client, "id" | "name" | "client_code" | "short_name" | "display_order" | "logo_url" | "color_key"> | null;
+};
+
+export type ContentComment = {
+  id: string;
+  content_id: string;
+  author_profile_key: string;
+  author_name: string;
+  body: string;
+  mentioned_profile_keys: string[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type ContentMention = ContentComment & {
+  content_items?: Pick<ContentItem, "id" | "title" | "client_id"> & {
+    clients?: Pick<Client, "id" | "name" | "client_code" | "short_name" | "display_order" | "logo_url" | "color_key"> | null;
+  };
 };
 
 export type Task = {
@@ -197,7 +230,7 @@ export type Task = {
   notes: string | null;
   created_at: string;
   updated_at: string;
-  clients?: Pick<Client, "id" | "name" | "client_code" | "short_name" | "display_order" | "logo_url"> | null;
+  clients?: Pick<Client, "id" | "name" | "client_code" | "short_name" | "display_order" | "logo_url" | "color_key"> | null;
 };
 
 export type Option = {

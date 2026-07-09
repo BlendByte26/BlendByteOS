@@ -11,10 +11,16 @@ import {
   isOperationalProfileKey,
 } from "./operational-profiles";
 import { getSupabase } from "./supabase";
+import { clientColorKeys } from "./types";
 import type {
+  ClientColorKey,
   ClientStatus,
   ClientType,
+  ContentComment,
+  ContentItem,
   ContentStatus,
+  QuickNote,
+  QuickTodo,
   QuickTodoItemType,
   QuickTodoView,
   ServiceType,
@@ -27,6 +33,26 @@ import type {
 type CreateClientResult =
   | { ok: true; clientId: string }
   | { ok: false; message: string; clientId?: string };
+
+type QuickTodoActionResult =
+  | { ok: true; todo?: QuickTodo }
+  | { ok: false; message: string };
+
+type QuickNoteActionResult =
+  | { ok: true; note?: QuickNote }
+  | { ok: false; message: string };
+
+type BulkCreateContentResult =
+  | { ok: true; createdCount: number }
+  | { ok: false; message: string };
+
+type ContentCommentsResult =
+  | { ok: true; comments: ContentComment[] }
+  | { ok: false; message: string };
+
+type ContentCommentMutationResult =
+  | { ok: true; comment?: ContentComment }
+  | { ok: false; message: string };
 
 function text(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -45,6 +71,11 @@ function textList(formData: FormData, key: string) {
 
   const uniqueValues = Array.from(new Set(values));
   return uniqueValues.length ? uniqueValues.join(", ") : null;
+}
+
+function formDataStringAt(values: FormDataEntryValue[], index: number) {
+  const value = values[index];
+  return typeof value === "string" ? value.trim() : "";
 }
 
 function contentPlatformValue(formData: FormData) {
@@ -214,6 +245,30 @@ async function requireGuilhermeOperationalProfile() {
   }
 }
 
+async function currentOperationalProfile() {
+  const cookieStore = await cookies();
+  return (
+    getOperationalProfile(cookieStore.get(OPERATIONAL_PROFILE_COOKIE)?.value) ??
+    fallbackOperationalProfile()
+  );
+}
+
+function mentionedProfileKeys(formData: FormData) {
+  return Array.from(
+    new Set(
+      formData
+        .getAll("mentioned_profile_keys")
+        .filter((value): value is string => typeof value === "string")
+        .filter(isOperationalProfileKey),
+    ),
+  );
+}
+
+function clientColorKeyValue(formData: FormData): ClientColorKey {
+  const value = text(formData, "color_key");
+  return clientColorKeys.includes(value as ClientColorKey) ? (value as ClientColorKey) : "slate";
+}
+
 export async function createClientAction(formData: FormData): Promise<CreateClientResult> {
   const supabase = getSupabase();
 
@@ -231,6 +286,7 @@ export async function createClientAction(formData: FormData): Promise<CreateClie
       short_name: text(formData, "short_name"),
       display_order: await getNextClientDisplayOrder(supabase),
       logo_url: text(formData, "logo_url"),
+      color_key: clientColorKeyValue(formData),
       type: requiredText(formData, "type") as ClientType,
       status: requiredText(formData, "status") as ClientStatus,
       owner_name: text(formData, "owner_name"),
@@ -346,6 +402,7 @@ export async function updateClientAction(id: string, formData: FormData) {
       short_name: text(formData, "short_name"),
       display_order: numberValue(formData, "display_order"),
       logo_url: text(formData, "logo_url"),
+      color_key: clientColorKeyValue(formData),
       type: requiredText(formData, "type") as ClientType,
       status: requiredText(formData, "status") as ClientStatus,
       owner_name: text(formData, "owner_name"),
@@ -503,11 +560,18 @@ function contentPayload(formData: FormData) {
 }
 
 type ContentPayload = ReturnType<typeof contentPayload>;
+type ContentInsertPayload = Omit<ContentItem, "id" | "created_at" | "updated_at" | "clients">;
 
 function contentPayloadWithoutPublishTime(payload: ContentPayload) {
   const fallbackPayload: Partial<ContentPayload> = { ...payload };
   delete fallbackPayload.publish_time;
   return fallbackPayload as ContentPayload;
+}
+
+function contentInsertPayloadWithoutPublishTime(payload: ContentInsertPayload) {
+  const fallbackPayload: Partial<ContentInsertPayload> = { ...payload };
+  delete fallbackPayload.publish_time;
+  return fallbackPayload as ContentInsertPayload;
 }
 
 function isMissingPublishTimeColumnError(error: { message?: string; code?: string } | null) {
@@ -531,6 +595,203 @@ export async function createContentAction(formData: FormData) {
   }
   refreshAll();
   redirect("/content");
+}
+
+export async function bulkCreateContentAction(formData: FormData): Promise<BulkCreateContentResult> {
+  const supabase = getSupabase();
+
+  if (!supabase) {
+    return { ok: false, message: "Modo demo: configure o Supabase para criar conteúdos." };
+  }
+
+  const clientId = requiredText(formData, "client_id");
+  const month = requiredText(formData, "month");
+  const status = requiredText(formData, "status") as ContentStatus;
+  const globalAssignee = text(formData, "global_assignee_name");
+  const defaultPlatform = text(formData, "default_platform") ?? "Sem plataforma";
+  const defaultFormat = text(formData, "default_format");
+  const publishDates = formData.getAll("row_publish_date");
+  const publishTimes = formData.getAll("row_publish_time");
+  const platforms = formData.getAll("row_platform");
+  const formats = formData.getAll("row_format");
+  const titles = formData.getAll("row_title");
+  const assignees = formData.getAll("row_assignee_name");
+
+  const rowCount = Math.max(
+    publishDates.length,
+    publishTimes.length,
+    platforms.length,
+    formats.length,
+    titles.length,
+    assignees.length,
+  );
+
+  const payloads: ContentInsertPayload[] = [];
+
+  for (let index = 0; index < rowCount; index += 1) {
+    const title = formDataStringAt(titles, index);
+    const publishDate = formDataStringAt(publishDates, index);
+
+    if (!title && !publishDate) continue;
+
+    if (!title) {
+      return { ok: false, message: `A linha ${index + 1} precisa de título.` };
+    }
+
+    if (!publishDate) {
+      return { ok: false, message: `A linha ${index + 1} precisa de data de publicação.` };
+    }
+
+    const publishTime = formDataStringAt(publishTimes, index);
+    const platform = formDataStringAt(platforms, index);
+    const format = formDataStringAt(formats, index);
+    const assignee = formDataStringAt(assignees, index);
+
+    payloads.push({
+      client_id: clientId,
+      month,
+      publish_date: publishDate,
+      publish_time: publishTime || null,
+      design_due_date: null,
+      copy_due_date: null,
+      approval_due_date: null,
+      publishing_due_date: null,
+      design_status: null,
+      copy_status: null,
+      approval_status: null,
+      publishing_status: null,
+      needs_design: true,
+      needs_copy: true,
+      needs_client_approval: false,
+      platform: platform || defaultPlatform,
+      format: format || defaultFormat,
+      title,
+      creative_brief: null,
+      copy_text: null,
+      status,
+      assignee_name: assignee || globalAssignee,
+      media_url: null,
+      brief_url: null,
+      media_folder_url: null,
+      figma_url: null,
+      export_url: null,
+      delivery_url: null,
+      inspiration_url: null,
+      published_url: null,
+      internal_review_notes: null,
+      client_feedback: null,
+      is_blocked: false,
+      blocker_reason: null,
+      recording_date: null,
+      notes: null,
+    });
+  }
+
+  if (!payloads.length) {
+    return { ok: false, message: "Adicione pelo menos uma linha com data e título." };
+  }
+
+  const { error } = await supabase.from("content_items").insert(payloads);
+
+  if (isMissingPublishTimeColumnError(error)) {
+    const fallback = await supabase
+      .from("content_items")
+      .insert(payloads.map(contentInsertPayloadWithoutPublishTime));
+    if (fallback.error) return { ok: false, message: fallback.error.message };
+  } else if (error) {
+    return { ok: false, message: error.message };
+  }
+
+  refreshAll();
+  return { ok: true, createdCount: payloads.length };
+}
+
+export async function listContentCommentsAction(contentId: string): Promise<ContentCommentsResult> {
+  const supabase = getSupabase();
+
+  if (!supabase) {
+    return { ok: true, comments: [] };
+  }
+
+  const { data, error } = await supabase
+    .from("content_comments")
+    .select("*")
+    .eq("content_id", contentId)
+    .order("created_at", { ascending: true });
+
+  if (error) return { ok: false, message: error.message };
+  return { ok: true, comments: data as ContentComment[] };
+}
+
+export async function createContentCommentAction(formData: FormData): Promise<ContentCommentMutationResult> {
+  const supabase = getSupabase();
+
+  if (!supabase) {
+    return { ok: false, message: "Modo demo: configure o Supabase para comentar." };
+  }
+
+  const profile = await currentOperationalProfile();
+  const contentId = text(formData, "content_id");
+  const body = text(formData, "body");
+
+  if (!contentId) {
+    return { ok: false, message: "Conteúdo em falta para comentar." };
+  }
+
+  if (!body) {
+    return { ok: false, message: "Escreva um comentário antes de enviar." };
+  }
+
+  const { data, error } = await supabase
+    .from("content_comments")
+    .insert({
+      content_id: contentId,
+      author_profile_key: profile.key,
+      author_name: profile.name,
+      body,
+      mentioned_profile_keys: mentionedProfileKeys(formData),
+    })
+    .select("*")
+    .single();
+
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath("/content");
+  revalidatePath(`/content/${contentId}/edit`);
+  return { ok: true, comment: data as ContentComment };
+}
+
+export async function deleteContentCommentAction(commentId: string): Promise<ContentCommentMutationResult> {
+  const supabase = getSupabase();
+
+  if (!supabase) {
+    return { ok: false, message: "Modo demo: configure o Supabase para apagar comentários." };
+  }
+
+  const profile = await currentOperationalProfile();
+  const { data: comment, error: readError } = await supabase
+    .from("content_comments")
+    .select("*")
+    .eq("id", commentId)
+    .maybeSingle();
+
+  if (readError) return { ok: false, message: readError.message };
+  if (!comment) return { ok: false, message: "Comentário não encontrado." };
+
+  const canDelete =
+    profile.key === "guilherme" || comment.author_profile_key === profile.key;
+
+  if (!canDelete) {
+    return { ok: false, message: "Só o autor ou o Guilherme podem apagar este comentário." };
+  }
+
+  const { error } = await supabase.from("content_comments").delete().eq("id", commentId);
+
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath("/content");
+  revalidatePath(`/content/${comment.content_id}/edit`);
+  return { ok: true };
 }
 
 async function updateContent(id: string, formData: FormData) {
@@ -713,63 +974,100 @@ export async function createQuickTodoAction(formData: FormData) {
   const view = quickTodoViewValue(formData);
   const profileKey = quickProfileKeyValue(formData);
   const itemType = quickTodoItemTypeValue(formData);
-  const supabase = supabaseOrRedirect(`/?view=${view}`);
-  const { error } = await supabase.from("quick_todos").insert({
-    view,
-    profile_key: profileKey,
-    text: requiredText(formData, "text"),
-    item_type: itemType,
-    done: false,
-  });
+  const supabase = getSupabase();
 
-  if (error) throw new Error(error.message);
+  if (!supabase) {
+    return {
+      ok: false,
+      message: "Modo demo: configure o Supabase para gravar alterações.",
+    } satisfies QuickTodoActionResult;
+  }
+
+  const { data, error } = await supabase
+    .from("quick_todos")
+    .insert({
+      view,
+      profile_key: profileKey,
+      text: requiredText(formData, "text"),
+      item_type: itemType,
+      done: false,
+    })
+    .select("*")
+    .single();
+
+  if (error) return { ok: false, message: error.message };
   revalidatePath("/");
-  redirect(`/?view=${view}`);
+  return { ok: true, todo: data };
 }
 
 export async function toggleQuickTodoAction(id: string, formData: FormData) {
-  const view = quickTodoViewValue(formData);
   const profileKey = quickProfileKeyValue(formData);
-  const supabase = supabaseOrRedirect(`/?view=${view}`);
-  const { error } = await supabase
+  const supabase = getSupabase();
+
+  if (!supabase) {
+    return {
+      ok: false,
+      message: "Modo demo: configure o Supabase para gravar alterações.",
+    } satisfies QuickTodoActionResult;
+  }
+
+  const { data, error } = await supabase
     .from("quick_todos")
     .update({ done: checked(formData, "done") })
     .eq("id", id)
-    .eq("profile_key", profileKey);
+    .eq("profile_key", profileKey)
+    .select("*")
+    .single();
 
-  if (error) throw new Error(error.message);
+  if (error) return { ok: false, message: error.message };
   revalidatePath("/");
-  redirect(`/?view=${view}`);
+  return { ok: true, todo: data };
 }
 
 export async function updateQuickTodoAction(id: string, formData: FormData) {
-  const view = quickTodoViewValue(formData);
   const profileKey = quickProfileKeyValue(formData);
-  const supabase = supabaseOrRedirect(`/?view=${view}`);
-  const { error } = await supabase
+  const supabase = getSupabase();
+
+  if (!supabase) {
+    return {
+      ok: false,
+      message: "Modo demo: configure o Supabase para gravar alterações.",
+    } satisfies QuickTodoActionResult;
+  }
+
+  const { data, error } = await supabase
     .from("quick_todos")
     .update({ text: requiredText(formData, "text") })
     .eq("id", id)
-    .eq("profile_key", profileKey);
+    .eq("profile_key", profileKey)
+    .select("*")
+    .single();
 
-  if (error) throw new Error(error.message);
+  if (error) return { ok: false, message: error.message };
   revalidatePath("/");
-  redirect(`/?view=${view}`);
+  return { ok: true, todo: data };
 }
 
 export async function deleteQuickTodoAction(id: string, formData: FormData) {
-  const view = quickTodoViewValue(formData);
   const profileKey = quickProfileKeyValue(formData);
-  const supabase = supabaseOrRedirect(`/?view=${view}`);
+  const supabase = getSupabase();
+
+  if (!supabase) {
+    return {
+      ok: false,
+      message: "Modo demo: configure o Supabase para gravar alterações.",
+    } satisfies QuickTodoActionResult;
+  }
+
   const { error } = await supabase
     .from("quick_todos")
     .delete()
     .eq("id", id)
     .eq("profile_key", profileKey);
 
-  if (error) throw new Error(error.message);
+  if (error) return { ok: false, message: error.message };
   revalidatePath("/");
-  redirect(`/?view=${view}`);
+  return { ok: true };
 }
 
 export async function createQuickNoteAction(formData: FormData) {
@@ -785,6 +1083,56 @@ export async function createQuickNoteAction(formData: FormData) {
   if (error) throw new Error(error.message);
   revalidatePath("/");
   redirect(`/?view=${view}`);
+}
+
+export async function saveQuickNoteAction(formData: FormData) {
+  const view = quickTodoViewValue(formData);
+  const profileKey = quickProfileKeyValue(formData);
+  const noteId = text(formData, "note_id");
+  const noteText = String(formData.get("text") ?? "");
+  const trimmedNoteText = noteText.trim();
+  const supabase = getSupabase();
+
+  if (!supabase) {
+    return {
+      ok: false,
+      message: "Modo demo: configure o Supabase para gravar alterações.",
+    } satisfies QuickNoteActionResult;
+  }
+
+  if (!noteId && !trimmedNoteText) {
+    return { ok: true } satisfies QuickNoteActionResult;
+  }
+
+  if (noteId && !trimmedNoteText) {
+    const { error } = await supabase
+      .from("quick_notes")
+      .delete()
+      .eq("id", noteId)
+      .eq("profile_key", profileKey);
+
+    if (error) return { ok: false, message: error.message };
+    revalidatePath("/");
+    return { ok: true } satisfies QuickNoteActionResult;
+  }
+
+  const query = noteId
+    ? supabase
+        .from("quick_notes")
+        .update({ text: trimmedNoteText })
+        .eq("id", noteId)
+        .eq("profile_key", profileKey)
+    : supabase.from("quick_notes").insert({
+        view,
+        profile_key: profileKey,
+        text: trimmedNoteText,
+      });
+
+  const { data, error } = await query.select("*").single();
+
+  if (error) return { ok: false, message: error.message };
+  revalidatePath("/");
+  return { ok: true, note: data };
 }
 
 export async function updateQuickNoteAction(id: string, formData: FormData) {

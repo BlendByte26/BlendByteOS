@@ -8,6 +8,7 @@ type ClientBadgeProps = {
   clientName?: string | null;
   shortName?: string | null;
   logoUrl?: string | null;
+  colorKey?: string | null;
   variant?: "compact" | "default" | "pill" | "header";
   showCode?: boolean;
   href?: string;
@@ -20,12 +21,13 @@ export function ClientBadge({
   clientName,
   shortName,
   logoUrl,
+  colorKey,
   variant = "default",
   showCode = true,
   href,
   className = "",
 }: ClientBadgeProps) {
-  const token = getClientVisualToken({ clientCode, clientName, shortName });
+  const token = getClientVisualToken({ clientCode, clientName, shortName, colorKey });
   const code = getClientDisplayCode({ clientCode, clientName, shortName });
   const compact = variant === "compact";
   const pill = variant === "pill";

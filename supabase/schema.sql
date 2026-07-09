@@ -61,6 +61,7 @@ create table if not exists public.clients (
   short_name text,
   display_order integer,
   logo_url text,
+  color_key text,
   type client_type not null default 'external',
   status client_status not null default 'setup',
   owner_name text,
@@ -280,11 +281,13 @@ alter table public.tasks add column if not exists is_blocked boolean not null de
 alter table public.tasks add column if not exists blocker_reason text;
 alter table public.tasks add column if not exists notes text;
 
+alter table public.clients add column if not exists color_key text;
 alter table public.team_members add column if not exists phone text;
 
 create index if not exists clients_status_idx on public.clients(status);
 create index if not exists clients_display_order_idx on public.clients(display_order);
 create index if not exists clients_client_code_idx on public.clients(client_code);
+create index if not exists clients_color_key_idx on public.clients(color_key);
 create index if not exists team_members_active_idx on public.team_members(active);
 create index if not exists team_members_display_order_idx on public.team_members(display_order);
 create unique index if not exists clients_name_unique_idx on public.clients(name);
@@ -594,36 +597,37 @@ from public.clients c
 where t.client_id = c.id and c.client_code = '00_BB';
 
 insert into public.clients
-  (name, client_code, short_name, display_order, logo_url, type, status, owner_name, service_type, monthly_value, start_date, contract_duration, platforms, drive_url, figma_url, meta_url, google_drive_url, onedrive_url, figma_project_url, final_deliverables_url, proposal_url, contract_url, brand_assets_url, notes)
+  (name, client_code, short_name, display_order, logo_url, color_key, type, status, owner_name, service_type, monthly_value, start_date, contract_duration, platforms, drive_url, figma_url, meta_url, google_drive_url, onedrive_url, figma_project_url, final_deliverables_url, proposal_url, contract_url, brand_assets_url, notes)
 values
-  ('BlendByte', '00_BB', 'BB', 0, null, 'internal', 'active', 'Guilherme', 'Gestão de Redes Sociais', 1200, date '2026-07-01', '6 meses', array['Instagram', 'LinkedIn'], null, null, null, 'https://drive.google.com/drive/folders/blendbyte', null, 'https://figma.com/file/blendbyte', null, null, null, 'https://drive.google.com/drive/folders/blendbyte-brand', 'Operação interna e marketing próprio.'),
-  ('Grupo Investe', '01_GI', 'GI', 1, null, 'grupo_investe', 'active', 'Marta', 'Performance / Ads', 1500, date '2026-07-02', '6 meses', array['Instagram', 'LinkedIn', 'Meta'], null, null, null, 'https://drive.google.com/drive/folders/grupo-investe', null, null, null, null, null, null, null),
-  ('Invest2030', '02_I2030', 'I2030', 2, null, 'external', 'active', 'Inês', 'Website', null, date '2026-07-03', 'Projeto', array['LinkedIn', 'Instagram'], null, null, null, 'https://drive.google.com/drive/folders/invest2030', null, null, null, null, null, null, null),
-  ('Esportzy', '03_ESP', 'ESP', 3, null, 'external', 'active', 'Rita', 'Gestão de Redes Sociais', 900, date '2026-07-07', '6 meses', array['Instagram', 'TikTok'], null, null, null, null, null, null, null, null, null, null, null),
-  ('Leões de Porto Salvo', '04_LPS', 'LPS', 4, null, 'external', 'active', 'João', 'Evento / Cobertura', null, date '2026-07-08', 'Projeto', array['Instagram', 'Facebook'], null, null, null, null, null, null, null, null, null, null, null),
-  ('Junta de Freguesia de Porto Salvo', '05_JFPS', 'JFPS', 5, null, 'external', 'active', 'Marta', 'Comunicação Interna Grupo', null, date '2026-07-09', 'Projeto', array['Facebook', 'Instagram'], null, null, null, null, null, null, null, null, null, null, null),
-  ('Safe Vanguard', '06_SVG', 'SVG', 6, null, 'external', 'paused', 'João', 'Branding', null, date '2026-07-05', 'Projeto', array['LinkedIn'], null, null, null, null, null, null, null, null, null, null, 'Cliente pausado para exemplo.'),
-  ('ROOTKey', '07_RK', 'RK', 7, null, 'external', 'active', 'Sofia', 'Landing Page', null, date '2026-07-06', 'Projeto', array['LinkedIn', 'Instagram'], null, null, null, null, null, 'https://figma.com/file/rootkey', null, null, null, null, null),
-  ('CAT Power Tools', '08_CAT', 'CAT', 8, null, 'external', 'active', 'Rita', 'Gestão de Redes Sociais', 1200, date '2026-07-04', '6 meses', array['Instagram', 'Meta'], null, null, null, null, null, null, null, null, null, null, null)
+  ('BlendByte', '00_BB', 'BB', 0, null, 'slate', 'internal', 'active', 'Guilherme', 'Gestão de Redes Sociais', 1200, date '2026-07-01', '6 meses', array['Instagram', 'LinkedIn'], null, null, null, 'https://drive.google.com/drive/folders/blendbyte', null, 'https://figma.com/file/blendbyte', null, null, null, 'https://drive.google.com/drive/folders/blendbyte-brand', 'Operação interna e marketing próprio.'),
+  ('Grupo Investe', '01_GI', 'GI', 1, null, 'blue', 'grupo_investe', 'active', 'Marta', 'Performance / Ads', 1500, date '2026-07-02', '6 meses', array['Instagram', 'LinkedIn', 'Meta'], null, null, null, 'https://drive.google.com/drive/folders/grupo-investe', null, null, null, null, null, null, null),
+  ('Invest2030', '02_I2030', 'I2030', 2, null, 'green', 'external', 'active', 'Inês', 'Website', null, date '2026-07-03', 'Projeto', array['LinkedIn', 'Instagram'], null, null, null, 'https://drive.google.com/drive/folders/invest2030', null, null, null, null, null, null, null),
+  ('Esportzy', '03_ESP', 'ESP', 3, null, 'violet', 'external', 'active', 'Rita', 'Gestão de Redes Sociais', 900, date '2026-07-07', '6 meses', array['Instagram', 'TikTok'], null, null, null, null, null, null, null, null, null, null, null),
+  ('Leões de Porto Salvo', '04_LPS', 'LPS', 4, null, 'emerald', 'external', 'active', 'João', 'Evento / Cobertura', null, date '2026-07-08', 'Projeto', array['Instagram', 'Facebook'], null, null, null, null, null, null, null, null, null, null, null),
+  ('Junta de Freguesia de Porto Salvo', '05_JFPS', 'JFPS', 5, null, 'orange', 'external', 'active', 'Marta', 'Comunicação Interna Grupo', null, date '2026-07-09', 'Projeto', array['Facebook', 'Instagram'], null, null, null, null, null, null, null, null, null, null, null),
+  ('Safe Vanguard', '06_SVG', 'SVG', 6, null, 'red', 'external', 'paused', 'João', 'Branding', null, date '2026-07-05', 'Projeto', array['LinkedIn'], null, null, null, null, null, null, null, null, null, null, 'Cliente pausado para exemplo.'),
+  ('ROOTKey', '07_RK', 'RK', 7, null, 'cyan', 'external', 'active', 'Sofia', 'Landing Page', null, date '2026-07-06', 'Projeto', array['LinkedIn', 'Instagram'], null, null, null, null, null, 'https://figma.com/file/rootkey', null, null, null, null, null),
+  ('CAT Power Tools', '08_CAT', 'CAT', 8, null, 'yellow', 'external', 'active', 'Rita', 'Gestão de Redes Sociais', 1200, date '2026-07-04', '6 meses', array['Instagram', 'Meta'], null, null, null, null, null, null, null, null, null, null, null)
 on conflict do nothing;
 
-with seed_clients(name, client_code, short_name, display_order) as (
+with seed_clients(name, client_code, short_name, display_order, color_key) as (
   values
-    ('BlendByte', '00_BB', 'BB', 0),
-    ('Grupo Investe', '01_GI', 'GI', 1),
-    ('Invest2030', '02_I2030', 'I2030', 2),
-    ('Esportzy', '03_ESP', 'ESP', 3),
-    ('Leões de Porto Salvo', '04_LPS', 'LPS', 4),
-    ('Junta de Freguesia de Porto Salvo', '05_JFPS', 'JFPS', 5),
-    ('Safe Vanguard', '06_SVG', 'SVG', 6),
-    ('ROOTKey', '07_RK', 'RK', 7),
-    ('CAT Power Tools', '08_CAT', 'CAT', 8)
+    ('BlendByte', '00_BB', 'BB', 0, 'slate'),
+    ('Grupo Investe', '01_GI', 'GI', 1, 'blue'),
+    ('Invest2030', '02_I2030', 'I2030', 2, 'green'),
+    ('Esportzy', '03_ESP', 'ESP', 3, 'violet'),
+    ('Leões de Porto Salvo', '04_LPS', 'LPS', 4, 'emerald'),
+    ('Junta de Freguesia de Porto Salvo', '05_JFPS', 'JFPS', 5, 'orange'),
+    ('Safe Vanguard', '06_SVG', 'SVG', 6, 'red'),
+    ('ROOTKey', '07_RK', 'RK', 7, 'cyan'),
+    ('CAT Power Tools', '08_CAT', 'CAT', 8, 'yellow')
 )
 update public.clients c
 set
   client_code = coalesce(c.client_code, s.client_code),
   short_name = coalesce(c.short_name, s.short_name),
-  display_order = coalesce(c.display_order, s.display_order)
+  display_order = coalesce(c.display_order, s.display_order),
+  color_key = coalesce(c.color_key, s.color_key)
 from seed_clients s
 where c.client_code = s.client_code or c.name = s.name;
 

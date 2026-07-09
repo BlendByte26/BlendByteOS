@@ -3,15 +3,15 @@ import type { Client, ContentItem, Task } from "./types";
 const now = new Date().toISOString();
 
 export const sampleClients: Client[] = [
-  { name: "Blendbyte", code: "00_BB", short: "BB", order: 0 },
-  { name: "Grupo Investe", code: "01_GI", short: "GI", order: 1 },
-  { name: "Invest2030", code: "02_I2030", short: "I2030", order: 2 },
-  { name: "Esportzy", code: "03_ESP", short: "ESP", order: 3 },
-  { name: "Leões de Porto Salvo", code: "04_LPS", short: "LPS", order: 4 },
-  { name: "Junta de Freguesia de Porto Salvo", code: "05_JFPS", short: "JFPS", order: 5 },
-  { name: "Safe Vanguard", code: "06_SVG", short: "SVG", order: 6 },
-  { name: "ROOTKey", code: "07_RK", short: "RK", order: 7 },
-  { name: "CAT Power Tools", code: "08_CAT", short: "CAT", order: 8 },
+  { name: "Blendbyte", code: "00_BB", short: "BB", order: 0, color: "slate" },
+  { name: "Grupo Investe", code: "01_GI", short: "GI", order: 1, color: "blue" },
+  { name: "Invest2030", code: "02_I2030", short: "I2030", order: 2, color: "green" },
+  { name: "Esportzy", code: "03_ESP", short: "ESP", order: 3, color: "violet" },
+  { name: "Leões de Porto Salvo", code: "04_LPS", short: "LPS", order: 4, color: "emerald" },
+  { name: "Junta de Freguesia de Porto Salvo", code: "05_JFPS", short: "JFPS", order: 5, color: "orange" },
+  { name: "Safe Vanguard", code: "06_SVG", short: "SVG", order: 6, color: "red" },
+  { name: "ROOTKey", code: "07_RK", short: "RK", order: 7, color: "cyan" },
+  { name: "CAT Power Tools", code: "08_CAT", short: "CAT", order: 8, color: "yellow" },
 ].map((entry, index) => ({
   id: `sample-client-${index + 1}`,
   name: entry.name,
@@ -19,6 +19,7 @@ export const sampleClients: Client[] = [
   short_name: entry.short,
   display_order: entry.order,
   logo_url: null,
+  color_key: entry.color as Client["color_key"],
   type: entry.name === "Blendbyte" ? "internal" : entry.name === "Grupo Investe" ? "grupo_investe" : "external",
   status: entry.name === "Safe Vanguard" ? "paused" : "active",
   owner_name: ["Marta", "Guilherme", "Inês"][index % 3],
@@ -134,6 +135,7 @@ export const sampleContent: ContentItem[] = sampleClients.slice(0, 6).map(
       short_name: client.short_name,
       display_order: client.display_order,
       logo_url: client.logo_url,
+      color_key: client.color_key,
     },
   }),
 );
@@ -167,6 +169,7 @@ export const sampleTasks: Task[] = sampleClients.slice(1, 7).map(
       short_name: client.short_name,
       display_order: client.display_order,
       logo_url: client.logo_url,
+      color_key: client.color_key,
     },
   }),
 );

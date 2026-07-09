@@ -43,6 +43,7 @@ export default async function ClientsPage() {
                     clientCode: client.client_code,
                     clientName: client.name,
                     shortName: client.short_name,
+                    colorKey: client.color_key,
                   });
                   const displayCode = getClientDisplayCode({
                     clientCode: client.client_code,
@@ -66,6 +67,7 @@ export default async function ClientsPage() {
                             clientCode={client.client_code}
                             clientName={client.name}
                             shortName={client.short_name}
+                            colorKey={client.color_key}
                             href={`/clients/${client.id}`}
                             variant="default"
                           />

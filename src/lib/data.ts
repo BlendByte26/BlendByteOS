@@ -6,6 +6,8 @@ import type { OperationalProfileKey } from "./operational-profiles";
 import type {
   Client,
   CompanyContact,
+  ContentComment,
+  ContentMention,
   ContentItem,
   ContentStatus,
   QuickNote,
@@ -105,6 +107,7 @@ const sampleQuickTodos: QuickTodo[] = [
 ];
 
 const sampleQuickNotes: QuickNote[] = [];
+const sampleContentComments: ContentComment[] = [];
 const sampleCompanyContacts: CompanyContact[] = [];
 
 function getToday() {
@@ -291,7 +294,7 @@ export async function getContentItems(filters: ContentFilters = {}) {
 
   let query = supabase
     .from("content_items")
-    .select("*, clients(id, name, client_code, short_name, display_order, logo_url)")
+    .select("*, clients(*)")
     .order("publish_date", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: false });
 
@@ -331,6 +334,62 @@ export async function getContentItem(id: string) {
   return items.find((item) => item.id === id) ?? null;
 }
 
+export async function getContentComments(contentId: string) {
+  const supabase = getSupabase();
+
+  if (!supabase) {
+    return sampleContentComments.filter((comment) => comment.content_id === contentId);
+  }
+
+  const { data, error } = await supabase
+    .from("content_comments")
+    .select("*")
+    .eq("content_id", contentId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    return handleSupabaseReadError(
+      error,
+      sampleContentComments.filter((comment) => comment.content_id === contentId),
+      "comentários de conteúdo",
+    );
+  }
+
+  return data as ContentComment[];
+}
+
+export async function getMentionedContentComments(profileKey: OperationalProfileKey, limit = 5) {
+  const supabase = getSupabase();
+
+  if (!supabase) {
+    return sampleContentComments
+      .filter((comment) => comment.mentioned_profile_keys.includes(profileKey))
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .slice(0, limit) as ContentMention[];
+  }
+
+  const { data, error } = await supabase
+    .from("content_comments")
+    .select(`
+      *,
+      content_items(
+        id,
+        title,
+        client_id,
+        clients(*)
+      )
+    `)
+    .contains("mentioned_profile_keys", [profileKey])
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    return handleSupabaseReadError(error, [], "menções em comentários");
+  }
+
+  return data as ContentMention[];
+}
+
 export async function getTasks(filters: TaskFilters = {}) {
   const supabase = getSupabase();
 
@@ -349,7 +408,7 @@ export async function getTasks(filters: TaskFilters = {}) {
 
   let query = supabase
     .from("tasks")
-    .select("*, clients(id, name, client_code, short_name, display_order, logo_url)")
+    .select("*, clients(*)")
     .order("due_date", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: false });
 

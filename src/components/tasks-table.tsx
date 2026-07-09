@@ -343,6 +343,7 @@ export function TasksTable({
                     clientCode: task.clients?.client_code,
                     clientName: task.clients?.name,
                     shortName: task.clients?.short_name,
+                    colorKey: task.clients?.color_key,
                   });
                   const isArchived = task.status === "archived";
 
@@ -375,6 +376,7 @@ export function TasksTable({
                             clientCode={task.clients.client_code}
                             clientName={task.clients.name}
                             shortName={task.clients.short_name}
+                            colorKey={task.clients.color_key}
                             variant="compact"
                           />
                         ) : (
