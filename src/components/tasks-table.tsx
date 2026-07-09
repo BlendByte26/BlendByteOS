@@ -507,19 +507,19 @@ export function TasksTable({
             task={editing}
             submitLabel="Guardar alterações"
             onCancel={() => setEditing(null)}
+            footerAction={
+              canSendToDesign(editing) ? (
+                <button
+                  type="button"
+                  onClick={() => sendTaskToDesign(editing)}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--bb-border)] bg-white/70 px-5 text-sm font-bold text-[var(--bb-charcoal)] transition hover:border-[rgba(83,183,223,0.42)] hover:bg-[var(--bb-primary-soft)]"
+                >
+                  <Send className="size-4" aria-hidden="true" />
+                  Enviar para Design
+                </button>
+              ) : null
+            }
           />
-          {canSendToDesign(editing) ? (
-            <div className="mt-4 flex justify-end border-t border-[var(--bb-border)] pt-4">
-              <button
-                type="button"
-                onClick={() => sendTaskToDesign(editing)}
-                className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[var(--bb-border)] bg-white/70 px-4 text-sm font-extrabold text-[var(--bb-charcoal)] transition hover:border-[rgba(83,183,223,0.42)] hover:bg-[var(--bb-primary-soft)]"
-              >
-                <Send className="size-4" aria-hidden="true" />
-                Enviar para Design
-              </button>
-            </div>
-          ) : null}
         </TaskModal>
       ) : null}
     </>

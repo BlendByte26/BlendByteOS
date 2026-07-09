@@ -623,6 +623,7 @@ export function TaskForm({
   submitLabel,
   teamMembers = [],
   onCancel,
+  footerAction,
 }: {
   action: FormAction;
   clients: Client[];
@@ -631,6 +632,7 @@ export function TaskForm({
   submitLabel: string;
   teamMembers?: TeamMember[];
   onCancel?: () => void;
+  footerAction?: React.ReactNode;
 }) {
   const selectedClientId = task?.client_id ?? defaultClientId ?? "";
   const assigneeOptions = [
@@ -698,7 +700,12 @@ export function TaskForm({
         Notas
         <textarea name="notes" defaultValue={task?.notes ?? ""} className={textAreaClass} />
       </label>
-      <FormButtons submitLabel={submitLabel} cancelHref="/tasks" onCancel={onCancel} />
+      <FormButtons
+        submitLabel={submitLabel}
+        cancelHref="/tasks"
+        onCancel={onCancel}
+        footerAction={footerAction}
+      />
     </form>
   );
 }
@@ -707,10 +714,12 @@ function FormButtons({
   submitLabel,
   cancelHref,
   onCancel,
+  footerAction,
 }: {
   submitLabel: string;
   cancelHref: string;
   onCancel?: () => void;
+  footerAction?: React.ReactNode;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2 pt-2">
@@ -731,6 +740,7 @@ function FormButtons({
           Cancelar
         </Link>
       )}
+      {footerAction}
     </div>
   );
 }
