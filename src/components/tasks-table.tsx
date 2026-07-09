@@ -399,7 +399,6 @@ export function TasksTable({
                     colorKey: task.clients?.color_key,
                   });
                   const isArchived = task.status === "archived";
-                  const showDesignHandoff = canSendToDesign(task);
 
                   return (
                     <tr key={task.id} className="odd:bg-white/18">
@@ -464,11 +463,6 @@ export function TasksTable({
                           >
                             <Pencil className="size-4" aria-hidden="true" />
                           </ActionButton>
-                          {showDesignHandoff ? (
-                            <ActionButton label="Enviar para Design" onClick={() => sendTaskToDesign(task)}>
-                              <Send className="size-4" aria-hidden="true" />
-                            </ActionButton>
-                          ) : null}
                           {isArchived ? (
                             <form action={() => deleteTask(task.id)}>
                               <ActionButton label="Apagar" tone="danger">
@@ -506,8 +500,16 @@ export function TasksTable({
               {saveMessage}
             </div>
           ) : null}
+          <TaskForm
+            action={saveTask}
+            clients={clients}
+            teamMembers={teamMembers}
+            task={editing}
+            submitLabel="Guardar alterações"
+            onCancel={() => setEditing(null)}
+          />
           {canSendToDesign(editing) ? (
-            <div className="mb-4 flex justify-end">
+            <div className="mt-4 flex justify-end border-t border-[var(--bb-border)] pt-4">
               <button
                 type="button"
                 onClick={() => sendTaskToDesign(editing)}
@@ -518,14 +520,6 @@ export function TasksTable({
               </button>
             </div>
           ) : null}
-          <TaskForm
-            action={saveTask}
-            clients={clients}
-            teamMembers={teamMembers}
-            task={editing}
-            submitLabel="Guardar alterações"
-            onCancel={() => setEditing(null)}
-          />
         </TaskModal>
       ) : null}
     </>

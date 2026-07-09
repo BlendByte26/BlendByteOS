@@ -33,11 +33,18 @@ export default async function EditTaskPage({ params }: Props) {
         </div>
       ) : null}
       <FormFrame title="Dados da tarefa">
+        <TaskForm
+          action={updateTaskAction.bind(null, task.id)}
+          clients={clients}
+          teamMembers={teamMembers}
+          task={task}
+          submitLabel="Guardar alterações"
+        />
         {showDesignHandoff ? (
           <ConfirmSubmitForm
             action={sendTaskToDesignAction.bind(null, task.id)}
             message="Enviar esta tarefa para a Carlota/Design?"
-            className="mb-4 flex justify-end"
+            className="mt-4 flex justify-end border-t border-[var(--bb-border)] pt-4"
           >
             <button
               type="submit"
@@ -48,13 +55,6 @@ export default async function EditTaskPage({ params }: Props) {
             </button>
           </ConfirmSubmitForm>
         ) : null}
-        <TaskForm
-          action={updateTaskAction.bind(null, task.id)}
-          clients={clients}
-          teamMembers={teamMembers}
-          task={task}
-          submitLabel="Guardar alterações"
-        />
         <ConfirmSubmitForm
           action={deleteTaskAction.bind(null, task.id)}
           message={`Apagar definitivamente a tarefa "${task.title}"?\n\nEsta ação não pode ser anulada.`}
