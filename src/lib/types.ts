@@ -45,6 +45,47 @@ export const taskTypes = [
   "other",
 ] as const;
 export const taskPriorities = ["low", "normal", "urgent"] as const;
+export const invest2030ActionTypes = [
+  "Webinar",
+  "Newsletter",
+  "Reenvio",
+  "Follow-up",
+  "Campanha para reuniões",
+  "Diretrizes de conteúdo",
+  "Outro",
+] as const;
+export const invest2030Requesters = ["André Loureiro", "Ricardo Carvalho", "Outra"] as const;
+export const invest2030PeriodTypes = [
+  "Dia específico",
+  "Semana",
+  "Mês",
+  "Período personalizado",
+] as const;
+export const invest2030MainGoals = [
+  "Gerar inscrições no webinar",
+  "Gerar reuniões",
+  "Divulgar incentivo",
+  "Reativar leads",
+  "Fazer follow-up",
+  "Informar base de dados",
+  "Orientar criação de conteúdo",
+  "Outro",
+] as const;
+export const invest2030MainCtas = [
+  "Inscrever no webinar",
+  "Marcar reunião",
+  "Pedir avaliação de enquadramento",
+  "Ver página",
+  "Responder ao email",
+  "Outro",
+] as const;
+export const invest2030InformationStatuses = [
+  "Informação completa",
+  "Falta link",
+  "Falta validar dados do incentivo",
+  "Falta definir melhor a segmentação",
+  "Ainda é só uma ideia",
+] as const;
 
 export type ClientType = (typeof clientTypes)[number];
 export type ClientStatus = (typeof clientStatuses)[number];
@@ -54,6 +95,12 @@ export type ContentStatus = (typeof contentStatuses)[number];
 export type TaskStatus = (typeof taskStatuses)[number];
 export type TaskType = (typeof taskTypes)[number];
 export type TaskPriority = (typeof taskPriorities)[number];
+export type Invest2030ActionType = (typeof invest2030ActionTypes)[number];
+export type Invest2030Requester = (typeof invest2030Requesters)[number];
+export type Invest2030PeriodType = (typeof invest2030PeriodTypes)[number];
+export type Invest2030MainGoal = (typeof invest2030MainGoals)[number];
+export type Invest2030MainCta = (typeof invest2030MainCtas)[number];
+export type Invest2030InformationStatus = (typeof invest2030InformationStatuses)[number];
 
 export type SetupChecklistItem = {
   label: string;
@@ -231,6 +278,29 @@ export type Task = {
   created_at: string;
   updated_at: string;
   clients?: Pick<Client, "id" | "name" | "client_code" | "short_name" | "display_order" | "logo_url" | "color_key"> | null;
+};
+
+export type Invest2030Request = {
+  id: string;
+  task_id: string | null;
+  campaign_name: string;
+  action_type: Invest2030ActionType | string;
+  requested_by: Invest2030Requester | string;
+  period_type: Invest2030PeriodType | string;
+  period_start: string;
+  period_end: string;
+  period_label: string;
+  main_goal: Invest2030MainGoal | string;
+  target_audience: string;
+  main_cta: Invest2030MainCta | string;
+  main_link: string;
+  main_message: string;
+  mandatory_info: string;
+  information_status: Invest2030InformationStatus | string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  tasks?: Pick<Task, "id" | "title" | "status" | "priority" | "is_blocked" | "due_date"> | null;
 };
 
 export type Option = {

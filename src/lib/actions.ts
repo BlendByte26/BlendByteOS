@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { fallbackContentPlatform } from "./content-platform";
+import { isInvest2030PublicAccessToken } from "./invest2030-public";
 import { baseChecklist } from "./onboarding";
 import {
   OPERATIONAL_PROFILE_COOKIE,
@@ -12,7 +13,15 @@ import {
   isOperationalProfileKey,
 } from "./operational-profiles";
 import { getSupabase } from "./supabase";
-import { clientColorKeys } from "./types";
+import {
+  clientColorKeys,
+  invest2030ActionTypes,
+  invest2030InformationStatuses,
+  invest2030MainCtas,
+  invest2030MainGoals,
+  invest2030PeriodTypes,
+  invest2030Requesters,
+} from "./types";
 import type {
   ClientColorKey,
   ClientStatus,
@@ -222,6 +231,8 @@ function refreshAll() {
   revalidatePath("/clients");
   revalidatePath("/content");
   revalidatePath("/tasks");
+  revalidatePath("/invest2030/pedidos");
+  revalidatePath("/invest2030/novo-pedido");
   revalidatePath("/archive");
   revalidatePath("/team");
 }
@@ -1060,6 +1071,272 @@ export async function deleteTaskAction(id: string) {
   if (error) throw new Error(error.message);
   refreshAll();
   redirect("/tasks");
+}
+
+function requiredOption<T extends readonly string[]>(formData: FormData, key: string, options: T) {
+  const value = requiredText(formData, key);
+  if (!options.includes(value)) {
+    throw new Error(`Opção inválida: ${key}`);
+  }
+  return value as T[number];
+}
+
+function parseIsoDateValue(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  const date = new Date(Date.UTC(year, month - 1, day, 12));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
+    return null;
+  }
+  return date;
+}
+
+function formatPtDate(value: string) {
+  const date = parseIsoDateValue(value);
+  if (!date) return value;
+  return new Intl.DateTimeFormat("pt-PT", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(date);
+}
+
+function formatPtMonth(value: string) {
+  const [year, month] = value.split("-").map(Number);
+  if (!year || !month || month < 1 || month > 12) return value;
+  return new Intl.DateTimeFormat("pt-PT", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(year, month - 1, 1, 12))).replace(/^\p{Ll}/u, (letter) => letter.toLocaleUpperCase("pt-PT"));
+}
+
+function invest2030PeriodPayload(formData: FormData) {
+  const periodType = requiredOption(formData, "period_type", invest2030PeriodTypes);
+
+  if (periodType === "Dia específico") {
+    const date = requiredText(formData, "period_date");
+    if (!parseIsoDateValue(date)) throw new Error("Data inválida.");
+    return {
+      periodType,
+      periodStart: date,
+      periodEnd: date,
+      periodLabel: `Dia específico — ${formatPtDate(date)}`,
+      dueDate: date,
+    };
+  }
+
+  if (periodType === "Mês") {
+    const month = requiredText(formData, "period_month");
+    const [year, monthIndex] = month.split("-").map(Number);
+    if (!year || !monthIndex || monthIndex < 1 || monthIndex > 12) throw new Error("Mês inválido.");
+    const start = `${year}-${String(monthIndex).padStart(2, "0")}-01`;
+    const endDate = new Date(Date.UTC(year, monthIndex, 0, 12));
+    const end = `${endDate.getUTCFullYear()}-${String(endDate.getUTCMonth() + 1).padStart(2, "0")}-${String(endDate.getUTCDate()).padStart(2, "0")}`;
+
+    return {
+      periodType,
+      periodStart: start,
+      periodEnd: end,
+      periodLabel: `Mês — ${formatPtMonth(month)}`,
+      dueDate: start,
+    };
+  }
+
+  const start = requiredText(formData, "period_start");
+  const end = requiredText(formData, "period_end");
+  const parsedStart = parseIsoDateValue(start);
+  const parsedEnd = parseIsoDateValue(end);
+  if (!parsedStart || !parsedEnd) throw new Error("Período inválido.");
+  if (parsedEnd < parsedStart) throw new Error("A data de fim deve ser igual ou posterior à data de início.");
+
+  return {
+    periodType,
+    periodStart: start,
+    periodEnd: end,
+    periodLabel: `${periodType} — ${formatPtDate(start)} a ${formatPtDate(end)}`,
+    dueDate: start,
+  };
+}
+
+function invest2030Description({
+  campaignName,
+  actionType,
+  requestedBy,
+  periodLabel,
+  mainGoal,
+  targetAudience,
+  mainCta,
+  mainLink,
+  mainMessage,
+  mandatoryInfo,
+  informationStatus,
+  notes,
+}: {
+  campaignName: string;
+  actionType: string;
+  requestedBy: string;
+  periodLabel: string;
+  mainGoal: string;
+  targetAudience: string;
+  mainCta: string;
+  mainLink: string;
+  mainMessage: string;
+  mandatoryInfo: string;
+  informationStatus: string;
+  notes: string | null;
+}) {
+  return `Pedido recebido via Form Invest2030
+
+Nome da campanha:
+${campaignName}
+
+Tipo de ação:
+${actionType}
+
+Quem está a pedir:
+${requestedBy}
+
+Período:
+${periodLabel}
+
+Objetivo principal:
+${mainGoal}
+
+Público-alvo / segmentação:
+${targetAudience}
+
+CTA principal:
+${mainCta}
+
+Link principal:
+${mainLink}
+
+Tema / mensagem principal:
+${mainMessage}
+
+Informação obrigatória a mencionar:
+${mandatoryInfo}
+
+Estado da informação:
+${informationStatus}
+
+Observações:
+${notes ?? "Sem observações"}`;
+}
+
+async function findInvest2030ClientId(supabase: NonNullable<ReturnType<typeof getSupabase>>) {
+  const { data, error } = await supabase
+    .from("clients")
+    .select("id")
+    .or("name.eq.Invest2030,client_code.eq.02_I2030,short_name.eq.I2030")
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!data?.id) throw new Error("Cliente Invest2030 não encontrado.");
+  return data.id as string;
+}
+
+async function guilhermeAssignee(supabase: NonNullable<ReturnType<typeof getSupabase>>) {
+  const { data, error } = await supabase
+    .from("team_members")
+    .select("name")
+    .eq("name", "Guilherme")
+    .eq("active", true)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Erro ao procurar responsável Guilherme", { code: error.code });
+    return null;
+  }
+
+  return data?.name ?? null;
+}
+
+export async function createInvest2030RequestAction(formData: FormData) {
+  const accessToken = text(formData, "access");
+  const honeypot = text(formData, "company_website");
+  if (!isInvest2030PublicAccessToken(accessToken) || honeypot) {
+    redirect("/invest2030/novo-pedido");
+  }
+  const validAccessToken = accessToken ?? "";
+
+  const supabase = supabaseOrRedirect(`/invest2030/novo-pedido?access=${encodeURIComponent(validAccessToken)}`);
+  const campaignName = requiredText(formData, "campaign_name");
+  const actionType = requiredOption(formData, "action_type", invest2030ActionTypes);
+  const requestedBy = requiredOption(formData, "requested_by", invest2030Requesters);
+  const mainGoal = requiredOption(formData, "main_goal", invest2030MainGoals);
+  const targetAudience = requiredText(formData, "target_audience");
+  const mainCta = requiredOption(formData, "main_cta", invest2030MainCtas);
+  const mainLink = requiredText(formData, "main_link");
+  const mainMessage = requiredText(formData, "main_message");
+  const mandatoryInfo = requiredText(formData, "mandatory_info");
+  const informationStatus = requiredOption(formData, "information_status", invest2030InformationStatuses);
+  const notes = text(formData, "notes");
+  const period = invest2030PeriodPayload(formData);
+  const [clientId, assigneeName] = await Promise.all([
+    findInvest2030ClientId(supabase),
+    guilhermeAssignee(supabase),
+  ]);
+  const needsAttention = informationStatus !== "Informação completa";
+  const { data: task, error: taskError } = await supabase
+    .from("tasks")
+    .insert({
+      client_id: clientId,
+      title: `[Invest2030] ${actionType} — ${campaignName}`,
+      type: "operations" as TaskType,
+      status: "todo" as TaskStatus,
+      priority: needsAttention ? ("urgent" as TaskPriority) : ("normal" as TaskPriority),
+      assignee_name: assigneeName,
+      due_date: period.dueDate,
+      related_url: mainLink.toLowerCase() === "a criar" ? null : mainLink,
+      is_blocked: needsAttention,
+      blocker_reason: needsAttention ? informationStatus : null,
+      notes: invest2030Description({
+        campaignName,
+        actionType,
+        requestedBy,
+        periodLabel: period.periodLabel,
+        mainGoal,
+        targetAudience,
+        mainCta,
+        mainLink,
+        mainMessage,
+        mandatoryInfo,
+        informationStatus,
+        notes,
+      }),
+    })
+    .select("id")
+    .single();
+
+  if (taskError) throw new Error(taskError.message);
+
+  const { error: requestError } = await supabase.from("invest2030_requests").insert({
+    task_id: task.id,
+    campaign_name: campaignName,
+    action_type: actionType,
+    requested_by: requestedBy,
+    period_type: period.periodType,
+    period_start: period.periodStart,
+    period_end: period.periodEnd,
+    period_label: period.periodLabel,
+    main_goal: mainGoal,
+    target_audience: targetAudience,
+    main_cta: mainCta,
+    main_link: mainLink,
+    main_message: mainMessage,
+    mandatory_info: mandatoryInfo,
+    information_status: informationStatus,
+    notes,
+  });
+
+  if (requestError) throw new Error(requestError.message);
+
+  refreshAll();
+  redirect(`/invest2030/pedidos?access=${encodeURIComponent(validAccessToken)}&created=1`);
 }
 
 function quickTodoViewValue(formData: FormData): QuickTodoView {

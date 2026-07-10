@@ -205,6 +205,28 @@ create table if not exists public.tasks (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.invest2030_requests (
+  id uuid primary key default gen_random_uuid(),
+  task_id uuid references public.tasks(id) on delete set null,
+  campaign_name text not null,
+  action_type text not null,
+  requested_by text not null,
+  period_type text not null,
+  period_start date not null,
+  period_end date not null,
+  period_label text not null,
+  main_goal text not null,
+  target_audience text not null,
+  main_cta text not null,
+  main_link text not null,
+  main_message text not null,
+  mandatory_info text not null,
+  information_status text not null,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 alter table public.clients add column if not exists google_drive_url text;
 alter table public.clients add column if not exists client_code text;
 alter table public.clients add column if not exists short_name text;
@@ -304,6 +326,12 @@ create index if not exists tasks_status_idx on public.tasks(status);
 create index if not exists tasks_assignee_name_idx on public.tasks(assignee_name);
 create index if not exists tasks_is_blocked_idx on public.tasks(is_blocked);
 create unique index if not exists tasks_seed_unique_idx on public.tasks(client_id, title);
+create index if not exists invest2030_requests_task_id_idx on public.invest2030_requests(task_id);
+create index if not exists invest2030_requests_created_at_idx on public.invest2030_requests(created_at);
+create index if not exists invest2030_requests_period_start_idx on public.invest2030_requests(period_start);
+create index if not exists invest2030_requests_action_type_idx on public.invest2030_requests(action_type);
+create index if not exists invest2030_requests_requested_by_idx on public.invest2030_requests(requested_by);
+create index if not exists invest2030_requests_information_status_idx on public.invest2030_requests(information_status);
 create index if not exists quick_todos_view_done_idx on public.quick_todos(view, done);
 create index if not exists quick_todos_profile_view_done_idx on public.quick_todos(profile_key, view, done);
 create index if not exists quick_todos_profile_view_type_done_idx on public.quick_todos(profile_key, view, item_type, done);
@@ -338,6 +366,11 @@ create trigger set_tasks_updated_at
 before update on public.tasks
 for each row execute function public.set_updated_at();
 
+drop trigger if exists set_invest2030_requests_updated_at on public.invest2030_requests;
+create trigger set_invest2030_requests_updated_at
+before update on public.invest2030_requests
+for each row execute function public.set_updated_at();
+
 drop trigger if exists set_team_members_updated_at on public.team_members;
 create trigger set_team_members_updated_at
 before update on public.team_members
@@ -361,6 +394,7 @@ for each row execute function public.set_updated_at();
 alter table public.clients enable row level security;
 alter table public.content_items enable row level security;
 alter table public.tasks enable row level security;
+alter table public.invest2030_requests enable row level security;
 alter table public.team_members enable row level security;
 alter table public.quick_todos enable row level security;
 alter table public.quick_notes enable row level security;
@@ -370,6 +404,7 @@ grant usage on schema public to anon, authenticated;
 grant select, insert, update, delete on public.clients to anon, authenticated;
 grant select, insert, update, delete on public.content_items to anon, authenticated;
 grant select, insert, update, delete on public.tasks to anon, authenticated;
+grant select, insert, update, delete on public.invest2030_requests to anon, authenticated;
 grant select, insert, update, delete on public.team_members to anon, authenticated;
 grant select, insert, update, delete on public.quick_todos to anon, authenticated;
 grant select, insert, update, delete on public.quick_notes to anon, authenticated;
@@ -448,6 +483,31 @@ with check (true);
 drop policy if exists "Open internal delete tasks" on public.tasks;
 create policy "Open internal delete tasks"
 on public.tasks for delete
+to anon, authenticated
+using (true);
+
+drop policy if exists "Open internal read invest2030 requests" on public.invest2030_requests;
+create policy "Open internal read invest2030 requests"
+on public.invest2030_requests for select
+to anon, authenticated
+using (true);
+
+drop policy if exists "Open internal insert invest2030 requests" on public.invest2030_requests;
+create policy "Open internal insert invest2030 requests"
+on public.invest2030_requests for insert
+to anon, authenticated
+with check (true);
+
+drop policy if exists "Open internal update invest2030 requests" on public.invest2030_requests;
+create policy "Open internal update invest2030 requests"
+on public.invest2030_requests for update
+to anon, authenticated
+using (true)
+with check (true);
+
+drop policy if exists "Open internal delete invest2030 requests" on public.invest2030_requests;
+create policy "Open internal delete invest2030 requests"
+on public.invest2030_requests for delete
 to anon, authenticated
 using (true);
 

@@ -50,8 +50,13 @@ function accessUrl(request: NextRequest, setupMissing = false) {
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const isAccessPage = pathname.startsWith(ACCESS_PATH);
+  const isInvest2030PublicPage = pathname.startsWith("/invest2030");
   const isApiRoute = pathname.startsWith("/api");
   const password = getAppAccessPassword();
+
+  if (isInvest2030PublicPage) {
+    return withPathHeader(request);
+  }
 
   if (!password) {
     if (isProductionEnvironment()) {

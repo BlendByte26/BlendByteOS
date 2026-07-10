@@ -8,6 +8,7 @@ import { getClientVisualToken } from "@/lib/client-visuals";
 import {
   getClients,
   getContentItems,
+  getInvest2030Requests,
   getMentionedContentComments,
   getQuickNotes,
   getQuickTodos,
@@ -26,7 +27,7 @@ import {
   fallbackOperationalProfile,
   getOperationalProfile,
 } from "@/lib/operational-profiles";
-import type { Client, ContentItem, ContentMention, Task } from "@/lib/types";
+import type { Client, ContentItem, ContentMention, Invest2030Request, Task } from "@/lib/types";
 
 type Props = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -363,10 +364,11 @@ export default async function DashboardPage({ searchParams }: Props) {
     valueOf(params, "view"),
     cookieStore.get(APP_ACCESS_VIEW_COOKIE)?.value ?? currentProfile.defaultView,
   );
-  const [clients, content, tasks] = await Promise.all([
+  const [clients, content, tasks, invest2030Requests] = await Promise.all([
     getClients(),
     getContentItems(),
     getTasks(),
+    getInvest2030Requests(),
   ]);
   const [quickTodos, quickNotes, mentionedComments] = await Promise.all([
     getQuickTodos(currentView, currentProfile.key),
@@ -468,6 +470,7 @@ export default async function DashboardPage({ searchParams }: Props) {
           attentionContent={attentionContent}
           clients={clients}
           clientsById={clientsById}
+          invest2030Requests={invest2030Requests}
           readyContent={readyContent}
         />
       )}
@@ -536,6 +539,7 @@ function MarketingManagementView({
   attentionContent,
   clients,
   clientsById,
+  invest2030Requests,
   readyContent,
 }: {
   activeContent: ContentItem[];
@@ -543,6 +547,7 @@ function MarketingManagementView({
   attentionContent: ContentItem[];
   clients: Client[];
   clientsById: Map<string, Client>;
+  invest2030Requests: Invest2030Request[];
   readyContent: ContentItem[];
 }) {
   const urgentTasks = activeTasks.filter((task) => task.priority === "urgent").sort(sortDashboardTasks);
@@ -574,7 +579,10 @@ function MarketingManagementView({
   const investClientId = Array.from(investClientIds)[0] ?? null;
   const investContent = activeContent.filter((item) => investClientIds.has(item.client_id));
   const investTasks = activeTasks.filter((task) => task.client_id && investClientIds.has(task.client_id));
-  const hasInvestData = investContent.length > 0 || investTasks.length > 0;
+  const openInvestRequests = invest2030Requests
+    .filter((request) => !request.tasks || !["done", "archived"].includes(request.tasks.status))
+    .slice(0, 5);
+  const hasInvestData = investContent.length > 0 || investTasks.length > 0 || openInvestRequests.length > 0;
   const investAttention = investContent.filter((item) => item.is_blocked || contentMissingFields(item).length > 0);
   const investReady = investContent.filter((item) => item.status === "ready_to_publish");
   const investNext = uniqueDashboardItems([
@@ -645,19 +653,32 @@ function MarketingManagementView({
         )}
       </DashboardBlock>
 
-      <DashboardBlock title="Invest2030 agora">
+      <DashboardBlock
+        title="Pedidos Invest2030"
+        action={<SmallLink href={buildTasksUrl({ client: investClientId, status: "open" })}>Ver tarefas</SmallLink>}
+      >
         {hasInvestData ? (
           <div className="grid gap-2">
             <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-              <MiniStat label="Ativos" value={investContent.length} href={buildContentUrl({ client: investClientId })} />
-              <MiniStat label="Prontos" value={investReady.length} href={buildContentUrl({ client: investClientId, status: "ready" })} />
+              <MiniStat label="Pedidos" value={openInvestRequests.length} tone={openInvestRequests.some((request) => request.tasks?.is_blocked || request.information_status !== "Informação completa") ? "warning" : "default"} />
+              <MiniStat label="Conteúdos" value={investContent.length} href={buildContentUrl({ client: investClientId })} />
               <MiniStat label="Atenções" value={investAttention.length} href={buildContentUrl({ client: investClientId, attention: true })} tone={investAttention.length ? "warning" : "default"} />
               <MiniStat label="Tarefas" value={investTasks.length} href={buildTasksUrl({ client: investClientId, status: "open" })} />
             </div>
-            {investNext ? <QueueItem item={investNext} clientsById={clientsById} /> : <CompactEmpty title="Sem próxima ação Invest2030." />}
+            {openInvestRequests.length ? (
+              <div className="grid gap-1.5">
+                {openInvestRequests.map((request) => (
+                  <Invest2030RequestMiniItem key={request.id} request={request} />
+                ))}
+              </div>
+            ) : investNext ? (
+              <QueueItem item={investNext} clientsById={clientsById} />
+            ) : (
+              <CompactEmpty title="Sem próxima ação Invest2030." />
+            )}
           </div>
         ) : (
-          <CompactEmpty title="Sem dados Invest2030 nesta vista." />
+          <CompactEmpty title="Sem pedidos Invest2030 em aberto." />
         )}
       </DashboardBlock>
 
@@ -856,6 +877,35 @@ function CompactEmpty({ title }: { title: string }) {
   return (
     <div className="rounded-[14px] border border-dashed border-[var(--bb-border)] bg-white/38 px-3 py-2 text-sm font-bold text-[var(--bb-muted)]">
       {title}
+    </div>
+  );
+}
+
+function Invest2030RequestMiniItem({ request }: { request: Invest2030Request }) {
+  const needsAttention = request.tasks?.is_blocked || request.information_status !== "Informação completa";
+
+  return (
+    <div className="rounded-[14px] border border-[var(--bb-border)] bg-white/58 px-3 py-2">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="bb-line-clamp-2 text-sm font-extrabold leading-5 text-[var(--bb-charcoal)]">
+            {request.campaign_name}
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs font-bold text-[var(--bb-muted)]">
+            <span>{request.period_label}</span>
+            <span>·</span>
+            <span>{request.requested_by}</span>
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-wrap justify-end gap-1">
+          {request.tasks ? <Badge value={request.tasks.status} label={taskStatusLabels[request.tasks.status]} /> : null}
+          {needsAttention ? <Badge value="blocked" label="Atenção" /> : null}
+        </div>
+      </div>
+      <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-[var(--bb-muted)]">
+        <span>{request.action_type}</span>
+        <ActionLink href={request.task_id ? `/tasks/${request.task_id}/edit` : "/invest2030/pedidos"} label="Abrir" />
+      </div>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import type { Client, CompanyContact, ContentComment, ContentItem, QuickNote, QuickTodo, Task, TeamMember } from "./types";
+import type { Client, CompanyContact, ContentComment, ContentItem, Invest2030Request, QuickNote, QuickTodo, Task, TeamMember } from "./types";
 
 type Insertable<T> = Omit<T, "id" | "created_at" | "updated_at" | "clients">;
 type Updatable<T> = Partial<Insertable<T>>;
@@ -54,6 +54,21 @@ export type Database = {
             columns: ["client_id"];
             isOneToOne: false;
             referencedRelation: "clients";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      invest2030_requests: {
+        Row: Invest2030Request;
+        Insert: Partial<Pick<Invest2030Request, "id" | "created_at" | "updated_at" | "task_id" | "notes">> &
+          Omit<Invest2030Request, "id" | "created_at" | "updated_at" | "task_id" | "notes" | "tasks">;
+        Update: Updatable<Invest2030Request>;
+        Relationships: [
+          {
+            foreignKeyName: "invest2030_requests_task_id_fkey";
+            columns: ["task_id"];
+            isOneToOne: false;
+            referencedRelation: "tasks";
             referencedColumns: ["id"];
           },
         ];

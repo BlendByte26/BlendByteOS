@@ -11,6 +11,7 @@ import type {
   ContentMention,
   ContentItem,
   ContentStatus,
+  Invest2030Request,
   QuickNote,
   QuickTodo,
   QuickTodoView,
@@ -35,6 +36,15 @@ export type TaskFilters = {
   priority?: string;
   status?: string;
   due?: string;
+};
+
+export type Invest2030RequestFilters = {
+  search?: string;
+  actionType?: string;
+  requestedBy?: string;
+  mainGoal?: string;
+  informationStatus?: string;
+  month?: string;
 };
 
 const sampleTeamMembers: TeamMember[] = [
@@ -110,6 +120,7 @@ const sampleQuickTodos: QuickTodo[] = [
 const sampleQuickNotes: QuickNote[] = [];
 const sampleContentComments: ContentComment[] = [];
 const sampleCompanyContacts: CompanyContact[] = [];
+const sampleInvest2030Requests: Invest2030Request[] = [];
 
 function getToday() {
   const now = new Date();
@@ -121,12 +132,12 @@ function toDate(value: string | null) {
 }
 
 function handleSupabaseReadError<T>(error: unknown, fallback: T, context: string) {
-  console.error(`Erro Supabase ao carregar ${context}`, error);
-
   if (isSupabaseSchemaError(error)) {
+    console.warn(`Schema Supabase incompleto ao carregar ${context}`, error);
     return fallback;
   }
 
+  console.error(`Erro Supabase ao carregar ${context}`, error);
   return fallback;
 }
 
@@ -448,6 +459,95 @@ export async function getTasks(filters: TaskFilters = {}) {
 export async function getTask(id: string) {
   const tasks = await getTasks();
   return tasks.find((task) => task.id === id) ?? null;
+}
+
+function invest2030RequestMatches(request: Invest2030Request, filters: Invest2030RequestFilters) {
+  const search = filters.search?.trim().toLowerCase();
+  const text = [
+    request.campaign_name,
+    request.action_type,
+    request.requested_by,
+    request.period_label,
+    request.main_goal,
+    request.target_audience,
+    request.main_cta,
+    request.main_link,
+    request.main_message,
+    request.mandatory_info,
+    request.information_status,
+    request.notes,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return (
+    (!search || text.includes(search)) &&
+    (!filters.actionType || request.action_type === filters.actionType) &&
+    (!filters.requestedBy || request.requested_by === filters.requestedBy) &&
+    (!filters.mainGoal || request.main_goal === filters.mainGoal) &&
+    (!filters.informationStatus || request.information_status === filters.informationStatus) &&
+    (!filters.month || request.period_start.startsWith(filters.month))
+  );
+}
+
+export async function getInvest2030Requests(filters: Invest2030RequestFilters = {}) {
+  const supabase = getSupabase();
+
+  if (!supabase) {
+    return sampleInvest2030Requests.filter((request) => invest2030RequestMatches(request, filters));
+  }
+
+  let query = supabase
+    .from("invest2030_requests")
+    .select("*, tasks(id, title, status, priority, is_blocked, due_date)")
+    .order("created_at", { ascending: false });
+
+  if (filters.search?.trim()) {
+    const search = `%${filters.search.trim()}%`;
+    query = query.or(
+      [
+        `campaign_name.ilike.${search}`,
+        `action_type.ilike.${search}`,
+        `requested_by.ilike.${search}`,
+        `period_label.ilike.${search}`,
+        `main_goal.ilike.${search}`,
+        `target_audience.ilike.${search}`,
+        `main_cta.ilike.${search}`,
+        `main_link.ilike.${search}`,
+        `main_message.ilike.${search}`,
+        `mandatory_info.ilike.${search}`,
+        `information_status.ilike.${search}`,
+        `notes.ilike.${search}`,
+      ].join(","),
+    );
+  }
+  if (filters.actionType) query = query.eq("action_type", filters.actionType);
+  if (filters.requestedBy) query = query.eq("requested_by", filters.requestedBy);
+  if (filters.mainGoal) query = query.eq("main_goal", filters.mainGoal);
+  if (filters.informationStatus) query = query.eq("information_status", filters.informationStatus);
+  if (filters.month) {
+    query = query.gte("period_start", `${filters.month}-01`).lt("period_start", nextMonth(filters.month));
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    return handleSupabaseReadError(
+      error,
+      sampleInvest2030Requests.filter((request) => invest2030RequestMatches(request, filters)),
+      "pedidos Invest2030",
+    );
+  }
+
+  return data as Invest2030Request[];
+}
+
+function nextMonth(month: string) {
+  const [year, monthIndex] = month.split("-").map(Number);
+  if (!year || !monthIndex) return month;
+  const next = new Date(year, monthIndex, 1);
+  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-01`;
 }
 
 export async function getDashboardData() {
