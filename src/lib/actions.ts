@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { fallbackContentPlatform } from "./content-platform";
-import { isInvest2030PublicAccessToken } from "./invest2030-public";
+import { invest2030PublicHref, isInvest2030PublicAccessToken } from "./invest2030-public";
 import { baseChecklist } from "./onboarding";
 import {
   OPERATIONAL_PROFILE_COOKIE,
@@ -1239,17 +1239,21 @@ async function findInvest2030ClientId(supabase: NonNullable<ReturnType<typeof ge
   return data.id as string;
 }
 
-async function guilhermeAssignee(supabase: NonNullable<ReturnType<typeof getSupabase>>) {
+async function sofiaAssignee(supabase: NonNullable<ReturnType<typeof getSupabase>>) {
   const { data, error } = await supabase
     .from("team_members")
     .select("name")
-    .eq("name", "Guilherme")
+    .eq("name", "Sofia")
     .eq("active", true)
     .maybeSingle();
 
   if (error) {
-    console.error("Erro ao procurar responsável Guilherme", { code: error.code });
+    console.error("Erro ao procurar responsável Sofia", { code: error.code, message: error.message });
     return null;
+  }
+
+  if (!data?.name) {
+    console.error("Responsável Sofia não encontrada ou inativa para pedido Invest2030.");
   }
 
   return data?.name ?? null;
@@ -1262,60 +1266,92 @@ export async function createInvest2030RequestAction(formData: FormData) {
     redirect("/invest2030/novo-pedido");
   }
   const validAccessToken = accessToken ?? "";
+  const formFailureHref = (error: string) =>
+    invest2030PublicHref("/invest2030/novo-pedido", validAccessToken, { error });
 
   const supabase = supabaseOrRedirect(`/invest2030/novo-pedido?access=${encodeURIComponent(validAccessToken)}`);
-  const campaignName = requiredText(formData, "campaign_name");
-  const actionType = requiredOption(formData, "action_type", invest2030ActionTypes);
-  const requestedBy = requiredOption(formData, "requested_by", invest2030Requesters);
-  const mainGoal = requiredOption(formData, "main_goal", invest2030MainGoals);
-  const targetAudience = requiredText(formData, "target_audience");
-  const mainCta = requiredOption(formData, "main_cta", invest2030MainCtas);
-  const mainLink = requiredText(formData, "main_link");
-  const mainMessage = requiredText(formData, "main_message");
-  const mandatoryInfo = requiredText(formData, "mandatory_info");
-  const informationStatus = requiredOption(formData, "information_status", invest2030InformationStatuses);
-  const notes = text(formData, "notes");
-  const period = invest2030PeriodPayload(formData);
-  const [clientId, assigneeName] = await Promise.all([
-    findInvest2030ClientId(supabase),
-    guilhermeAssignee(supabase),
-  ]);
-  const needsAttention = informationStatus !== "Informação completa";
-  const { data: task, error: taskError } = await supabase
-    .from("tasks")
-    .insert({
-      client_id: clientId,
-      title: `[Invest2030] ${actionType} — ${campaignName}`,
-      type: "operations" as TaskType,
-      status: "todo" as TaskStatus,
-      priority: needsAttention ? ("urgent" as TaskPriority) : ("normal" as TaskPriority),
-      assignee_name: assigneeName,
-      due_date: period.dueDate,
-      related_url: mainLink.toLowerCase() === "a criar" ? null : mainLink,
-      is_blocked: needsAttention,
-      blocker_reason: needsAttention ? informationStatus : null,
-      notes: invest2030Description({
-        campaignName,
-        actionType,
-        requestedBy,
-        periodLabel: period.periodLabel,
-        mainGoal,
-        targetAudience,
-        mainCta,
-        mainLink,
-        mainMessage,
-        mandatoryInfo,
-        informationStatus,
-        notes,
-      }),
-    })
-    .select("id")
-    .single();
 
-  if (taskError) throw new Error(taskError.message);
+  let campaignName: string;
+  let actionType: string;
+  let requestedBy: string;
+  let mainGoal: string;
+  let targetAudience: string;
+  let mainCta: string;
+  let mainLink: string;
+  let mainMessage: string;
+  let mandatoryInfo: string;
+  let informationStatus: string;
+  let notes: string | null;
+  let period: ReturnType<typeof invest2030PeriodPayload>;
+
+  try {
+    campaignName = requiredText(formData, "campaign_name");
+    actionType = requiredOption(formData, "action_type", invest2030ActionTypes);
+    requestedBy = requiredOption(formData, "requested_by", invest2030Requesters);
+    mainGoal = requiredOption(formData, "main_goal", invest2030MainGoals);
+    targetAudience = requiredText(formData, "target_audience");
+    mainCta = requiredOption(formData, "main_cta", invest2030MainCtas);
+    mainLink = requiredText(formData, "main_link");
+    mainMessage = requiredText(formData, "main_message");
+    mandatoryInfo = requiredText(formData, "mandatory_info");
+    informationStatus = requiredOption(formData, "information_status", invest2030InformationStatuses);
+    notes = text(formData, "notes");
+    period = invest2030PeriodPayload(formData);
+  } catch (error) {
+    console.error("Erro ao validar formulário Invest2030", error);
+    redirect(formFailureHref("invalid-form"));
+  }
+
+  const needsAttention = informationStatus !== "Informação completa";
+
+  let taskId: string;
+
+  try {
+    const [clientId, assigneeName] = await Promise.all([
+      findInvest2030ClientId(supabase),
+      sofiaAssignee(supabase),
+    ]);
+
+    const { data: task, error: taskError } = await supabase
+      .from("tasks")
+      .insert({
+        client_id: clientId,
+        title: `[Invest2030] ${actionType} — ${campaignName}`,
+        type: "operations" as TaskType,
+        status: "todo" as TaskStatus,
+        priority: needsAttention ? ("urgent" as TaskPriority) : ("normal" as TaskPriority),
+        assignee_name: assigneeName,
+        due_date: period.dueDate,
+        related_url: mainLink.toLowerCase() === "a criar" ? null : mainLink,
+        is_blocked: needsAttention,
+        blocker_reason: needsAttention ? informationStatus : null,
+        notes: invest2030Description({
+          campaignName,
+          actionType,
+          requestedBy,
+          periodLabel: period.periodLabel,
+          mainGoal,
+          targetAudience,
+          mainCta,
+          mainLink,
+          mainMessage,
+          mandatoryInfo,
+          informationStatus,
+          notes,
+        }),
+      })
+      .select("id")
+      .single();
+
+    if (taskError) throw taskError;
+    taskId = task.id;
+  } catch (error) {
+    console.error("Erro ao criar task Invest2030", error);
+    redirect(formFailureHref("task-error"));
+  }
 
   const { error: requestError } = await supabase.from("invest2030_requests").insert({
-    task_id: task.id,
+    task_id: taskId,
     campaign_name: campaignName,
     action_type: actionType,
     requested_by: requestedBy,
@@ -1333,7 +1369,14 @@ export async function createInvest2030RequestAction(formData: FormData) {
     notes,
   });
 
-  if (requestError) throw new Error(requestError.message);
+  if (requestError) {
+    console.error("Erro ao gravar histórico Invest2030", {
+      taskId,
+      code: requestError.code,
+      message: requestError.message,
+    });
+    redirect(formFailureHref("history-error"));
+  }
 
   refreshAll();
   redirect(`/invest2030/pedidos?access=${encodeURIComponent(validAccessToken)}&created=1`);
