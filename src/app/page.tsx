@@ -182,6 +182,8 @@ function contentSearchText(item: ContentItem) {
     item.format,
     item.platform,
     item.creative_brief,
+    item.copy_text,
+    item.description,
     item.notes,
     item.design_status,
     item.media_url,

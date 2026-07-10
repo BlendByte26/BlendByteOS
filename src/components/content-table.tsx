@@ -17,7 +17,7 @@ import type { Client, ContentComment, ContentItem, TeamMember } from "@/lib/type
 type ContentFormAction = (id: string, formData: FormData) => void | Promise<void>;
 type ArchiveContentAction = (id: string) => void | Promise<void>;
 type DeleteContentAction = (id: string) => void | Promise<void>;
-type ModalSection = "general" | "brief" | "copy" | "workflow" | "links";
+type ModalSection = "general" | "brief" | "copy" | "description" | "workflow" | "links";
 type ListContentCommentsAction = (contentId: string) => Promise<
   | { ok: true; comments: ContentComment[] }
   | { ok: false; message: string }
@@ -74,8 +74,8 @@ function PreviewCell({
   onOpen,
 }: {
   text: string | null;
-  label: "Brief" | "Copy";
-  copyLabel: "brief" | "copy";
+  label: "Brief" | "Copy" | "Descrição";
+  copyLabel: "brief" | "copy" | "descrição";
   onOpen: () => void;
 }) {
   const value = text?.trim();
@@ -99,7 +99,7 @@ function PreviewCell({
   }
 
   return (
-    <div className="flex max-w-[210px] items-start gap-1.5">
+    <div className="flex max-w-[180px] items-start gap-1.5">
       <button
         type="button"
         onClick={onOpen}
@@ -285,7 +285,7 @@ export function ContentTable({
         ) : null}
         {localItems.length ? (
           <TableWrap>
-            <table className="bb-sticky-actions-table w-full min-w-[1120px] table-auto text-left text-sm">
+            <table className="bb-sticky-actions-table w-full min-w-[1260px] table-auto text-left text-sm">
               <thead className="bg-[rgba(246,248,250,0.9)] text-xs uppercase text-[var(--bb-muted)]">
                 <tr>
                   <th className="px-4 py-4 font-extrabold">Pub.</th>
@@ -295,6 +295,7 @@ export function ContentTable({
                   <th className="min-w-[220px] px-4 py-4 font-extrabold">Título</th>
                   <th className="px-4 py-4 font-extrabold">Brief</th>
                   <th className="px-4 py-4 font-extrabold">Copy</th>
+                  <th className="px-4 py-4 font-extrabold">Descrição</th>
                   <th className="min-w-[190px] px-4 py-4 font-extrabold">Estado</th>
                   <th className="px-4 py-4 font-extrabold">Owner</th>
                   <th className="px-4 py-4 font-extrabold">Links</th>
@@ -358,6 +359,9 @@ export function ContentTable({
                       </td>
                       <td className="px-4 py-4">
                         <PreviewCell text={item.copy_text} label="Copy" copyLabel="copy" onOpen={() => setEditing({ item, section: "copy" })} />
+                      </td>
+                      <td className="px-4 py-4">
+                        <PreviewCell text={item.description} label="Descrição" copyLabel="descrição" onOpen={() => setEditing({ item, section: "description" })} />
                       </td>
                       <td className="px-4 py-4">
                         <ContentStatusControl

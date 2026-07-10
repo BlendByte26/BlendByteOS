@@ -224,6 +224,7 @@ export type ContentItem = {
   title: string;
   creative_brief: string | null;
   copy_text: string | null;
+  description: string | null;
   status: ContentStatus;
   assignee_name: string | null;
   media_url: string | null;

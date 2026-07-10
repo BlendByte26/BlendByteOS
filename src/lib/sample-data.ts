@@ -108,6 +108,7 @@ export const sampleContent: ContentItem[] = sampleClients.slice(0, 6).map(
     title: `${client.name}: conteúdo semanal`,
     creative_brief: "Peça de exemplo para validar o calendário.",
     copy_text: null,
+    description: null,
     status: ["idea", "todo", "in_progress", "ready_to_publish", "published", "archived"][
       index
     ] as ContentItem["status"],

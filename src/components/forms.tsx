@@ -549,7 +549,7 @@ export function ContentForm({
         Título
         <input name="title" required defaultValue={item?.title ?? ""} className={inputClass} />
       </label>
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-3">
         <label data-content-section="brief" className={labelClass}>
           Brief criativo
           <textarea name="creative_brief" defaultValue={item?.creative_brief ?? ""} className={textAreaClass} />
@@ -557,6 +557,10 @@ export function ContentForm({
         <label data-content-section="copy" className={labelClass}>
           Copy
           <textarea name="copy_text" defaultValue={item?.copy_text ?? ""} className={textAreaClass} />
+        </label>
+        <label data-content-section="description" className={labelClass}>
+          Descrição
+          <textarea name="description" defaultValue={item?.description ?? ""} className={textAreaClass} />
         </label>
       </div>
       <label className={labelClass}>

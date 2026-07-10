@@ -168,6 +168,7 @@ create table if not exists public.content_items (
   title text not null,
   creative_brief text,
   copy_text text,
+  description text,
   status content_status not null default 'idea',
   assignee_name text,
   media_url text,
@@ -283,6 +284,7 @@ alter table public.content_items add column if not exists needs_copy boolean not
 alter table public.content_items add column if not exists needs_client_approval boolean not null default false;
 alter table public.content_items add column if not exists creative_brief text;
 alter table public.content_items add column if not exists copy_text text;
+alter table public.content_items add column if not exists description text;
 alter table public.content_items add column if not exists assignee_name text;
 alter table public.content_items add column if not exists media_url text;
 alter table public.content_items add column if not exists media_folder_url text;

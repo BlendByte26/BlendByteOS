@@ -9,6 +9,7 @@ type DatePickerProps = {
   defaultValue?: string | null;
   value?: string;
   onValueChange?: (value: string) => void;
+  initialMonth?: string;
   required?: boolean;
   ariaLabel?: string;
   className?: string;
@@ -109,6 +110,7 @@ export function DatePicker({
   defaultValue,
   value: controlledValue,
   onValueChange,
+  initialMonth,
   required,
   ariaLabel,
   className = "",
@@ -192,6 +194,11 @@ export function DatePicker({
     setOpen(false);
   }
 
+  function toggleOpen() {
+    if (!open) setViewDate(selectedDate ?? parseIsoMonth(initialMonth) ?? new Date());
+    setOpen((current) => !current);
+  }
+
   function selectToday() {
     selectDate(new Date());
   }
@@ -210,7 +217,7 @@ export function DatePicker({
         aria-label={ariaLabel}
         aria-haspopup="dialog"
         aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
+        onClick={toggleOpen}
         className="group flex min-h-11 w-full items-center justify-between gap-2 rounded-2xl border border-[var(--bb-border)] bg-white/75 px-3.5 text-left text-sm font-semibold text-[var(--bb-charcoal)] shadow-[0_12px_28px_rgba(0,0,0,0.05)] outline-none transition duration-200 hover:border-[rgba(83,183,223,0.45)] hover:bg-white focus:border-[rgba(83,183,223,0.72)] focus:shadow-[0_0_0_4px_var(--bb-primary-soft)]"
       >
         <span className={value ? "text-[var(--bb-charcoal)]" : "text-[var(--bb-muted)]"}>

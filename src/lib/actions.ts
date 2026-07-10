@@ -577,6 +577,7 @@ function contentPayload(formData: FormData) {
     title: requiredText(formData, "title"),
     creative_brief: text(formData, "creative_brief"),
     copy_text: text(formData, "copy_text"),
+    description: text(formData, "description"),
     status: requiredText(formData, "status") as ContentStatus,
     assignee_name: textList(formData, "assignee_name"),
     media_url: text(formData, "media_url"),
@@ -646,7 +647,6 @@ export async function bulkCreateContentAction(formData: FormData): Promise<BulkC
   const clientId = requiredText(formData, "client_id");
   const month = requiredText(formData, "month");
   const status = requiredText(formData, "status") as ContentStatus;
-  const globalAssignee = text(formData, "global_assignee_name");
   const defaultPlatform = text(formData, "default_platform") ?? fallbackContentPlatform;
   const defaultFormat = text(formData, "default_format");
   const publishDates = formData.getAll("row_publish_date");
@@ -707,8 +707,9 @@ export async function bulkCreateContentAction(formData: FormData): Promise<BulkC
       title,
       creative_brief: null,
       copy_text: null,
+      description: null,
       status,
-      assignee_name: assignee || globalAssignee,
+      assignee_name: assignee || null,
       media_url: null,
       brief_url: null,
       media_folder_url: null,

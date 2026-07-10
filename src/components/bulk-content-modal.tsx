@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CalendarDays, Copy, Plus, Trash2, X } from "lucide-react";
+import { CalendarDays, Check, ChevronDown, Copy, Plus, Trash2, X } from "lucide-react";
 import { DatePicker, MonthPicker } from "@/components/date-picker";
 import { SelectField, type SelectOption } from "@/components/select-field";
 import { getClientLabel } from "@/lib/client-display";
@@ -67,7 +67,7 @@ function dateInMonth(month: string, dayOffset: number) {
   return `${date.getFullYear()}-${localMonth}-${day}`;
 }
 
-function emptyRow(defaultPlatform: string, defaultFormat: string): BulkRow {
+function emptyRow(defaultPlatform: string, defaultFormat: string, defaultAssigneeName = ""): BulkRow {
   return {
     id: nextId(),
     publishDate: "",
@@ -75,8 +75,16 @@ function emptyRow(defaultPlatform: string, defaultFormat: string): BulkRow {
     platform: defaultPlatform,
     format: defaultFormat,
     title: "",
-    assigneeName: "",
+    assigneeName: defaultAssigneeName,
   };
+}
+
+function rowsForPlatforms(
+  platforms: string[],
+  defaultFormat: string,
+  defaultAssigneeName: string,
+) {
+  return platforms.map((platform) => emptyRow(platform, defaultFormat, defaultAssigneeName));
 }
 
 function statusOptions() {
@@ -93,6 +101,155 @@ function removeBulkParam(searchParams: URLSearchParams) {
   return query ? `/content?${query}` : "/content";
 }
 
+type MultiSelectFieldProps = {
+  name: string;
+  options: SelectOption[];
+  value: string[];
+  onValueChange: (value: string[]) => void;
+  ariaLabel?: string;
+};
+
+function MultiSelectField({
+  name,
+  options,
+  value,
+  onValueChange,
+  ariaLabel,
+}: MultiSelectFieldProps) {
+  const id = useId();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const selectedValues = value.length ? value : [options[0]?.value ?? ""].filter(Boolean);
+  const [open, setOpen] = useState(false);
+  const selectedLabels = options
+    .filter((option) => selectedValues.includes(option.value))
+    .map((option) => option.label);
+
+  useEffect(() => {
+    function closeOnOutsideClick(event: MouseEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, []);
+
+  function toggleValue(nextValue: string) {
+    if (selectedValues.includes(nextValue)) {
+      if (selectedValues.length === 1) return;
+      onValueChange(selectedValues.filter((selectedValue) => selectedValue !== nextValue));
+      return;
+    }
+
+    onValueChange([...selectedValues, nextValue]);
+  }
+
+  function removeValue(nextValue: string) {
+    if (selectedValues.length === 1) return;
+    onValueChange(selectedValues.filter((selectedValue) => selectedValue !== nextValue));
+  }
+
+  return (
+    <div ref={rootRef} className="relative min-w-0">
+      <input type="hidden" name={name} value={selectedValues[0] ?? ""} />
+      <button
+        type="button"
+        aria-label={ariaLabel}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={id}
+        onClick={() => setOpen((current) => !current)}
+        className="group flex min-h-11 w-full items-center justify-between gap-2 rounded-2xl border border-[var(--bb-border)] bg-white/75 px-3.5 text-left text-sm font-semibold text-[var(--bb-charcoal)] shadow-[0_12px_28px_rgba(0,0,0,0.05)] outline-none transition duration-200 hover:border-[rgba(83,183,223,0.45)] hover:bg-white focus:border-[rgba(83,183,223,0.72)] focus:shadow-[0_0_0_4px_var(--bb-primary-soft)]"
+      >
+        <span className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
+          {selectedLabels.slice(0, 2).map((label, index) => (
+            <span
+              key={label}
+              className={`max-w-[44%] truncate rounded-full bg-[var(--bb-primary-soft)] px-2.5 py-1 text-xs font-extrabold text-[var(--bb-black)] ${
+                index > 0 ? "hidden sm:inline" : ""
+              }`}
+            >
+              {label}
+            </span>
+          ))}
+          {selectedLabels.length > 2 ? (
+            <span className="rounded-full bg-white px-2 py-1 text-xs font-extrabold text-[var(--bb-muted)]">
+              +{selectedLabels.length - 2}
+            </span>
+          ) : null}
+        </span>
+        <ChevronDown
+          className={`size-4 shrink-0 text-[var(--bb-muted)] transition duration-200 ${
+            open ? "rotate-180 text-[var(--bb-charcoal)]" : "group-hover:text-[var(--bb-charcoal)]"
+          }`}
+          aria-hidden="true"
+        />
+      </button>
+
+      {open ? (
+        <div
+          id={id}
+          role="listbox"
+          aria-multiselectable="true"
+          className="absolute left-0 top-[calc(100%+8px)] z-50 w-full overflow-hidden rounded-[18px] border border-[var(--bb-border)] bg-white/95 p-1.5 font-sans shadow-[0_24px_60px_rgba(0,0,0,0.16)] backdrop-blur-xl"
+        >
+          <div className="max-h-64 overflow-y-auto">
+            {options.map((option) => {
+              const selected = selectedValues.includes(option.value);
+
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  role="option"
+                  aria-selected={selected}
+                  onClick={() => toggleValue(option.value)}
+                  className={`flex w-full items-center justify-between gap-3 rounded-[14px] px-3 py-2 text-left text-sm font-bold transition ${
+                    selected
+                      ? "bg-[var(--bb-primary-soft)] text-[var(--bb-black)]"
+                      : "text-[var(--bb-charcoal)] hover:bg-[var(--bb-primary-hover)]"
+                  }`}
+                >
+                  <span className="min-w-0 truncate">{option.label}</span>
+                  {selected ? <Check className="size-4 shrink-0" aria-hidden="true" /> : null}
+                </button>
+              );
+            })}
+          </div>
+
+          {selectedLabels.length > 1 ? (
+            <div className="mt-1.5 flex flex-wrap gap-1.5 border-t border-[var(--bb-border)] pt-2">
+              {selectedValues.map((selectedValue) => {
+                const option = options.find((currentOption) => currentOption.value === selectedValue);
+                if (!option) return null;
+
+                return (
+                  <button
+                    key={selectedValue}
+                    type="button"
+                    onClick={() => removeValue(selectedValue)}
+                    className="inline-flex max-w-full items-center gap-1 rounded-full border border-[var(--bb-border)] bg-white/80 px-2 py-1 text-xs font-extrabold text-[var(--bb-charcoal)] transition hover:bg-[var(--bb-red-soft)] hover:text-[#8f2415]"
+                  >
+                    <span className="truncate">{option.label}</span>
+                    <X className="size-3" aria-hidden="true" />
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function BulkContentModal({
   action,
   clients,
@@ -107,14 +264,16 @@ export function BulkContentModal({
   const [isPending, startTransition] = useTransition();
   const [open, setOpen] = useState(initialOpen);
   const [month, setMonth] = useState(defaultMonth || currentMonth());
-  const [defaultPlatform, setDefaultPlatform] = useState(platformOptions[0]);
+  const [defaultPlatforms, setDefaultPlatforms] = useState<string[]>([platformOptions[0]]);
   const [defaultFormat, setDefaultFormat] = useState(formatOptions[0]);
+  const [globalAssigneeName, setGlobalAssigneeName] = useState("");
   const [rows, setRows] = useState<BulkRow[]>(() => [
     emptyRow(platformOptions[0], formatOptions[0]),
     emptyRow(platformOptions[0], formatOptions[0]),
     emptyRow(platformOptions[0], formatOptions[0]),
   ]);
   const [message, setMessage] = useState<string | null>(null);
+  const activeDefaultPlatforms = defaultPlatforms.length ? defaultPlatforms : [platformOptions[0]];
   const clientOptions = useMemo(
     () => clients.map((client) => ({ value: client.id, label: getClientLabel(client) })),
     [clients],
@@ -128,7 +287,7 @@ export function BulkContentModal({
   );
   const rowAssigneeOptions = useMemo<SelectOption[]>(
     () => [
-      { value: "", label: "Usa o global" },
+      { value: "", label: "Não definido" },
       ...teamMembers.map((member) => ({ value: member.name, label: member.name })),
     ],
     [teamMembers],
@@ -147,7 +306,10 @@ export function BulkContentModal({
   }
 
   function addRow() {
-    setRows((currentRows) => [...currentRows, emptyRow(defaultPlatform, defaultFormat)]);
+    setRows((currentRows) => [
+      ...currentRows,
+      ...rowsForPlatforms(activeDefaultPlatforms, defaultFormat, globalAssigneeName),
+    ]);
   }
 
   function duplicateRow(row: BulkRow) {
@@ -167,12 +329,12 @@ export function BulkContentModal({
     setRows((currentRows) =>
       currentRows.length > 1
         ? currentRows.filter((row) => row.id !== id)
-        : [emptyRow(defaultPlatform, defaultFormat)],
+        : rowsForPlatforms(activeDefaultPlatforms, defaultFormat, globalAssigneeName),
     );
   }
 
   function clearRows() {
-    setRows([emptyRow(defaultPlatform, defaultFormat)]);
+    setRows(rowsForPlatforms(activeDefaultPlatforms, defaultFormat, globalAssigneeName));
     setMessage(null);
   }
 
@@ -181,66 +343,29 @@ export function BulkContentModal({
 
     for (let week = 0; week < 4; week += 1) {
       const baseOffset = week * 7;
-      weeklyRows.push(
-        {
-          id: nextId(),
-          publishDate: dateInMonth(month, baseOffset + 1),
-          publishTime: "10:00",
-          platform: defaultPlatform,
-          format: "Post",
-          title: `Post semana ${week + 1}.1`,
-          assigneeName: "",
-        },
-        {
-          id: nextId(),
-          publishDate: dateInMonth(month, baseOffset + 3),
-          publishTime: "10:00",
-          platform: defaultPlatform,
-          format: "Post",
-          title: `Post semana ${week + 1}.2`,
-          assigneeName: "",
-        },
-        {
-          id: nextId(),
-          publishDate: dateInMonth(month, baseOffset + 5),
-          publishTime: "10:00",
-          platform: defaultPlatform,
-          format: "Post",
-          title: `Post semana ${week + 1}.3`,
-          assigneeName: "",
-        },
-        {
-          id: nextId(),
-          publishDate: dateInMonth(month, baseOffset + 1),
-          publishTime: "",
-          platform: defaultPlatform,
-          format: "Story",
-          title: `Story semana ${week + 1}.1`,
-          assigneeName: "",
-        },
-        {
-          id: nextId(),
-          publishDate: dateInMonth(month, baseOffset + 3),
-          publishTime: "",
-          platform: defaultPlatform,
-          format: "Story",
-          title: `Story semana ${week + 1}.2`,
-          assigneeName: "",
-        },
-        {
-          id: nextId(),
-          publishDate: dateInMonth(month, baseOffset + 5),
-          publishTime: "",
-          platform: defaultPlatform,
-          format: "Story",
-          title: `Story semana ${week + 1}.3`,
-          assigneeName: "",
-        },
-      );
+      const templates = [
+        { publishDate: dateInMonth(month, baseOffset + 1), publishTime: "10:00", format: "Post", title: `Post semana ${week + 1}.1` },
+        { publishDate: dateInMonth(month, baseOffset + 3), publishTime: "10:00", format: "Post", title: `Post semana ${week + 1}.2` },
+        { publishDate: dateInMonth(month, baseOffset + 5), publishTime: "10:00", format: "Post", title: `Post semana ${week + 1}.3` },
+        { publishDate: dateInMonth(month, baseOffset + 1), publishTime: "", format: "Story", title: `Story semana ${week + 1}.1` },
+        { publishDate: dateInMonth(month, baseOffset + 3), publishTime: "", format: "Story", title: `Story semana ${week + 1}.2` },
+        { publishDate: dateInMonth(month, baseOffset + 5), publishTime: "", format: "Story", title: `Story semana ${week + 1}.3` },
+      ];
+
+      templates.forEach((template) => {
+        activeDefaultPlatforms.forEach((platform) => {
+          weeklyRows.push({
+            id: nextId(),
+            ...template,
+            platform,
+            assigneeName: globalAssigneeName,
+          });
+        });
+      });
     }
 
     setRows(weeklyRows);
-    setMessage("Foram preparadas 24 linhas simples para 4 semanas.");
+    setMessage(`Foram preparadas ${weeklyRows.length} linhas simples para 4 semanas.`);
   }
 
   function submit(formData: FormData) {
@@ -310,7 +435,8 @@ export function BulkContentModal({
               Responsável
               <SelectField
                 name="global_assignee_name"
-                defaultValue=""
+                value={globalAssigneeName}
+                onValueChange={setGlobalAssigneeName}
                 options={globalAssigneeOptions}
               />
             </label>
@@ -324,11 +450,12 @@ export function BulkContentModal({
             </label>
             <label className={labelClass}>
               Plataforma padrão
-              <SelectField
+              <MultiSelectField
                 name="default_platform"
-                value={defaultPlatform}
-                onValueChange={setDefaultPlatform}
+                value={defaultPlatforms}
+                onValueChange={setDefaultPlatforms}
                 options={platformSelectOptions}
+                ariaLabel="Plataforma padrão"
               />
             </label>
             <label className={labelClass}>
@@ -399,6 +526,7 @@ export function BulkContentModal({
                         required
                         value={row.publishDate}
                         onValueChange={(value) => updateRow(row.id, { publishDate: value })}
+                        initialMonth={month}
                         ariaLabel="Data de publicação"
                       />
                     </td>
