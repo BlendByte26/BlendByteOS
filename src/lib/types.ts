@@ -51,7 +51,7 @@ export const invest2030ActionTypes = [
   "Reenvio",
   "Follow-up",
   "Campanha para reuniões",
-  "Diretrizes de conteúdo",
+  "Redes Sociais",
   "Outro",
 ] as const;
 export const invest2030Requesters = ["André Loureiro", "Ricardo Carvalho", "Outra"] as const;
@@ -69,14 +69,6 @@ export const invest2030MainGoals = [
   "Fazer follow-up",
   "Informar base de dados",
   "Orientar criação de conteúdo",
-  "Outro",
-] as const;
-export const invest2030MainCtas = [
-  "Inscrever no webinar",
-  "Marcar reunião",
-  "Pedir avaliação de enquadramento",
-  "Ver página",
-  "Responder ao email",
   "Outro",
 ] as const;
 export const invest2030InformationStatuses = [
@@ -99,7 +91,6 @@ export type Invest2030ActionType = (typeof invest2030ActionTypes)[number];
 export type Invest2030Requester = (typeof invest2030Requesters)[number];
 export type Invest2030PeriodType = (typeof invest2030PeriodTypes)[number];
 export type Invest2030MainGoal = (typeof invest2030MainGoals)[number];
-export type Invest2030MainCta = (typeof invest2030MainCtas)[number];
 export type Invest2030InformationStatus = (typeof invest2030InformationStatuses)[number];
 
 export type SetupChecklistItem = {
@@ -293,8 +284,8 @@ export type Invest2030Request = {
   period_label: string;
   main_goal: Invest2030MainGoal | string;
   target_audience: string;
-  main_cta: Invest2030MainCta | string;
-  main_link: string;
+  main_cta: string;
+  main_link: string | null;
   main_message: string;
   mandatory_info: string;
   information_status: Invest2030InformationStatus | string;

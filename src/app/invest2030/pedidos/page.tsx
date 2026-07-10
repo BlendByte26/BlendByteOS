@@ -162,7 +162,7 @@ export default async function Invest2030RequestsPage({ searchParams }: Props) {
       <Panel className="p-3.5">
         {requests.length ? (
           <TableWrap>
-            <table className="min-w-[1120px] w-full text-left text-sm">
+            <table className="min-w-[1320px] w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-[var(--bb-border)] text-xs font-extrabold uppercase text-[var(--bb-muted)]">
                   <th className="px-3 py-3">Data do pedido</th>
@@ -172,6 +172,8 @@ export default async function Invest2030RequestsPage({ searchParams }: Props) {
                   <th className="px-3 py-3">Quem pediu</th>
                   <th className="px-3 py-3">Objetivo principal</th>
                   <th className="px-3 py-3">Estado da informação</th>
+                  <th className="px-3 py-3">Texto do botão</th>
+                  <th className="px-3 py-3">Link do botão</th>
                   <th className="px-3 py-3">Tema</th>
                   <th className="px-3 py-3">Informação obrigatória</th>
                   <th className="px-3 py-3">Observações</th>
@@ -189,6 +191,12 @@ export default async function Invest2030RequestsPage({ searchParams }: Props) {
                     <td className="px-3 py-3 font-bold text-[var(--bb-charcoal)]">{request.requested_by}</td>
                     <td className="px-3 py-3 text-xs font-bold text-[var(--bb-muted)]">{request.main_goal}</td>
                     <td className="px-3 py-3 text-xs font-bold text-[var(--bb-muted)]">{request.information_status}</td>
+                    <td className="px-3 py-3 text-xs font-bold text-[var(--bb-muted)]">
+                      <span className="bb-line-clamp-2">{request.main_cta}</span>
+                    </td>
+                    <td className="px-3 py-3 text-xs font-bold text-[var(--bb-muted)]">
+                      <span className="bb-line-clamp-2">{request.main_link ?? "Sem link"}</span>
+                    </td>
                     <td className="px-3 py-3 text-xs font-bold text-[var(--bb-muted)]">
                       <span className="bb-line-clamp-2">{request.main_message}</span>
                     </td>

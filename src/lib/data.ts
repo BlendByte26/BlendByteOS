@@ -463,6 +463,7 @@ export async function getTask(id: string) {
 
 function invest2030RequestMatches(request: Invest2030Request, filters: Invest2030RequestFilters) {
   const search = filters.search?.trim().toLowerCase();
+  const actionTypes = request.action_type.split(",").map((value) => value.trim());
   const text = [
     request.campaign_name,
     request.action_type,
@@ -483,7 +484,7 @@ function invest2030RequestMatches(request: Invest2030Request, filters: Invest203
 
   return (
     (!search || text.includes(search)) &&
-    (!filters.actionType || request.action_type === filters.actionType) &&
+    (!filters.actionType || actionTypes.includes(filters.actionType)) &&
     (!filters.requestedBy || request.requested_by === filters.requestedBy) &&
     (!filters.mainGoal || request.main_goal === filters.mainGoal) &&
     (!filters.informationStatus || request.information_status === filters.informationStatus) &&
@@ -522,7 +523,7 @@ export async function getInvest2030Requests(filters: Invest2030RequestFilters = 
       ].join(","),
     );
   }
-  if (filters.actionType) query = query.eq("action_type", filters.actionType);
+  if (filters.actionType) query = query.ilike("action_type", `%${filters.actionType}%`);
   if (filters.requestedBy) query = query.eq("requested_by", filters.requestedBy);
   if (filters.mainGoal) query = query.eq("main_goal", filters.mainGoal);
   if (filters.informationStatus) query = query.eq("information_status", filters.informationStatus);

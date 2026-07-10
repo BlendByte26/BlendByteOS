@@ -3,14 +3,13 @@
 import Link from "next/link";
 import { useFormStatus } from "react-dom";
 import { useState } from "react";
-import { ArrowUpRight, History } from "lucide-react";
+import { ArrowUpRight, Check, History } from "lucide-react";
 import { DatePicker, MonthPicker } from "@/components/date-picker";
 import { SelectField } from "@/components/select-field";
 import { invest2030PublicHref } from "@/lib/invest2030-public";
 import {
   invest2030ActionTypes,
   invest2030InformationStatuses,
-  invest2030MainCtas,
   invest2030MainGoals,
   invest2030PeriodTypes,
   invest2030Requesters,
@@ -26,6 +25,55 @@ const textAreaClass = "bb-textarea text-sm font-medium placeholder:text-[var(--b
 
 function options(values: readonly string[]) {
   return values.map((value) => ({ value, label: value }));
+}
+
+function ActionTypeMultiSelect() {
+  const [selected, setSelected] = useState<string[]>(["Webinar"]);
+
+  function toggle(value: string) {
+    setSelected((current) => {
+      if (current.includes(value)) {
+        return current.length === 1 ? current : current.filter((item) => item !== value);
+      }
+
+      return [...current, value];
+    });
+  }
+
+  return (
+    <fieldset className="grid gap-2 text-sm font-bold text-[var(--bb-charcoal)]">
+      <legend>Tipo de ação</legend>
+      <div className="flex flex-wrap gap-2">
+        {invest2030ActionTypes.map((value) => {
+          const checked = selected.includes(value);
+
+          return (
+            <label
+              key={value}
+              className={`inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-full border px-3 text-sm font-extrabold transition ${
+                checked
+                  ? "border-[rgba(83,183,223,0.58)] bg-[var(--bb-primary-soft)] text-[var(--bb-black)]"
+                  : "border-[var(--bb-border)] bg-white/65 text-[var(--bb-charcoal)] hover:bg-[var(--bb-primary-hover)]"
+              }`}
+            >
+              <input
+                type="checkbox"
+                name="action_type"
+                value={value}
+                checked={checked}
+                onChange={() => toggle(value)}
+                className="sr-only"
+              />
+              <span className="flex size-4 shrink-0 items-center justify-center rounded-full border border-current">
+                {checked ? <Check className="size-3" aria-hidden="true" /> : null}
+              </span>
+              <span>{value}</span>
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
 }
 
 function SubmitButton() {
@@ -70,11 +118,9 @@ export function Invest2030RequestForm({ action, accessToken }: { action: FormAct
         />
       </label>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <label className={labelClass}>
-          Tipo de ação
-          <SelectField name="action_type" required options={options(invest2030ActionTypes)} />
-        </label>
+      <ActionTypeMultiSelect />
+
+      <div className="grid gap-4 md:grid-cols-2">
         <label className={labelClass}>
           Quem está a pedir?
           <SelectField name="requested_by" required options={options(invest2030Requesters)} />
@@ -124,10 +170,6 @@ export function Invest2030RequestForm({ action, accessToken }: { action: FormAct
           <SelectField name="main_goal" required options={options(invest2030MainGoals)} />
         </label>
         <label className={labelClass}>
-          CTA principal
-          <SelectField name="main_cta" required options={options(invest2030MainCtas)} />
-        </label>
-        <label className={labelClass}>
           Estado da informação
           <SelectField name="information_status" required options={options(invest2030InformationStatuses)} />
         </label>
@@ -144,11 +186,20 @@ export function Invest2030RequestForm({ action, accessToken }: { action: FormAct
       </label>
 
       <label className={labelClass}>
-        Link principal
+        Texto do botão principal
+        <input
+          name="main_cta"
+          required
+          placeholder="Inscrever no webinar, Marcar reunião, Pedir avaliação..."
+          className={inputClass}
+        />
+      </label>
+
+      <label className={labelClass}>
+        Link do botão principal
         <input
           name="main_link"
-          required
-          placeholder="Link do webinar, página do incentivo, calendário, formulário ou landing page. Se ainda não existir, escrever 'a criar'."
+          placeholder="Link do webinar, página do incentivo, calendário, formulário ou landing page."
           className={inputClass}
         />
       </label>

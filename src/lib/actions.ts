@@ -17,7 +17,6 @@ import {
   clientColorKeys,
   invest2030ActionTypes,
   invest2030InformationStatuses,
-  invest2030MainCtas,
   invest2030MainGoals,
   invest2030PeriodTypes,
   invest2030Requesters,
@@ -1082,6 +1081,21 @@ function requiredOption<T extends readonly string[]>(formData: FormData, key: st
   return value as T[number];
 }
 
+function requiredOptions<T extends readonly string[]>(formData: FormData, key: string, options: T) {
+  const values = formData
+    .getAll(key)
+    .filter((value): value is string => typeof value === "string")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const uniqueValues = Array.from(new Set(values));
+
+  if (!uniqueValues.length || uniqueValues.some((value) => !options.includes(value))) {
+    throw new Error(`Opção inválida: ${key}`);
+  }
+
+  return uniqueValues as Array<T[number]>;
+}
+
 function parseIsoDateValue(value: string) {
   const [year, month, day] = value.split("-").map(Number);
   if (!year || !month || !day) return null;
@@ -1182,7 +1196,7 @@ function invest2030Description({
   mainGoal: string;
   targetAudience: string;
   mainCta: string;
-  mainLink: string;
+  mainLink: string | null;
   mainMessage: string;
   mandatoryInfo: string;
   informationStatus: string;
@@ -1208,11 +1222,11 @@ ${mainGoal}
 Público-alvo / segmentação:
 ${targetAudience}
 
-CTA principal:
+Texto do botão principal:
 ${mainCta}
 
-Link principal:
-${mainLink}
+Link do botão principal:
+${mainLink ?? "Sem link definido"}
 
 Tema / mensagem principal:
 ${mainMessage}
@@ -1278,7 +1292,7 @@ export async function createInvest2030RequestAction(formData: FormData) {
   let mainGoal: string;
   let targetAudience: string;
   let mainCta: string;
-  let mainLink: string;
+  let mainLink: string | null;
   let mainMessage: string;
   let mandatoryInfo: string;
   let informationStatus: string;
@@ -1287,12 +1301,12 @@ export async function createInvest2030RequestAction(formData: FormData) {
 
   try {
     campaignName = requiredText(formData, "campaign_name");
-    actionType = requiredOption(formData, "action_type", invest2030ActionTypes);
+    actionType = requiredOptions(formData, "action_type", invest2030ActionTypes).join(", ");
     requestedBy = requiredOption(formData, "requested_by", invest2030Requesters);
     mainGoal = requiredOption(formData, "main_goal", invest2030MainGoals);
     targetAudience = requiredText(formData, "target_audience");
-    mainCta = requiredOption(formData, "main_cta", invest2030MainCtas);
-    mainLink = requiredText(formData, "main_link");
+    mainCta = requiredText(formData, "main_cta");
+    mainLink = text(formData, "main_link");
     mainMessage = requiredText(formData, "main_message");
     mandatoryInfo = requiredText(formData, "mandatory_info");
     informationStatus = requiredOption(formData, "information_status", invest2030InformationStatuses);
@@ -1323,7 +1337,7 @@ export async function createInvest2030RequestAction(formData: FormData) {
         priority: needsAttention ? ("urgent" as TaskPriority) : ("normal" as TaskPriority),
         assignee_name: assigneeName,
         due_date: period.dueDate,
-        related_url: mainLink.toLowerCase() === "a criar" ? null : mainLink,
+        related_url: mainLink && mainLink.toLowerCase() !== "a criar" ? mainLink : null,
         is_blocked: needsAttention,
         blocker_reason: needsAttention ? informationStatus : null,
         notes: invest2030Description({

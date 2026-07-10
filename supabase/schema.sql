@@ -219,7 +219,7 @@ create table if not exists public.invest2030_requests (
   main_goal text not null,
   target_audience text not null,
   main_cta text not null,
-  main_link text not null,
+  main_link text,
   main_message text not null,
   mandatory_info text not null,
   information_status text not null,
