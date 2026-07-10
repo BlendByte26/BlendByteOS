@@ -295,6 +295,35 @@ export type Invest2030Request = {
   tasks?: Pick<Task, "id" | "title" | "status" | "priority" | "is_blocked" | "due_date"> | null;
 };
 
+export type Invest2030RequestFormValues = {
+  campaign_name: string;
+  action_type: string[];
+  requested_by: string;
+  period_type: string;
+  period_date: string;
+  period_start: string;
+  period_end: string;
+  period_month: string;
+  main_goal: string;
+  target_audience: string;
+  main_cta: string;
+  main_link: string;
+  main_message: string;
+  mandatory_info: string;
+  information_status: string;
+  notes: string;
+};
+
+export type Invest2030RequestFormField = keyof Invest2030RequestFormValues;
+
+export type Invest2030RequestFormState = {
+  status: "idle" | "error";
+  message?: string;
+  fieldErrors?: Partial<Record<Invest2030RequestFormField, string>>;
+  values?: Invest2030RequestFormValues;
+  submissionKey?: string;
+};
+
 export type Option = {
   value: string;
   label: string;

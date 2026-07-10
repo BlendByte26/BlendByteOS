@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useFormStatus } from "react-dom";
-import { useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import { ArrowUpRight, Check, History } from "lucide-react";
 import { DatePicker, MonthPicker } from "@/components/date-picker";
 import { SelectField } from "@/components/select-field";
@@ -15,20 +15,46 @@ import {
   invest2030Requesters,
   type Invest2030PeriodType,
   type Invest2030Request,
+  type Invest2030RequestFormField,
+  type Invest2030RequestFormState,
 } from "@/lib/types";
 
-type FormAction = (formData: FormData) => void | Promise<void>;
+type FormAction = (
+  previousState: Invest2030RequestFormState,
+  formData: FormData,
+) => Invest2030RequestFormState | Promise<Invest2030RequestFormState>;
 
 const inputClass = "bb-input text-sm font-medium placeholder:text-[var(--bb-muted)]";
 const labelClass = "grid gap-2 text-sm font-bold text-[var(--bb-charcoal)]";
 const textAreaClass = "bb-textarea text-sm font-medium placeholder:text-[var(--bb-muted)]";
+const errorInputClass = "border-[#e69a18] bg-[#fffaf0] shadow-[0_0_0_4px_rgba(230,154,24,0.12)]";
+
+const initialFormState: Invest2030RequestFormState = {
+  status: "idle",
+};
 
 function options(values: readonly string[]) {
   return values.map((value) => ({ value, label: value }));
 }
 
-function ActionTypeMultiSelect() {
-  const [selected, setSelected] = useState<string[]>(["Webinar"]);
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null;
+
+  return <span className="text-xs font-extrabold leading-5 text-[#9b5b00]">{message}</span>;
+}
+
+function ActionTypeMultiSelect({
+  defaultSelected,
+  error,
+}: {
+  defaultSelected?: string[];
+  error?: string;
+}) {
+  const initialSelected = useMemo(
+    () => (defaultSelected?.length ? defaultSelected : ["Webinar"]),
+    [defaultSelected],
+  );
+  const [selected, setSelected] = useState<string[]>(initialSelected);
 
   function toggle(value: string) {
     setSelected((current) => {
@@ -72,6 +98,7 @@ function ActionTypeMultiSelect() {
           );
         })}
       </div>
+      <FieldError message={error} />
     </fieldset>
   );
 }
@@ -91,12 +118,26 @@ function SubmitButton() {
 }
 
 export function Invest2030RequestForm({ action, accessToken }: { action: FormAction; accessToken: string }) {
-  const [periodType, setPeriodType] = useState<Invest2030PeriodType>("Dia específico");
+  const [state, formAction] = useActionState(action, initialFormState);
+  const values = state.values;
+  const fieldErrors = state.fieldErrors ?? {};
+  const [periodType, setPeriodType] = useState<Invest2030PeriodType>(
+    (values?.period_type as Invest2030PeriodType | undefined) ?? "Dia específico",
+  );
+
+  function inputState(field: Invest2030RequestFormField) {
+    return fieldErrors[field] ? errorInputClass : "";
+  }
 
   return (
-    <form action={action} className="grid gap-4">
+    <form key={state.submissionKey ?? "new"} action={formAction} noValidate className="grid gap-4">
       <input type="hidden" name="access" value={accessToken} />
       <input type="text" name="company_website" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden="true" />
+      {state.message ? (
+        <div className="rounded-[18px] border border-[#f3c56a] bg-[#fff6dd] px-4 py-3 text-sm font-bold leading-6 text-[#6f4a00]">
+          {state.message}
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-[18px] border border-[var(--bb-border)] bg-white/48 px-3 py-2">
         <span className="text-sm font-bold text-[var(--bb-muted)]">Pedido rápido Invest2030</span>
         <Link
@@ -113,17 +154,26 @@ export function Invest2030RequestForm({ action, accessToken }: { action: FormAct
         <input
           name="campaign_name"
           required
+          defaultValue={values?.campaign_name ?? ""}
           placeholder="Webinar Incentivos Base Territorial — Julho 2026"
-          className={inputClass}
+          aria-invalid={Boolean(fieldErrors.campaign_name)}
+          className={`${inputClass} ${inputState("campaign_name")}`}
         />
+        <FieldError message={fieldErrors.campaign_name} />
       </label>
 
-      <ActionTypeMultiSelect />
+      <ActionTypeMultiSelect defaultSelected={values?.action_type} error={fieldErrors.action_type} />
 
       <div className="grid gap-4 md:grid-cols-2">
         <label className={labelClass}>
           Quem está a pedir?
-          <SelectField name="requested_by" required options={options(invest2030Requesters)} />
+          <SelectField
+            name="requested_by"
+            required
+            defaultValue={values?.requested_by}
+            options={options(invest2030Requesters)}
+          />
+          <FieldError message={fieldErrors.requested_by} />
         </label>
         <label className={labelClass}>
           Tipo de período
@@ -134,13 +184,15 @@ export function Invest2030RequestForm({ action, accessToken }: { action: FormAct
             onValueChange={(value) => setPeriodType(value as Invest2030PeriodType)}
             options={options(invest2030PeriodTypes)}
           />
+          <FieldError message={fieldErrors.period_type} />
         </label>
       </div>
 
       {periodType === "Dia específico" ? (
         <label className={`${labelClass} max-w-sm`}>
           Data
-          <DatePicker name="period_date" required ariaLabel="Data do pedido" />
+          <DatePicker name="period_date" defaultValue={values?.period_date} required ariaLabel="Data do pedido" />
+          <FieldError message={fieldErrors.period_date} />
         </label>
       ) : null}
 
@@ -148,11 +200,13 @@ export function Invest2030RequestForm({ action, accessToken }: { action: FormAct
         <div className="grid gap-4 md:grid-cols-2">
           <label className={labelClass}>
             Data de início
-            <DatePicker name="period_start" required ariaLabel="Data de início" />
+            <DatePicker name="period_start" defaultValue={values?.period_start} required ariaLabel="Data de início" />
+            <FieldError message={fieldErrors.period_start} />
           </label>
           <label className={labelClass}>
             Data de fim
-            <DatePicker name="period_end" required ariaLabel="Data de fim" />
+            <DatePicker name="period_end" defaultValue={values?.period_end} required ariaLabel="Data de fim" />
+            <FieldError message={fieldErrors.period_end} />
           </label>
         </div>
       ) : null}
@@ -160,18 +214,26 @@ export function Invest2030RequestForm({ action, accessToken }: { action: FormAct
       {periodType === "Mês" ? (
         <label className={`${labelClass} max-w-sm`}>
           Mês
-          <MonthPicker name="period_month" required ariaLabel="Mês do pedido" />
+          <MonthPicker name="period_month" defaultValue={values?.period_month} required ariaLabel="Mês do pedido" />
+          <FieldError message={fieldErrors.period_month} />
         </label>
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-3">
         <label className={labelClass}>
           Objetivo principal
-          <SelectField name="main_goal" required options={options(invest2030MainGoals)} />
+          <SelectField name="main_goal" required defaultValue={values?.main_goal} options={options(invest2030MainGoals)} />
+          <FieldError message={fieldErrors.main_goal} />
         </label>
         <label className={labelClass}>
           Estado da informação
-          <SelectField name="information_status" required options={options(invest2030InformationStatuses)} />
+          <SelectField
+            name="information_status"
+            required
+            defaultValue={values?.information_status}
+            options={options(invest2030InformationStatuses)}
+          />
+          <FieldError message={fieldErrors.information_status} />
         </label>
       </div>
 
@@ -180,9 +242,12 @@ export function Invest2030RequestForm({ action, accessToken }: { action: FormAct
         <textarea
           name="target_audience"
           required
+          defaultValue={values?.target_audience ?? ""}
           placeholder="PME industriais no Norte, empresas de turismo, empresas do distrito de Lisboa, microempresas com investimento previsto, setor/CAE específico, etc."
-          className={textAreaClass}
+          aria-invalid={Boolean(fieldErrors.target_audience)}
+          className={`${textAreaClass} ${inputState("target_audience")}`}
         />
+        <FieldError message={fieldErrors.target_audience} />
       </label>
 
       <label className={labelClass}>
@@ -190,18 +255,23 @@ export function Invest2030RequestForm({ action, accessToken }: { action: FormAct
         <input
           name="main_cta"
           required
+          defaultValue={values?.main_cta ?? ""}
           placeholder="Inscrever no webinar, Marcar reunião, Pedir avaliação..."
-          className={inputClass}
+          aria-invalid={Boolean(fieldErrors.main_cta)}
+          className={`${inputClass} ${inputState("main_cta")}`}
         />
+        <FieldError message={fieldErrors.main_cta} />
       </label>
 
       <label className={labelClass}>
         Link do botão principal
         <input
           name="main_link"
+          defaultValue={values?.main_link ?? ""}
           placeholder="Link do webinar, página do incentivo, calendário, formulário ou landing page."
-          className={inputClass}
+          className={`${inputClass} ${inputState("main_link")}`}
         />
+        <FieldError message={fieldErrors.main_link} />
       </label>
 
       <label className={labelClass}>
@@ -209,9 +279,12 @@ export function Invest2030RequestForm({ action, accessToken }: { action: FormAct
         <textarea
           name="main_message"
           required
+          defaultValue={values?.main_message ?? ""}
           placeholder="Em poucas frases, explica o que a campanha deve comunicar."
-          className={textAreaClass}
+          aria-invalid={Boolean(fieldErrors.main_message)}
+          className={`${textAreaClass} ${inputState("main_message")}`}
         />
+        <FieldError message={fieldErrors.main_message} />
       </label>
 
       <label className={labelClass}>
@@ -219,14 +292,17 @@ export function Invest2030RequestForm({ action, accessToken }: { action: FormAct
         <textarea
           name="mandatory_info"
           required
+          defaultValue={values?.mandatory_info ?? ""}
           placeholder="Prazo, taxa de apoio, entidades elegíveis, data/hora do webinar, orador, benefício principal, urgência ou região abrangida."
-          className={textAreaClass}
+          aria-invalid={Boolean(fieldErrors.mandatory_info)}
+          className={`${textAreaClass} ${inputState("mandatory_info")}`}
         />
+        <FieldError message={fieldErrors.mandatory_info} />
       </label>
 
       <label className={labelClass}>
         Observações
-        <textarea name="notes" className={textAreaClass} />
+        <textarea name="notes" defaultValue={values?.notes ?? ""} className={textAreaClass} />
       </label>
 
       <div className="flex flex-wrap items-center gap-2 pt-2">

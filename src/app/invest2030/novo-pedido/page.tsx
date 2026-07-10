@@ -23,10 +23,6 @@ function formErrorMessage(error: string | undefined) {
     return "Não foi possível criar o pedido. Fala com a BlendByte para confirmarmos o que aconteceu.";
   }
 
-  if (error === "invalid-form") {
-    return "Há um campo em falta ou inválido. Revê o formulário e tenta novamente.";
-  }
-
   return null;
 }
 

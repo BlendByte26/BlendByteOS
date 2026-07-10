@@ -28,6 +28,9 @@ import type {
   ContentComment,
   ContentItem,
   ContentStatus,
+  Invest2030RequestFormField,
+  Invest2030RequestFormState,
+  Invest2030RequestFormValues,
   QuickNote,
   QuickTodo,
   QuickTodoItemType,
@@ -1081,19 +1084,8 @@ function requiredOption<T extends readonly string[]>(formData: FormData, key: st
   return value as T[number];
 }
 
-function requiredOptions<T extends readonly string[]>(formData: FormData, key: string, options: T) {
-  const values = formData
-    .getAll(key)
-    .filter((value): value is string => typeof value === "string")
-    .map((value) => value.trim())
-    .filter(Boolean);
-  const uniqueValues = Array.from(new Set(values));
-
-  if (!uniqueValues.length || uniqueValues.some((value) => !options.includes(value))) {
-    throw new Error(`Opção inválida: ${key}`);
-  }
-
-  return uniqueValues as Array<T[number]>;
+function isKnownOption(value: string, options: readonly string[]) {
+  return options.includes(value);
 }
 
 function parseIsoDateValue(value: string) {
@@ -1173,6 +1165,89 @@ function invest2030PeriodPayload(formData: FormData) {
     periodLabel: `${periodType} — ${formatPtDate(start)} a ${formatPtDate(end)}`,
     dueDate: start,
   };
+}
+
+function invest2030FormValues(formData: FormData): Invest2030RequestFormValues {
+  return {
+    campaign_name: text(formData, "campaign_name") ?? "",
+    action_type: formData
+      .getAll("action_type")
+      .filter((value): value is string => typeof value === "string")
+      .map((value) => value.trim())
+      .filter(Boolean),
+    requested_by: text(formData, "requested_by") ?? "",
+    period_type: text(formData, "period_type") ?? "",
+    period_date: text(formData, "period_date") ?? "",
+    period_start: text(formData, "period_start") ?? "",
+    period_end: text(formData, "period_end") ?? "",
+    period_month: text(formData, "period_month") ?? "",
+    main_goal: text(formData, "main_goal") ?? "",
+    target_audience: text(formData, "target_audience") ?? "",
+    main_cta: text(formData, "main_cta") ?? "",
+    main_link: text(formData, "main_link") ?? "",
+    main_message: text(formData, "main_message") ?? "",
+    mandatory_info: text(formData, "mandatory_info") ?? "",
+    information_status: text(formData, "information_status") ?? "",
+    notes: text(formData, "notes") ?? "",
+  };
+}
+
+function invest2030ValidationError(
+  values: Invest2030RequestFormValues,
+  fieldErrors: Partial<Record<Invest2030RequestFormField, string>>,
+): Invest2030RequestFormState {
+  return {
+    status: "error",
+    message: "Há campos em falta ou inválidos. Revê os campos assinalados.",
+    fieldErrors,
+    values,
+    submissionKey: String(Date.now()),
+  };
+}
+
+function validateInvest2030FormValues(values: Invest2030RequestFormValues) {
+  const fieldErrors: Partial<Record<Invest2030RequestFormField, string>> = {};
+
+  if (!values.campaign_name) fieldErrors.campaign_name = "Escreve o nome da campanha.";
+  if (!values.action_type.length) {
+    fieldErrors.action_type = "Escolhe pelo menos um tipo de ação.";
+  } else if (values.action_type.some((value) => !isKnownOption(value, invest2030ActionTypes))) {
+    fieldErrors.action_type = "Há um tipo de ação inválido.";
+  }
+  if (!isKnownOption(values.requested_by, invest2030Requesters)) fieldErrors.requested_by = "Escolhe quem está a pedir.";
+  if (!isKnownOption(values.period_type, invest2030PeriodTypes)) fieldErrors.period_type = "Escolhe o tipo de período.";
+  if (!isKnownOption(values.main_goal, invest2030MainGoals)) fieldErrors.main_goal = "Escolhe o objetivo principal.";
+  if (!values.target_audience) fieldErrors.target_audience = "Descreve o público-alvo.";
+  if (!values.main_cta) fieldErrors.main_cta = "Escreve o texto do botão principal.";
+  if (!values.main_message) fieldErrors.main_message = "Escreve a mensagem principal.";
+  if (!values.mandatory_info) fieldErrors.mandatory_info = "Indica a informação obrigatória a mencionar.";
+  if (!isKnownOption(values.information_status, invest2030InformationStatuses)) {
+    fieldErrors.information_status = "Escolhe o estado da informação.";
+  }
+
+  if (values.period_type === "Dia específico") {
+    if (!values.period_date || !parseIsoDateValue(values.period_date)) {
+      fieldErrors.period_date = "Escolhe uma data válida.";
+    }
+  }
+
+  if (values.period_type === "Mês") {
+    const [year, month] = values.period_month.split("-").map(Number);
+    if (!year || !month || month < 1 || month > 12) {
+      fieldErrors.period_month = "Escolhe um mês válido.";
+    }
+  }
+
+  if (values.period_type === "Semana" || values.period_type === "Período personalizado") {
+    const start = parseIsoDateValue(values.period_start);
+    const end = parseIsoDateValue(values.period_end);
+
+    if (!start) fieldErrors.period_start = "Escolhe uma data de início válida.";
+    if (!end) fieldErrors.period_end = "Escolhe uma data de fim válida.";
+    if (start && end && end < start) fieldErrors.period_end = "A data de fim deve ser igual ou posterior à data de início.";
+  }
+
+  return fieldErrors;
 }
 
 function invest2030Description({
@@ -1274,7 +1349,10 @@ async function sofiaAssignee(supabase: NonNullable<ReturnType<typeof getSupabase
   return data?.name ?? null;
 }
 
-export async function createInvest2030RequestAction(formData: FormData) {
+export async function createInvest2030RequestAction(
+  _previousState: Invest2030RequestFormState,
+  formData: FormData,
+): Promise<Invest2030RequestFormState> {
   const accessToken = text(formData, "access");
   const honeypot = text(formData, "company_website");
   if (!isInvest2030PublicAccessToken(accessToken) || honeypot) {
@@ -1285,6 +1363,13 @@ export async function createInvest2030RequestAction(formData: FormData) {
     invest2030PublicHref("/invest2030/novo-pedido", validAccessToken, { error });
 
   const supabase = supabaseOrRedirect(`/invest2030/novo-pedido?access=${encodeURIComponent(validAccessToken)}`);
+  const values = invest2030FormValues(formData);
+  const fieldErrors = validateInvest2030FormValues(values);
+
+  if (Object.keys(fieldErrors).length) {
+    console.error("Erro ao validar formulário Invest2030", { fields: Object.keys(fieldErrors) });
+    return invest2030ValidationError(values, fieldErrors);
+  }
 
   let campaignName: string;
   let actionType: string;
@@ -1300,21 +1385,23 @@ export async function createInvest2030RequestAction(formData: FormData) {
   let period: ReturnType<typeof invest2030PeriodPayload>;
 
   try {
-    campaignName = requiredText(formData, "campaign_name");
-    actionType = requiredOptions(formData, "action_type", invest2030ActionTypes).join(", ");
-    requestedBy = requiredOption(formData, "requested_by", invest2030Requesters);
-    mainGoal = requiredOption(formData, "main_goal", invest2030MainGoals);
-    targetAudience = requiredText(formData, "target_audience");
-    mainCta = requiredText(formData, "main_cta");
-    mainLink = text(formData, "main_link");
-    mainMessage = requiredText(formData, "main_message");
-    mandatoryInfo = requiredText(formData, "mandatory_info");
-    informationStatus = requiredOption(formData, "information_status", invest2030InformationStatuses);
-    notes = text(formData, "notes");
+    campaignName = values.campaign_name;
+    actionType = values.action_type.join(", ");
+    requestedBy = values.requested_by;
+    mainGoal = values.main_goal;
+    targetAudience = values.target_audience;
+    mainCta = values.main_cta;
+    mainLink = values.main_link || null;
+    mainMessage = values.main_message;
+    mandatoryInfo = values.mandatory_info;
+    informationStatus = values.information_status;
+    notes = values.notes || null;
     period = invest2030PeriodPayload(formData);
   } catch (error) {
     console.error("Erro ao validar formulário Invest2030", error);
-    redirect(formFailureHref("invalid-form"));
+    return invest2030ValidationError(values, {
+      period_type: "Revê o período do pedido.",
+    });
   }
 
   const needsAttention = informationStatus !== "Informação completa";
