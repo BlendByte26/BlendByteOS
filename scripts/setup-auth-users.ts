@@ -20,7 +20,7 @@ type AuthUser = {
 type AccessEmailResult = "invite" | "recovery" | "rate_limited";
 
 const productionUrl = "https://blend-byte-os.vercel.app";
-const redirectTo = `${productionUrl}/auth/confirm?next=/access/set-password`;
+const redirectTo = `${productionUrl}/access/set-password`;
 const operationalUsers: OperationalUser[] = [
   { displayName: "Guilherme", profileKey: "guilherme", role: "admin" },
   { displayName: "Sofia", profileKey: "sofia", role: "marketing" },

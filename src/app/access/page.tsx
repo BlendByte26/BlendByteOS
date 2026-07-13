@@ -1,4 +1,5 @@
 import { BrandLogo } from "@/components/brand-logo";
+import { AuthLinkHandler } from "@/components/auth-link-handler";
 import { LoginForm } from "@/components/login-form";
 import { isProductionEnvironment } from "@/lib/app-access";
 import { isSupabaseConfigured } from "@/lib/supabase";
@@ -42,6 +43,8 @@ export default async function AccessPage({ searchParams }: Props) {
             <p className="font-semibold">Configura as variáveis públicas de Supabase para ativar o login.</p>
           </div>
         ) : null}
+
+        <AuthLinkHandler />
 
         {inactive ? (
           <div className="mb-4 rounded-[16px] border border-[#f3c56a] bg-[#fff6dd] px-4 py-3 text-sm font-bold leading-6 text-[#6f4a00]">

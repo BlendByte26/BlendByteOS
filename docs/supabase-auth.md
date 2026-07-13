@@ -19,6 +19,14 @@ SUPABASE_SERVICE_ROLE_KEY=...
 
 Keep `SUPABASE_SERVICE_ROLE_KEY` only in local ignored env files such as `.env.local`. Do not add it to browser code, commits, or Vercel runtime unless a future server-only runtime feature explicitly needs it.
 
+Supabase email sending can be rate limited on the default mailer. If email sending is blocked or the project email template is still being configured, generate private one-time links instead:
+
+```bash
+npm run tsx -- scripts/generate-auth-access-links.ts
+```
+
+This writes a local ignored file under `tmp/`. Send each person only their own link. The links route through `/auth/confirm`, then `/access/set-password`, and let the user define a password without relying on Supabase's email delivery.
+
 ## Profiles
 
 The script maintains exactly these active operational profiles:
@@ -35,13 +43,28 @@ carolina  | Carolina  | design
 Invite and recovery emails should redirect to:
 
 ```text
-https://blend-byte-os.vercel.app/auth/confirm?next=/access/set-password
+https://blend-byte-os.vercel.app/access/set-password
 ```
 
 Flow:
 
 ```text
-email link -> /auth/confirm -> /access/set-password -> dashboard
+Supabase email link -> /access/set-password -> dashboard
+private generated link -> /auth/confirm -> /access/set-password -> dashboard
+```
+
+The access page also handles Supabase's default hash-based email links. If a user lands on `/access` with an Auth session in the URL, the app stores the session and forwards them to `/access/set-password`.
+
+For the cleanest hosted email flow, set the Supabase Auth site URL to:
+
+```text
+https://blend-byte-os.vercel.app
+```
+
+Add the same production domain to the Supabase Auth redirect allow list. If customizing the Supabase invite/recovery templates, use a token hash link:
+
+```html
+<a href="https://blend-byte-os.vercel.app/auth/confirm?token_hash={{ .TokenHash }}&type=invite&next=/access/set-password">Aceitar convite</a>
 ```
 
 Guilherme and Sofia land on `/?view=marketing`; Carlota and Carolina land on `/?view=design`.

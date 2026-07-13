@@ -28,6 +28,7 @@
 data/imports/*.csv
 data/imports/*.tsv
 data/imports/*.xlsx
+/tmp/
 
 # debug
 npm-debug.log*
