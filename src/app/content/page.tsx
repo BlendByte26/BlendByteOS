@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { cookies } from "next/headers";
 import { BulkContentModal } from "@/components/bulk-content-modal";
 import { ContentTable } from "@/components/content-table";
 import { ContentCalendarView, ContentPipelineView } from "@/components/content-views";
@@ -19,11 +18,7 @@ import { displayContentPlatform } from "@/lib/content-platform";
 import { formatContentMonthLabel, publishMonth } from "@/lib/content-month";
 import { getClients, getContentItems, getTeamMembers, uniqueValues } from "@/lib/data";
 import { contentStatusLabels } from "@/lib/labels";
-import {
-  OPERATIONAL_PROFILE_COOKIE,
-  fallbackOperationalProfile,
-  getOperationalProfile,
-} from "@/lib/operational-profiles";
+import { requireCurrentOperationalProfile } from "@/lib/auth";
 import { parseContentStatusParam } from "@/lib/smart-links";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import type { ContentItem } from "@/lib/types";
@@ -94,10 +89,7 @@ function hrefForView(params: Record<string, string | string[] | undefined>, view
 
 export default async function ContentPage({ searchParams }: Props) {
   const params = (await searchParams) ?? {};
-  const cookieStore = await cookies();
-  const activeProfile =
-    getOperationalProfile(cookieStore.get(OPERATIONAL_PROFILE_COOKIE)?.value) ??
-    fallbackOperationalProfile();
+  const activeProfile = await requireCurrentOperationalProfile();
   const currentView = parseView(valueOf(params, "view"));
   const attention = isAttentionParam(valueOf(params, "attention"));
   const bulkOpen = valueOf(params, "bulk") === "1";

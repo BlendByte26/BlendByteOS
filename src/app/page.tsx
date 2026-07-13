@@ -4,6 +4,7 @@ import { ClientBadge } from "@/components/client-badge";
 import { QuickTodosPanel } from "@/components/quick-todos";
 import { Badge, ExternalLink, Panel } from "@/components/ui";
 import { APP_ACCESS_VIEW_COOKIE, isAppAccessView } from "@/lib/app-access";
+import { requireCurrentOperationalProfile } from "@/lib/auth";
 import { getClientVisualToken } from "@/lib/client-visuals";
 import {
   getClients,
@@ -22,11 +23,6 @@ import {
 import { buildContentUrl, buildTasksUrl } from "@/lib/smart-links";
 import { getTaskDisplayTitle } from "@/lib/task-display";
 import { cleanPrefixedTitle } from "@/lib/title-display";
-import {
-  OPERATIONAL_PROFILE_COOKIE,
-  fallbackOperationalProfile,
-  getOperationalProfile,
-} from "@/lib/operational-profiles";
 import type { Client, ContentItem, ContentMention, Invest2030Request, Task } from "@/lib/types";
 
 type Props = {
@@ -368,8 +364,7 @@ function isInvest2030Client(client: Client | null) {
 export default async function DashboardPage({ searchParams }: Props) {
   const params = (await searchParams) ?? {};
   const cookieStore = await cookies();
-  const currentProfile =
-    getOperationalProfile(cookieStore.get(OPERATIONAL_PROFILE_COOKIE)?.value) ?? fallbackOperationalProfile();
+  const currentProfile = await requireCurrentOperationalProfile();
   const currentView = parseView(
     valueOf(params, "view"),
     cookieStore.get(APP_ACCESS_VIEW_COOKIE)?.value ?? currentProfile.defaultView,

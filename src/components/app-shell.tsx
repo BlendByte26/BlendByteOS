@@ -1,16 +1,13 @@
-import { cookies } from "next/headers";
+import { getCurrentOperationalProfile } from "@/lib/auth";
 import { getSupabaseHealth } from "@/lib/supabase";
-import {
-  OPERATIONAL_PROFILE_COOKIE,
-  getOperationalProfile,
-} from "@/lib/operational-profiles";
 import { ConfigNotice, SupabaseSchemaNotice } from "./ui";
 import { TopNav } from "./top-nav";
 
 export async function AppShell({ children }: { children: React.ReactNode }) {
-  const health = await getSupabaseHealth();
-  const cookieStore = await cookies();
-  const profile = getOperationalProfile(cookieStore.get(OPERATIONAL_PROFILE_COOKIE)?.value);
+  const [health, profile] = await Promise.all([
+    getSupabaseHealth(),
+    getCurrentOperationalProfile(),
+  ]);
 
   return (
     <div className="min-h-screen text-[var(--bb-charcoal)]">

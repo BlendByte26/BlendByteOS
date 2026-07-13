@@ -1,11 +1,12 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
 import type { Database } from "./database.types";
 
-let supabase: SupabaseClient<Database> | null = null;
-
-function getValidSupabaseConfig() {
+export function getValidSupabaseConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  const anonKey =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ??
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
 
   if (!url || !anonKey) {
     return null;
@@ -20,27 +21,35 @@ function getValidSupabaseConfig() {
   return { url, anonKey };
 }
 
-export function getSupabase() {
+export async function getSupabase() {
   const config = getValidSupabaseConfig();
 
   if (!config) {
     return null;
   }
 
-  if (!supabase) {
-    supabase = createClient<Database>(config.url, config.anonKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    });
-  }
+  const cookieStore = await cookies();
 
-  return supabase;
+  return createServerClient<Database>(config.url, config.anonKey, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll(cookiesToSet) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options);
+          });
+        } catch {
+          // Server Components cannot write cookies; the proxy refreshes sessions.
+        }
+      },
+    },
+  });
 }
 
-export function requireSupabase() {
-  const client = getSupabase();
+export async function requireSupabase() {
+  const client = await getSupabase();
 
   if (!client) {
     throw new Error(
@@ -81,7 +90,7 @@ export function isSupabaseSchemaError(error: unknown) {
 }
 
 export async function getSupabaseHealth(): Promise<SupabaseHealth> {
-  const client = getSupabase();
+  const client = await getSupabase();
 
   if (!client) return { status: "demo" };
 

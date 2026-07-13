@@ -2,6 +2,7 @@ import { createTaskAction } from "@/lib/actions";
 import { getClients, getTeamMembers } from "@/lib/data";
 import { FormFrame, TaskForm } from "@/components/forms";
 import { PageHeader } from "@/components/ui";
+import { requireRole } from "@/lib/auth";
 
 type Props = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -13,6 +14,7 @@ function valueOf(params: Record<string, string | string[] | undefined>, key: str
 }
 
 export default async function NewTaskPage({ searchParams }: Props) {
+  await requireRole(["admin", "marketing", "design"]);
   const params = (await searchParams) ?? {};
   const [clients, teamMembers] = await Promise.all([getClients(), getTeamMembers()]);
   const defaultClientId = valueOf(params, "client");

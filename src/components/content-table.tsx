@@ -11,7 +11,7 @@ import { EmptyState, ExternalLink, Panel, TableWrap } from "@/components/ui";
 import { displayContentPlatform } from "@/lib/content-platform";
 import { getClientVisualToken } from "@/lib/client-visuals";
 import { cleanPrefixedTitle } from "@/lib/title-display";
-import type { OperationalProfile } from "@/lib/operational-profiles";
+import type { AuthenticatedOperationalProfile } from "@/lib/auth";
 import type { Client, ContentComment, ContentItem, TeamMember } from "@/lib/types";
 
 type ContentFormAction = (id: string, formData: FormData) => void | Promise<void>;
@@ -35,7 +35,7 @@ type ContentTableProps = {
   items: ContentItem[];
   clients: Client[];
   teamMembers: TeamMember[];
-  activeProfile: OperationalProfile;
+  activeProfile: AuthenticatedOperationalProfile;
   canPersist: boolean;
   updateContentAction: ContentFormAction;
   updateStatusAction: ContentFormAction;
@@ -190,6 +190,7 @@ export function ContentTable({
   const [editing, setEditing] = useState<{ item: ContentItem; section: ModalSection } | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [tableError, setTableError] = useState<string | null>(null);
+  const canDelete = activeProfile.authRole !== "design";
   const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -383,19 +384,19 @@ export function ContentTable({
                           <ActionButton label="Editar" onClick={() => setEditing({ item, section: "general" })}>
                             <Pencil className="size-4" aria-hidden="true" />
                           </ActionButton>
-                          {item.status === "archived" ? (
+                          {item.status === "archived" && canDelete ? (
                             <form action={() => deleteContent(item)}>
                               <ActionButton label="Apagar definitivamente" tone="danger">
                               <Trash2 className="size-4" aria-hidden="true" />
                               </ActionButton>
                             </form>
-                          ) : (
+                          ) : item.status !== "archived" ? (
                             <form action={() => archiveContent(item)}>
                               <ActionButton label="Arquivar">
                                 <Archive className="size-4" aria-hidden="true" />
                               </ActionButton>
                             </form>
-                          )}
+                          ) : null}
                         </div>
                       </td>
                     </tr>

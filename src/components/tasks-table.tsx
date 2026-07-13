@@ -35,6 +35,7 @@ type TasksTableProps = {
   view: TasksView;
   emptyTitle: string;
   canPersist: boolean;
+  canDelete: boolean;
   updateTaskAction: UpdateTaskAction;
   updateStatusAction: UpdateTaskStatusAction;
   sendToDesignAction: SendToDesignAction;
@@ -235,6 +236,7 @@ export function TasksTable({
   view,
   emptyTitle,
   canPersist,
+  canDelete,
   updateTaskAction,
   updateStatusAction,
   sendToDesignAction,
@@ -471,19 +473,19 @@ export function TasksTable({
                           >
                             <Pencil className="size-4" aria-hidden="true" />
                           </ActionButton>
-                          {isArchived ? (
+                          {isArchived && canDelete ? (
                             <form action={() => deleteTask(task.id)}>
                               <ActionButton label="Apagar" tone="danger">
                                 <Trash2 className="size-4" aria-hidden="true" />
                               </ActionButton>
                             </form>
-                          ) : (
+                          ) : !isArchived ? (
                             <form action={() => archiveTask(task.id)}>
                               <ActionButton label="Arquivar">
                                 <Archive className="size-4" aria-hidden="true" />
                               </ActionButton>
                             </form>
-                          )}
+                          ) : null}
                         </div>
                       </td>
                     </tr>

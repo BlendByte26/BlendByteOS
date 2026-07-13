@@ -2,29 +2,35 @@ import type { AppAccessView } from "./app-access";
 
 export const OPERATIONAL_PROFILE_COOKIE = "bb_operational_profile";
 
+export type OperationalRole = "admin" | "marketing" | "design";
+
 export const operationalProfiles = {
   carlota: {
     key: "carlota",
     name: "Carlota",
     role: "Design",
+    authRole: "design",
     defaultView: "design",
   },
   carolina: {
     key: "carolina",
     name: "Carolina",
     role: "Design",
+    authRole: "design",
     defaultView: "design",
   },
   sofia: {
     key: "sofia",
     name: "Sofia",
     role: "Marketing / Client Ops",
+    authRole: "marketing",
     defaultView: "marketing",
   },
   guilherme: {
     key: "guilherme",
     name: "Guilherme",
     role: "Gestão / Operações",
+    authRole: "admin",
     defaultView: "marketing",
     canSeeAll: true,
   },
@@ -34,13 +40,21 @@ export const operationalProfiles = {
     key: string;
     name: string;
     role: string;
+    authRole: OperationalRole;
     defaultView: AppAccessView;
     canSeeAll?: boolean;
   }
 >;
 
 export type OperationalProfileKey = keyof typeof operationalProfiles;
-export type OperationalProfile = (typeof operationalProfiles)[OperationalProfileKey];
+export type OperationalProfile = {
+  key: OperationalProfileKey;
+  name: string;
+  role: string;
+  authRole: OperationalRole;
+  defaultView: AppAccessView;
+  canSeeAll?: boolean;
+};
 export type DesignProfileKey = "carlota" | "carolina";
 
 export const designProfileKeys = ["carlota", "carolina"] as const satisfies readonly DesignProfileKey[];

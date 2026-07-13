@@ -1,4 +1,4 @@
-import type { OperationalProfileKey } from "./operational-profiles";
+import type { OperationalProfileKey, OperationalRole } from "./operational-profiles";
 
 export const clientTypes = ["internal", "external", "grupo_investe", "partner"] as const;
 export const clientStatuses = ["setup", "active", "paused", "archived"] as const;
@@ -173,6 +173,17 @@ export type CompanyContact = {
   email: string;
   phone: string | null;
   links: LinkItem[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type UserProfile = {
+  id: string;
+  auth_user_id: string;
+  profile_key: OperationalProfileKey;
+  display_name: string;
+  role: OperationalRole;
+  active: boolean;
   created_at: string;
   updated_at: string;
 };

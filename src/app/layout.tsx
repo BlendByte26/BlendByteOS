@@ -18,6 +18,18 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "BlendByteOS",
   description: "Internal operations app for clients, content and tasks.",
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/icon.png", type: "image/png", sizes: "512x512" },
+    ],
+    apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+  openGraph: {
+    title: "BlendByteOS",
+    description: "Internal operations app for clients, content and tasks.",
+    images: [{ url: "/brand/blendbyteos-icon.png", width: 550, height: 550 }],
+  },
 };
 
 export default async function RootLayout({

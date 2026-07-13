@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ListPlus, Plus } from "lucide-react";
+import { ListPlus, LogOut, Plus } from "lucide-react";
 import type { MouseEvent } from "react";
-import type { OperationalProfile } from "@/lib/operational-profiles";
+import { logoutAction } from "@/app/access/actions";
+import { BrandLogo } from "@/components/brand-logo";
+import type { AuthenticatedOperationalProfile } from "@/lib/auth";
 
 const navItems = [
   { href: "/", label: "Painel" },
@@ -27,11 +29,16 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function TopNav({ profile }: { profile: OperationalProfile | null }) {
+export function TopNav({ profile }: { profile: AuthenticatedOperationalProfile | null }) {
   const pathname = usePathname();
   const isDashboard = pathname === "/";
   const rawAction = pageActions[pathname];
-  const action = rawAction && (pathname !== "/team" || profile?.key === "guilherme") ? rawAction : null;
+  const isAdmin = profile?.authRole === "admin";
+  const action =
+    rawAction &&
+    (pathname === "/clients" || pathname === "/team" ? isAdmin : Boolean(profile))
+      ? rawAction
+      : null;
   const showProfileControls = isDashboard && profile;
   const bulkContentHref = pathname === "/content" ? "/content?bulk=1" : null;
 
@@ -48,12 +55,11 @@ export function TopNav({ profile }: { profile: OperationalProfile | null }) {
     <header className="sticky top-0 z-30 border-b border-[rgba(0,0,0,0.04)] bg-[rgba(247,247,242,0.82)] px-4 py-4 backdrop-blur-xl md:px-6">
       <div className="mx-auto flex max-w-[1280px] items-center justify-between gap-4">
         <Link href="/" className="flex min-w-0 items-center gap-3">
-          <span className="grid size-10 shrink-0 place-items-center rounded-[14px] bg-[var(--bb-black)] text-sm font-extrabold text-white shadow-[0_14px_28px_rgba(0,0,0,0.16)]">
-            BB
-          </span>
-          <span className="hidden text-base font-extrabold tracking-tight text-[var(--bb-charcoal)] sm:inline">
-            BlendByteOS
-          </span>
+          <BrandLogo
+            className="h-10 w-[138px] rounded-[12px] shadow-[0_14px_28px_rgba(0,0,0,0.16)] sm:w-[180px]"
+            imageClassName="px-2"
+            priority
+          />
         </Link>
 
         <nav className="absolute left-1/2 hidden -translate-x-1/2 rounded-full border border-[var(--bb-border)] bg-[var(--bb-surface)] p-1.5 shadow-[0_18px_50px_rgba(0,0,0,0.08)] backdrop-blur-xl md:flex">
@@ -82,12 +88,16 @@ export function TopNav({ profile }: { profile: OperationalProfile | null }) {
               <span className="hidden max-w-[190px] truncate rounded-full border border-[var(--bb-border)] bg-white/55 px-3 py-2 text-xs font-extrabold text-[var(--bb-muted)] sm:inline-flex">
                 Perfil: {profile.name}
               </span>
-              <Link
-                href="/access?switch=1"
-                className="rounded-full border border-[var(--bb-border)] bg-white/55 px-3 py-2 text-xs font-extrabold text-[var(--bb-charcoal)] transition hover:bg-[var(--bb-primary-soft)]"
-              >
-                Trocar perfil
-              </Link>
+              <form action={logoutAction}>
+                <button
+                  type="submit"
+                  className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[var(--bb-border)] bg-white/55 px-3 text-xs font-extrabold text-[var(--bb-charcoal)] transition hover:bg-[var(--bb-primary-soft)]"
+                  title="Terminar sessão"
+                >
+                  <LogOut className="size-3.5" aria-hidden="true" />
+                  Sair
+                </button>
+              </form>
             </div>
           ) : null}
           {bulkContentHref ? (

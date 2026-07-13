@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandLogo } from "@/components/brand-logo";
 import { invest2030PublicHref } from "@/lib/invest2030-public";
 
 export function Invest2030PublicShell({
@@ -16,8 +17,15 @@ export function Invest2030PublicShell({
         <header className="mb-6 rounded-[24px] border border-[rgba(0,0,0,0.11)] bg-[rgba(255,255,255,0.88)] px-4 py-4 shadow-[0_18px_52px_rgba(0,0,0,0.08)] backdrop-blur-xl md:px-5">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <div className="mb-1 text-xs font-extrabold uppercase text-[var(--bb-muted)]">
-                BlendByte x Invest2030
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <BrandLogo
+                  className="h-8 w-[150px] rounded-[10px] shadow-[0_10px_22px_rgba(0,0,0,0.12)]"
+                  imageClassName="px-1.5"
+                  priority
+                />
+                <span className="text-xs font-extrabold uppercase text-[var(--bb-muted)]">
+                  x Invest2030
+                </span>
               </div>
               <h1 className="text-2xl font-extrabold tracking-tight text-[var(--bb-charcoal)] md:text-3xl">
                 Pedidos Invest2030
@@ -60,9 +68,12 @@ export function Invest2030InvalidAccess() {
   return (
     <main className="grid min-h-screen place-items-center px-4 py-10 text-[var(--bb-charcoal)]">
       <section className="w-full max-w-md rounded-[24px] border border-[rgba(0,0,0,0.11)] bg-[rgba(255,255,255,0.88)] p-6 text-center shadow-[0_18px_52px_rgba(0,0,0,0.08)] backdrop-blur-xl">
-        <div className="text-xs font-extrabold uppercase text-[var(--bb-muted)]">
-          Pedidos Invest2030
-        </div>
+        <BrandLogo
+          className="mx-auto h-9 w-[168px] rounded-[10px] shadow-[0_10px_22px_rgba(0,0,0,0.12)]"
+          imageClassName="px-1.5"
+          priority
+        />
+        <div className="mt-3 text-xs font-extrabold uppercase text-[var(--bb-muted)]">Pedidos Invest2030</div>
         <h1 className="mt-2 text-2xl font-extrabold text-[var(--bb-charcoal)]">
           Acesso inválido.
         </h1>

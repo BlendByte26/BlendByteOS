@@ -15,6 +15,7 @@ import { parseTaskPriorityParam, parseTaskStatusParam } from "@/lib/smart-links"
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { taskStatuses, type Task } from "@/lib/types";
 import { Panel } from "@/components/ui";
+import { requireCurrentOperationalProfile } from "@/lib/auth";
 
 type Props = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -120,7 +121,8 @@ export default async function TasksPage({ searchParams }: Props) {
     ...filters,
     status: requestedStatus === "open" ? "" : requestedStatus,
   };
-  const [clients, teamMembers, tasksForOptions, filteredTasks] = await Promise.all([
+  const [profile, clients, teamMembers, tasksForOptions, filteredTasks] = await Promise.all([
+    requireCurrentOperationalProfile(),
     getClients(),
     getTeamMembers(),
     getTasks(),
@@ -194,6 +196,7 @@ export default async function TasksPage({ searchParams }: Props) {
         view={currentView}
         emptyTitle={emptyStateLabels[currentView]}
         canPersist={isSupabaseConfigured()}
+        canDelete={profile.authRole !== "design"}
         updateTaskAction={updateTaskInlineAction}
         updateStatusAction={updateTaskStatusInlineAction}
         sendToDesignAction={sendTaskToDesignInlineAction}

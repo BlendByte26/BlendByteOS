@@ -1,4 +1,15 @@
-import type { Client, CompanyContact, ContentComment, ContentItem, Invest2030Request, QuickNote, QuickTodo, Task, TeamMember } from "./types";
+import type {
+  Client,
+  CompanyContact,
+  ContentComment,
+  ContentItem,
+  Invest2030Request,
+  QuickNote,
+  QuickTodo,
+  Task,
+  TeamMember,
+  UserProfile,
+} from "./types";
 
 type Insertable<T> = Omit<T, "id" | "created_at" | "updated_at" | "clients">;
 type Updatable<T> = Partial<Insertable<T>>;
@@ -102,6 +113,21 @@ export type Database = {
           Pick<CompanyContact, "label" | "email">;
         Update: Updatable<CompanyContact>;
         Relationships: [];
+      };
+      user_profiles: {
+        Row: UserProfile;
+        Insert: Partial<Pick<UserProfile, "id" | "created_at" | "updated_at" | "active">> &
+          Omit<UserProfile, "id" | "created_at" | "updated_at" | "active">;
+        Update: Partial<Omit<UserProfile, "id" | "created_at" | "updated_at" | "auth_user_id">>;
+        Relationships: [
+          {
+            foreignKeyName: "user_profiles_auth_user_id_fkey";
+            columns: ["auth_user_id"];
+            isOneToOne: true;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
       };
     };
     Views: Record<string, never>;

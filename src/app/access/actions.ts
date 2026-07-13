@@ -6,67 +6,100 @@ import {
   APP_ACCESS_COOKIE,
   APP_ACCESS_ERROR_COOKIE,
   APP_ACCESS_VIEW_COOKIE,
-  createAppAccessToken,
-  getAppAccessPassword,
-  isValidAppAccessToken,
   isProductionEnvironment,
 } from "@/lib/app-access";
-import {
-  OPERATIONAL_PROFILE_COOKIE,
-  getOperationalProfile,
-} from "@/lib/operational-profiles";
+import { OPERATIONAL_PROFILE_COOKIE } from "@/lib/operational-profiles";
+import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
+import type { AppAccessView } from "@/lib/app-access";
 
-function cookieOptions(maxAge: number) {
-  return {
+export type LoginState = {
+  error: string | null;
+};
+
+function text(formData: FormData, key: string) {
+  const value = formData.get(key);
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function clearLegacyOperationalCookies(cookieStore: Awaited<ReturnType<typeof cookies>>) {
+  cookieStore.delete(APP_ACCESS_COOKIE);
+  cookieStore.delete(APP_ACCESS_ERROR_COOKIE);
+  cookieStore.delete(OPERATIONAL_PROFILE_COOKIE);
+}
+
+function redirectViewForRole(role: string): AppAccessView {
+  return role === "design" ? "design" : "marketing";
+}
+
+export async function loginWithPasswordAction(
+  _previousState: LoginState,
+  formData: FormData,
+): Promise<LoginState> {
+  if (!isSupabaseConfigured()) {
+    return {
+      error: isProductionEnvironment()
+        ? "Supabase Auth ainda não está configurado para produção."
+        : "Supabase não está configurado. O modo demo continua disponível sem login.",
+    };
+  }
+
+  const email = text(formData, "email");
+  const password = text(formData, "password");
+
+  if (!email || !password) {
+    return { error: "Preenche o email e a password." };
+  }
+
+  const supabase = await getSupabase();
+  if (!supabase) return { error: "Supabase não está configurado." };
+
+  const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (signInError || !signInData.user) {
+    return { error: "Email ou password inválidos." };
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("user_profiles")
+    .select("profile_key, role, active")
+    .eq("auth_user_id", signInData.user.id)
+    .maybeSingle();
+
+  if (profileError || !profile) {
+    await supabase.auth.signOut();
+    return { error: "Esta conta ainda não tem perfil operacional associado." };
+  }
+
+  if (!profile.active) {
+    await supabase.auth.signOut();
+    return { error: "Esta conta está inativa. Fala com o administrador." };
+  }
+
+  const view = redirectViewForRole(profile.role);
+  const cookieStore = await cookies();
+  clearLegacyOperationalCookies(cookieStore);
+  cookieStore.set(APP_ACCESS_VIEW_COOKIE, view, {
     httpOnly: true,
-    sameSite: "lax" as const,
+    sameSite: "lax",
     secure: isProductionEnvironment(),
     path: "/",
-    maxAge,
-  };
+    maxAge: 60 * 60 * 24 * 90,
+  });
+
+  redirect(`/?view=${view}`);
 }
 
-export async function verifyAppAccess(formData: FormData) {
-  const password = getAppAccessPassword();
+export async function logoutAction() {
+  const supabase = await getSupabase();
+  if (supabase) {
+    await supabase.auth.signOut();
+  }
+
   const cookieStore = await cookies();
-
-  if (!password) {
-    cookieStore.delete(APP_ACCESS_COOKIE);
-    cookieStore.delete(OPERATIONAL_PROFILE_COOKIE);
-    redirect("/access?setup=missing");
-  }
-
-  const submittedPassword = String(formData.get("password") ?? "");
-  const submittedToken = await createAppAccessToken(submittedPassword);
-  const expectedToken = await createAppAccessToken(password);
-
-  if (submittedToken === expectedToken) {
-    cookieStore.set(APP_ACCESS_COOKIE, expectedToken, cookieOptions(60 * 60 * 12));
-    cookieStore.delete(APP_ACCESS_ERROR_COOKIE);
-    redirect("/access?profile=1");
-  }
-
-  cookieStore.set(APP_ACCESS_ERROR_COOKIE, "1", cookieOptions(12));
+  clearLegacyOperationalCookies(cookieStore);
+  cookieStore.delete(APP_ACCESS_VIEW_COOKIE);
   redirect("/access");
-}
-
-export async function selectOperationalProfile(formData: FormData) {
-  const profile = getOperationalProfile(String(formData.get("profile") ?? ""));
-  const cookieStore = await cookies();
-  const password = getAppAccessPassword();
-
-  if (password) {
-    const hasAccess = await isValidAppAccessToken(cookieStore.get(APP_ACCESS_COOKIE)?.value, password);
-    if (!hasAccess) {
-      redirect("/access");
-    }
-  }
-
-  if (!profile) {
-    redirect("/access?profile=1");
-  }
-
-  cookieStore.set(OPERATIONAL_PROFILE_COOKIE, profile.key, cookieOptions(60 * 60 * 24 * 90));
-  cookieStore.set(APP_ACCESS_VIEW_COOKIE, profile.defaultView, cookieOptions(60 * 60 * 24 * 90));
-  redirect(`/?view=${profile.defaultView}`);
 }

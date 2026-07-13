@@ -15,6 +15,10 @@ type ClientBadgeProps = {
   className?: string;
 };
 
+const staticClientLogos: Record<string, string> = {
+  "00_BB": "/clients/00_BB.png",
+};
+
 export function ClientBadge({
   clientId,
   clientCode,
@@ -34,9 +38,10 @@ export function ClientBadge({
   const header = variant === "header";
   const label = compact ? shortName || clientName || code : clientName || shortName || code;
   const targetHref = href ?? (clientId ? `/clients/${clientId}` : undefined);
+  const resolvedLogoUrl = logoUrl ?? (clientCode ? staticClientLogos[clientCode] : null);
   const mark = header ? (
     <ClientLogo
-      logoPath={logoUrl}
+      logoPath={resolvedLogoUrl}
       fallback={code}
       className={`grid size-16 shrink-0 place-items-center overflow-hidden rounded-2xl border bg-white/64 text-sm font-extrabold ${token.border} ${token.text} shadow-[0_10px_24px_rgba(0,0,0,0.06)]`}
       imageClassName="h-full w-full object-contain p-1.5"

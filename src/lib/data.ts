@@ -158,7 +158,7 @@ function handleSupabaseReadError<T>(error: unknown, fallback: T, context: string
 }
 
 export async function getClients() {
-  const supabase = getSupabase();
+  const supabase = await getSupabase();
 
   if (!supabase) {
     return sampleClients.sort(compareClients);
@@ -179,7 +179,7 @@ export async function getClients() {
 }
 
 export async function getClient(id: string) {
-  const supabase = getSupabase();
+  const supabase = await getSupabase();
 
   if (!supabase) {
     const clients = await getClients();
@@ -196,7 +196,7 @@ export async function getClient(id: string) {
 }
 
 export async function getTeamMembers() {
-  const supabase = getSupabase();
+  const supabase = await getSupabase();
 
   if (!supabase) {
     return sampleTeamMembers;
@@ -217,7 +217,7 @@ export async function getTeamMembers() {
 }
 
 export async function getCompanyContacts() {
-  const supabase = getSupabase();
+  const supabase = await getSupabase();
 
   if (!supabase) {
     return sampleCompanyContacts;
@@ -236,7 +236,7 @@ export async function getCompanyContacts() {
 }
 
 export async function getTeamMember(id: string) {
-  const supabase = getSupabase();
+  const supabase = await getSupabase();
 
   if (!supabase) {
     return sampleTeamMembers.find((member) => member.id === id) ?? null;
@@ -252,7 +252,7 @@ export async function getTeamMember(id: string) {
 }
 
 export async function getQuickTodos(view: QuickTodoView, profileKey: OperationalProfileKey) {
-  const supabase = getSupabase();
+  const supabase = await getSupabase();
 
   if (!supabase) {
     return sampleQuickTodos.filter((todo) => todo.view === view && todo.profile_key === profileKey);
@@ -278,7 +278,7 @@ export async function getQuickTodos(view: QuickTodoView, profileKey: Operational
 }
 
 export async function getQuickNotes(view: QuickTodoView, profileKey: OperationalProfileKey) {
-  const supabase = getSupabase();
+  const supabase = await getSupabase();
 
   if (!supabase) {
     return sampleQuickNotes.filter((note) => note.view === view && note.profile_key === profileKey);
@@ -303,7 +303,7 @@ export async function getQuickNotes(view: QuickTodoView, profileKey: Operational
 }
 
 export async function getContentItems(filters: ContentFilters = {}) {
-  const supabase = getSupabase();
+  const supabase = await getSupabase();
   const filteredMonth = isValidContentMonth(filters.month) ? filters.month : "";
 
   if (!supabase) {
@@ -367,7 +367,7 @@ export async function getContentItem(id: string) {
 }
 
 export async function getContentComments(contentId: string) {
-  const supabase = getSupabase();
+  const supabase = await getSupabase();
 
   if (!supabase) {
     return sampleContentComments.filter((comment) => comment.content_id === contentId);
@@ -391,7 +391,7 @@ export async function getContentComments(contentId: string) {
 }
 
 export async function getMentionedContentComments(profileKey: OperationalProfileKey, limit = 5) {
-  const supabase = getSupabase();
+  const supabase = await getSupabase();
 
   if (!supabase) {
     return sampleContentComments
@@ -423,7 +423,7 @@ export async function getMentionedContentComments(profileKey: OperationalProfile
 }
 
 export async function getTasks(filters: TaskFilters = {}) {
-  const supabase = getSupabase();
+  const supabase = await getSupabase();
 
   if (!supabase) {
     return sampleTasks.filter((task) => {
@@ -509,7 +509,7 @@ function invest2030RequestMatches(request: Invest2030Request, filters: Invest203
 }
 
 export async function getInvest2030Requests(filters: Invest2030RequestFilters = {}) {
-  const supabase = getSupabase();
+  const supabase = await getSupabase();
 
   if (!supabase) {
     return sampleInvest2030Requests.filter((request) => invest2030RequestMatches(request, filters));

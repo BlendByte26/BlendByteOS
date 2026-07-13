@@ -6,23 +6,30 @@ import { ClientLogo } from "@/components/client-logo";
 import { getClientDisplayCode, getClientVisualToken } from "@/lib/client-visuals";
 import { clientStatusLabels, clientTypeLabels } from "@/lib/labels";
 import { getClients, getContentItems, getTasks } from "@/lib/data";
+import { canManageClients, requireCurrentOperationalProfile } from "@/lib/auth";
 import { Badge, EditIconLink, EmptyState, ExternalLink, Panel, TableWrap } from "@/components/ui";
 
 function getStaticClientLogoPath(clientCode: string | null) {
   if (!clientCode) return null;
 
-  const fileName = `${clientCode}.svg`;
-  const filePath = join(process.cwd(), "public", "clients", fileName);
+  for (const extension of ["png", "svg"]) {
+    const fileName = `${clientCode}.${extension}`;
+    const filePath = join(process.cwd(), "public", "clients", fileName);
 
-  return existsSync(filePath) ? `/clients/${fileName}` : null;
+    if (existsSync(filePath)) return `/clients/${fileName}`;
+  }
+
+  return null;
 }
 
 export default async function ClientsPage() {
-  const [clients, content, tasks] = await Promise.all([
+  const [profile, clients, content, tasks] = await Promise.all([
+    requireCurrentOperationalProfile(),
     getClients(),
     getContentItems(),
     getTasks(),
   ]);
+  const canEdit = canManageClients(profile);
   const contentCountByClient = new Map<string, number>();
   const taskCountByClient = new Map<string, number>();
 
@@ -48,7 +55,9 @@ export default async function ClientsPage() {
                   <th className="px-5 py-4 font-extrabold">Responsável</th>
                   <th className="px-5 py-4 font-extrabold">Plataformas</th>
                   <th className="px-5 py-4 font-extrabold">Links</th>
-                  <th className="bb-actions-col sticky right-0 px-2 py-4 font-extrabold">Ações</th>
+                  {canEdit ? (
+                    <th className="bb-actions-col sticky right-0 px-2 py-4 font-extrabold">Ações</th>
+                  ) : null}
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--bb-border)]">
@@ -101,17 +110,19 @@ export default async function ClientsPage() {
                           <ExternalLink href={client.meta_url} label="Meta" />
                         </div>
                       </td>
-                      <td className="bb-actions-col sticky right-0 px-2 py-4">
-                        <div className="bb-actions-row">
-                          <EditIconLink href={`/clients/${client.id}/edit`} />
-                          <ClientDeleteControl
-                            clientId={client.id}
-                            clientName={client.name}
-                            contentCount={contentCountByClient.get(client.id) ?? 0}
-                            taskCount={taskCountByClient.get(client.id) ?? 0}
-                          />
-                        </div>
-                      </td>
+                      {canEdit ? (
+                        <td className="bb-actions-col sticky right-0 px-2 py-4">
+                          <div className="bb-actions-row">
+                            <EditIconLink href={`/clients/${client.id}/edit`} />
+                            <ClientDeleteControl
+                              clientId={client.id}
+                              clientName={client.name}
+                              contentCount={contentCountByClient.get(client.id) ?? 0}
+                              taskCount={taskCountByClient.get(client.id) ?? 0}
+                            />
+                          </div>
+                        </td>
+                      ) : null}
                     </tr>
                   );
                 })}

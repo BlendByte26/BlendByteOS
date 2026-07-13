@@ -1,6 +1,4 @@
 "use server";
-
-import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { fallbackContentPlatform } from "./content-platform";
@@ -8,13 +6,11 @@ import { invest2030PublicHref, isInvest2030PublicAccessToken } from "./invest203
 import { parseLinksFormData } from "./links";
 import { baseChecklist } from "./onboarding";
 import {
-  OPERATIONAL_PROFILE_COOKIE,
-  fallbackOperationalProfile,
   getDesignProfile,
-  getOperationalProfile,
   isOperationalProfileKey,
   isDesignAssigneeName,
 } from "./operational-profiles";
+import { requireCurrentOperationalProfile, requireRole } from "./auth";
 import { getSupabase } from "./supabase";
 import {
   clientColorKeys,
@@ -214,7 +210,9 @@ function numberValue(formData: FormData, key: string) {
   return Number.isFinite(normalized) ? normalized : null;
 }
 
-async function getNextClientDisplayOrder(supabase: NonNullable<ReturnType<typeof getSupabase>>) {
+type SupabaseClient = NonNullable<Awaited<ReturnType<typeof getSupabase>>>;
+
+async function getNextClientDisplayOrder(supabase: SupabaseClient) {
   const { data, error } = await supabase
     .from("clients")
     .select("display_order")
@@ -246,14 +244,14 @@ function demoRedirect(path: string): never {
   redirect(`${path}${path.includes("?") ? "&" : "?"}demo=1`);
 }
 
-function supabaseOrRedirect(path: string) {
-  const supabase = getSupabase();
+async function supabaseOrRedirect(path: string) {
+  const supabase = await getSupabase();
   if (!supabase) demoRedirect(path);
   return supabase;
 }
 
-function supabaseOrError() {
-  const supabase = getSupabase();
+async function supabaseOrError() {
+  const supabase = await getSupabase();
   if (!supabase) {
     throw new Error("Modo demo: configure o Supabase para gravar alterações.");
   }
@@ -261,20 +259,11 @@ function supabaseOrError() {
 }
 
 async function requireGuilhermeOperationalProfile() {
-  const cookieStore = await cookies();
-  const profile = getOperationalProfile(cookieStore.get(OPERATIONAL_PROFILE_COOKIE)?.value);
-
-  if (profile?.key !== "guilherme") {
-    redirect("/team");
-  }
+  await requireRole(["admin"]);
 }
 
 async function currentOperationalProfile() {
-  const cookieStore = await cookies();
-  return (
-    getOperationalProfile(cookieStore.get(OPERATIONAL_PROFILE_COOKIE)?.value) ??
-    fallbackOperationalProfile()
-  );
+  return requireCurrentOperationalProfile();
 }
 
 function mentionedProfileKeys(formData: FormData) {
@@ -294,7 +283,8 @@ function clientColorKeyValue(formData: FormData): ClientColorKey {
 }
 
 export async function createClientAction(formData: FormData): Promise<CreateClientResult> {
-  const supabase = getSupabase();
+  await requireRole(["admin"]);
+  const supabase = await getSupabase();
 
   if (!supabase) {
     return {
@@ -417,7 +407,8 @@ export async function createClientAction(formData: FormData): Promise<CreateClie
 }
 
 export async function updateClientAction(id: string, formData: FormData) {
-  const supabase = supabaseOrRedirect(`/clients/${id}`);
+  await requireRole(["admin"]);
+  const supabase = await supabaseOrRedirect(`/clients/${id}`);
   const { error } = await supabase
     .from("clients")
     .update({
@@ -478,7 +469,8 @@ export async function updateClientSetupChecklistAction(
   id: string,
   checklist: SetupChecklistItem[],
 ) {
-  const supabase = supabaseOrError();
+  await requireRole(["admin"]);
+  const supabase = await supabaseOrError();
   const payload = sanitizeChecklist(checklist);
   const { error } = await supabase
     .from("clients")
@@ -499,7 +491,8 @@ export async function createDefaultClientChecklistAction(id: string) {
 }
 
 export async function updateClientLinksAction(id: string, formData: FormData) {
-  const supabase = supabaseOrError();
+  await requireRole(["admin"]);
+  const supabase = await supabaseOrError();
   const payload = {
     google_drive_url: text(formData, "google_drive_url"),
     onedrive_url: text(formData, "onedrive_url"),
@@ -532,7 +525,8 @@ export async function updateClientLinksAction(id: string, formData: FormData) {
 }
 
 export async function deleteClientAction(id: string) {
-  const supabase = supabaseOrRedirect("/clients");
+  await requireRole(["admin"]);
+  const supabase = await supabaseOrRedirect("/clients");
   const [{ count: contentCount, error: contentError }, { count: taskCount, error: taskError }] =
     await Promise.all([
       supabase
@@ -628,7 +622,8 @@ function isMissingPublishTimeColumnError(error: { message?: string; code?: strin
 }
 
 export async function createContentAction(formData: FormData) {
-  const supabase = supabaseOrRedirect("/content");
+  await requireRole(["admin", "marketing", "design"]);
+  const supabase = await supabaseOrRedirect("/content");
   const payload = contentPayload(formData);
   const { error } = await supabase.from("content_items").insert(payload);
 
@@ -643,7 +638,8 @@ export async function createContentAction(formData: FormData) {
 }
 
 export async function bulkCreateContentAction(formData: FormData): Promise<BulkCreateContentResult> {
-  const supabase = getSupabase();
+  await requireRole(["admin", "marketing", "design"]);
+  const supabase = await getSupabase();
 
   if (!supabase) {
     return { ok: false, message: "Modo demo: configure o Supabase para criar conteúdos." };
@@ -752,7 +748,7 @@ export async function bulkCreateContentAction(formData: FormData): Promise<BulkC
 }
 
 export async function listContentCommentsAction(contentId: string): Promise<ContentCommentsResult> {
-  const supabase = getSupabase();
+  const supabase = await getSupabase();
 
   if (!supabase) {
     return { ok: true, comments: [] };
@@ -769,7 +765,8 @@ export async function listContentCommentsAction(contentId: string): Promise<Cont
 }
 
 export async function createContentCommentAction(formData: FormData): Promise<ContentCommentMutationResult> {
-  const supabase = getSupabase();
+  await requireRole(["admin", "marketing", "design"]);
+  const supabase = await getSupabase();
 
   if (!supabase) {
     return { ok: false, message: "Modo demo: configure o Supabase para comentar." };
@@ -807,7 +804,8 @@ export async function createContentCommentAction(formData: FormData): Promise<Co
 }
 
 export async function deleteContentCommentAction(commentId: string): Promise<ContentCommentMutationResult> {
-  const supabase = getSupabase();
+  await requireRole(["admin", "marketing", "design"]);
+  const supabase = await getSupabase();
 
   if (!supabase) {
     return { ok: false, message: "Modo demo: configure o Supabase para apagar comentários." };
@@ -840,7 +838,8 @@ export async function deleteContentCommentAction(commentId: string): Promise<Con
 }
 
 async function updateContent(id: string, formData: FormData) {
-  const supabase = supabaseOrError();
+  await requireRole(["admin", "marketing", "design"]);
+  const supabase = await supabaseOrError();
   const payload = contentPayload(formData);
   const { error } = await supabase
     .from("content_items")
@@ -864,7 +863,8 @@ export async function updateContentInlineAction(id: string, formData: FormData) 
 }
 
 export async function updateContentAction(id: string, formData: FormData) {
-  const supabase = supabaseOrRedirect("/content");
+  await requireRole(["admin", "marketing", "design"]);
+  const supabase = await supabaseOrRedirect("/content");
   const payload = contentPayload(formData);
   const { error } = await supabase
     .from("content_items")
@@ -885,7 +885,8 @@ export async function updateContentAction(id: string, formData: FormData) {
 }
 
 export async function updateContentStatusAction(id: string, formData: FormData) {
-  const supabase = supabaseOrError();
+  await requireRole(["admin", "marketing", "design"]);
+  const supabase = await supabaseOrError();
   const { error } = await supabase
     .from("content_items")
     .update({ status: requiredText(formData, "status") as ContentStatus })
@@ -895,7 +896,8 @@ export async function updateContentStatusAction(id: string, formData: FormData) 
 }
 
 export async function archiveContentInlineAction(id: string) {
-  const supabase = supabaseOrError();
+  await requireRole(["admin", "marketing", "design"]);
+  const supabase = await supabaseOrError();
   const { error } = await supabase
     .from("content_items")
     .update({ status: "archived" as ContentStatus })
@@ -906,7 +908,8 @@ export async function archiveContentInlineAction(id: string) {
 }
 
 async function deleteContent(id: string) {
-  const supabase = supabaseOrError();
+  await requireRole(["admin", "marketing"]);
+  const supabase = await supabaseOrError();
   const { error } = await supabase.from("content_items").delete().eq("id", id);
 
   if (error) throw new Error(error.message);
@@ -918,7 +921,8 @@ export async function deleteContentInlineAction(id: string) {
 }
 
 export async function deleteContentAction(id: string) {
-  const supabase = supabaseOrRedirect("/content");
+  await requireRole(["admin", "marketing"]);
+  const supabase = await supabaseOrRedirect("/content");
   const { error } = await supabase.from("content_items").delete().eq("id", id);
 
   if (error) throw new Error(error.message);
@@ -968,7 +972,8 @@ function assigneeIncludesDesign(assigneeName: string | null) {
 }
 
 export async function createTaskAction(formData: FormData) {
-  const supabase = supabaseOrRedirect("/tasks");
+  await requireRole(["admin", "marketing", "design"]);
+  const supabase = await supabaseOrRedirect("/tasks");
   const { error } = await supabase.from("tasks").insert(taskPayload(formData));
 
   if (error) throw new Error(error.message);
@@ -977,7 +982,8 @@ export async function createTaskAction(formData: FormData) {
 }
 
 async function updateTask(id: string, formData: FormData) {
-  const supabase = supabaseOrError();
+  await requireRole(["admin", "marketing", "design"]);
+  const supabase = await supabaseOrError();
   const { error } = await supabase.from("tasks").update(taskPayload(formData)).eq("id", id);
 
   if (error) throw new Error(error.message);
@@ -989,7 +995,8 @@ export async function updateTaskInlineAction(id: string, formData: FormData) {
 }
 
 export async function updateTaskStatusInlineAction(id: string, formData: FormData) {
-  const supabase = supabaseOrError();
+  await requireRole(["admin", "marketing", "design"]);
+  const supabase = await supabaseOrError();
   const { error } = await supabase
     .from("tasks")
     .update({ status: requiredText(formData, "status") as TaskStatus })
@@ -1000,7 +1007,8 @@ export async function updateTaskStatusInlineAction(id: string, formData: FormDat
 }
 
 async function sendTaskToDesign(id: string, designerProfileKey?: string | null) {
-  const supabase = supabaseOrError();
+  await requireRole(["admin", "marketing", "design"]);
+  const supabase = await supabaseOrError();
   const profile = await currentOperationalProfile();
   const designer = getDesignProfile(designerProfileKey);
   const { data: task, error: readError } = await supabase
@@ -1039,7 +1047,8 @@ export async function sendTaskToDesignInlineAction(id: string, designerProfileKe
 }
 
 export async function archiveTaskInlineAction(id: string) {
-  const supabase = supabaseOrError();
+  await requireRole(["admin", "marketing", "design"]);
+  const supabase = await supabaseOrError();
   const { error } = await supabase.from("tasks").update({ status: "archived" }).eq("id", id);
 
   if (error) throw new Error(error.message);
@@ -1047,7 +1056,8 @@ export async function archiveTaskInlineAction(id: string) {
 }
 
 export async function updateTaskAction(id: string, formData: FormData) {
-  const supabase = supabaseOrRedirect("/tasks");
+  await requireRole(["admin", "marketing", "design"]);
+  const supabase = await supabaseOrRedirect("/tasks");
   const { error } = await supabase.from("tasks").update(taskPayload(formData)).eq("id", id);
 
   if (error) throw new Error(error.message);
@@ -1061,7 +1071,8 @@ export async function sendTaskToDesignAction(id: string, formData?: FormData) {
 }
 
 async function deleteTask(id: string) {
-  const supabase = supabaseOrError();
+  await requireRole(["admin", "marketing"]);
+  const supabase = await supabaseOrError();
   const { error } = await supabase.from("tasks").delete().eq("id", id);
 
   if (error) throw new Error(error.message);
@@ -1073,7 +1084,8 @@ export async function deleteTaskInlineAction(id: string) {
 }
 
 export async function deleteTaskAction(id: string) {
-  const supabase = supabaseOrRedirect("/tasks");
+  await requireRole(["admin", "marketing"]);
+  const supabase = await supabaseOrRedirect("/tasks");
   const { error } = await supabase.from("tasks").delete().eq("id", id);
 
   if (error) throw new Error(error.message);
@@ -1321,7 +1333,7 @@ Observações:
 ${notes ?? "Sem observações"}`;
 }
 
-async function findInvest2030ClientId(supabase: NonNullable<ReturnType<typeof getSupabase>>) {
+async function findInvest2030ClientId(supabase: SupabaseClient) {
   const { data, error } = await supabase
     .from("clients")
     .select("id")
@@ -1334,7 +1346,7 @@ async function findInvest2030ClientId(supabase: NonNullable<ReturnType<typeof ge
   return data.id as string;
 }
 
-async function sofiaAssignee(supabase: NonNullable<ReturnType<typeof getSupabase>>) {
+async function sofiaAssignee(supabase: SupabaseClient) {
   const { data, error } = await supabase
     .from("team_members")
     .select("name")
@@ -1367,7 +1379,7 @@ export async function createInvest2030RequestAction(
   const formFailureHref = (error: string) =>
     invest2030PublicHref("/invest2030/novo-pedido", validAccessToken, { error });
 
-  const supabase = supabaseOrRedirect(`/invest2030/novo-pedido?access=${encodeURIComponent(validAccessToken)}`);
+  const supabase = await supabaseOrRedirect(`/invest2030/novo-pedido?access=${encodeURIComponent(validAccessToken)}`);
   const values = invest2030FormValues(formData);
   const fieldErrors = validateInvest2030FormValues(values);
 
@@ -1494,9 +1506,9 @@ function quickTodoViewValue(formData: FormData): QuickTodoView {
   return value === "design" ? "design" : "marketing";
 }
 
-function quickProfileKeyValue(formData: FormData) {
-  const value = text(formData, "profile_key");
-  return isOperationalProfileKey(value) ? value : fallbackOperationalProfile().key;
+async function quickProfileKeyValue() {
+  const profile = await currentOperationalProfile();
+  return profile.key;
 }
 
 function quickTodoItemTypeValue(formData: FormData): QuickTodoItemType {
@@ -1505,9 +1517,9 @@ function quickTodoItemTypeValue(formData: FormData): QuickTodoItemType {
 
 export async function createQuickTodoAction(formData: FormData) {
   const view = quickTodoViewValue(formData);
-  const profileKey = quickProfileKeyValue(formData);
+  const profileKey = await quickProfileKeyValue();
   const itemType = quickTodoItemTypeValue(formData);
-  const supabase = getSupabase();
+  const supabase = await getSupabase();
 
   if (!supabase) {
     return {
@@ -1534,8 +1546,8 @@ export async function createQuickTodoAction(formData: FormData) {
 }
 
 export async function toggleQuickTodoAction(id: string, formData: FormData) {
-  const profileKey = quickProfileKeyValue(formData);
-  const supabase = getSupabase();
+  const profileKey = await quickProfileKeyValue();
+  const supabase = await getSupabase();
 
   if (!supabase) {
     return {
@@ -1558,8 +1570,8 @@ export async function toggleQuickTodoAction(id: string, formData: FormData) {
 }
 
 export async function updateQuickTodoAction(id: string, formData: FormData) {
-  const profileKey = quickProfileKeyValue(formData);
-  const supabase = getSupabase();
+  const profileKey = await quickProfileKeyValue();
+  const supabase = await getSupabase();
 
   if (!supabase) {
     return {
@@ -1581,9 +1593,10 @@ export async function updateQuickTodoAction(id: string, formData: FormData) {
   return { ok: true, todo: data };
 }
 
-export async function deleteQuickTodoAction(id: string, formData: FormData) {
-  const profileKey = quickProfileKeyValue(formData);
-  const supabase = getSupabase();
+export async function deleteQuickTodoAction(id: string, _formData: FormData) {
+  void _formData;
+  const profileKey = await quickProfileKeyValue();
+  const supabase = await getSupabase();
 
   if (!supabase) {
     return {
@@ -1605,8 +1618,8 @@ export async function deleteQuickTodoAction(id: string, formData: FormData) {
 
 export async function createQuickNoteAction(formData: FormData) {
   const view = quickTodoViewValue(formData);
-  const profileKey = quickProfileKeyValue(formData);
-  const supabase = supabaseOrRedirect(`/?view=${view}`);
+  const profileKey = await quickProfileKeyValue();
+  const supabase = await supabaseOrRedirect(`/?view=${view}`);
   const { error } = await supabase.from("quick_notes").insert({
     view,
     profile_key: profileKey,
@@ -1620,11 +1633,11 @@ export async function createQuickNoteAction(formData: FormData) {
 
 export async function saveQuickNoteAction(formData: FormData) {
   const view = quickTodoViewValue(formData);
-  const profileKey = quickProfileKeyValue(formData);
+  const profileKey = await quickProfileKeyValue();
   const noteId = text(formData, "note_id");
   const noteText = String(formData.get("text") ?? "");
   const trimmedNoteText = noteText.trim();
-  const supabase = getSupabase();
+  const supabase = await getSupabase();
 
   if (!supabase) {
     return {
@@ -1670,8 +1683,8 @@ export async function saveQuickNoteAction(formData: FormData) {
 
 export async function updateQuickNoteAction(id: string, formData: FormData) {
   const view = quickTodoViewValue(formData);
-  const profileKey = quickProfileKeyValue(formData);
-  const supabase = supabaseOrRedirect(`/?view=${view}`);
+  const profileKey = await quickProfileKeyValue();
+  const supabase = await supabaseOrRedirect(`/?view=${view}`);
   const { error } = await supabase
     .from("quick_notes")
     .update({ text: requiredText(formData, "text") })
@@ -1685,8 +1698,8 @@ export async function updateQuickNoteAction(id: string, formData: FormData) {
 
 export async function deleteQuickNoteAction(id: string, formData: FormData) {
   const view = quickTodoViewValue(formData);
-  const profileKey = quickProfileKeyValue(formData);
-  const supabase = supabaseOrRedirect(`/?view=${view}`);
+  const profileKey = await quickProfileKeyValue();
+  const supabase = await supabaseOrRedirect(`/?view=${view}`);
   const { error } = await supabase
     .from("quick_notes")
     .delete()
@@ -1711,7 +1724,7 @@ function teamMemberPayload(formData: FormData) {
 
 export async function createTeamMemberAction(formData: FormData) {
   await requireGuilhermeOperationalProfile();
-  const supabase = supabaseOrRedirect("/team");
+  const supabase = await supabaseOrRedirect("/team");
   const { error } = await supabase.from("team_members").insert(teamMemberPayload(formData));
 
   if (error) throw new Error(error.message);
@@ -1730,7 +1743,7 @@ function companyContactPayload(formData: FormData) {
 
 export async function createCompanyContactAction(formData: FormData) {
   await requireGuilhermeOperationalProfile();
-  const supabase = supabaseOrRedirect("/team");
+  const supabase = await supabaseOrRedirect("/team");
   const { error } = await supabase.from("company_contacts").insert(companyContactPayload(formData));
 
   if (error) throw new Error(error.message);
@@ -1740,7 +1753,7 @@ export async function createCompanyContactAction(formData: FormData) {
 
 export async function updateCompanyContactAction(id: string, formData: FormData) {
   await requireGuilhermeOperationalProfile();
-  const supabase = supabaseOrRedirect("/team");
+  const supabase = await supabaseOrRedirect("/team");
   const { error } = await supabase
     .from("company_contacts")
     .update(companyContactPayload(formData))
@@ -1754,7 +1767,7 @@ export async function updateCompanyContactAction(id: string, formData: FormData)
 export async function deleteCompanyContactAction(id: string, formData?: FormData) {
   void formData;
   await requireGuilhermeOperationalProfile();
-  const supabase = supabaseOrRedirect("/team");
+  const supabase = await supabaseOrRedirect("/team");
   const { error } = await supabase.from("company_contacts").delete().eq("id", id);
 
   if (error) throw new Error(error.message);
@@ -1764,7 +1777,7 @@ export async function deleteCompanyContactAction(id: string, formData?: FormData
 
 export async function updateTeamMemberAction(id: string, formData: FormData) {
   await requireGuilhermeOperationalProfile();
-  const supabase = supabaseOrRedirect("/team");
+  const supabase = await supabaseOrRedirect("/team");
   const { error } = await supabase
     .from("team_members")
     .update(teamMemberPayload(formData))
