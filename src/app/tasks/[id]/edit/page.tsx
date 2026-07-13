@@ -1,27 +1,20 @@
 import { notFound } from "next/navigation";
-import { Send } from "lucide-react";
 import { deleteTaskAction, sendTaskToDesignAction, updateTaskAction } from "@/lib/actions";
 import { getClients, getTask, getTeamMembers } from "@/lib/data";
+import { DesignHandoffForm } from "@/components/design-handoff-form";
 import { ConfirmSubmitForm } from "@/components/confirm-submit-form";
 import { FormFrame, TaskForm } from "@/components/forms";
 import { PageHeader } from "@/components/ui";
+import { isDesignAssigneeName } from "@/lib/operational-profiles";
 
 type Props = {
   params: Promise<{ id: string }>;
 };
 
-function isAssignedToDesign(assigneeName: string | null) {
-  return assigneeName
-    ?.split(",")
-    .map((item) => item.trim().toLowerCase())
-    .includes("carlota") ?? false;
-}
-
 export default async function EditTaskPage({ params }: Props) {
   const { id } = await params;
   const [clients, teamMembers, task] = await Promise.all([getClients(), getTeamMembers(), getTask(id)]);
-  const showDesignHandoff = task ? task.status !== "archived" && !isAssignedToDesign(task.assignee_name) : false;
-  const designHandoffFormId = `send-task-to-design-${id}`;
+  const showDesignHandoff = task ? task.status !== "archived" && !isDesignAssigneeName(task.assignee_name) : false;
 
   if (!task) notFound();
 
@@ -42,25 +35,10 @@ export default async function EditTaskPage({ params }: Props) {
           submitLabel="Guardar alterações"
           footerAction={
             showDesignHandoff ? (
-              <button
-                type="submit"
-                form={designHandoffFormId}
-                className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--bb-border)] bg-white/70 px-5 text-sm font-bold text-[var(--bb-charcoal)] transition hover:border-[rgba(83,183,223,0.42)] hover:bg-[var(--bb-primary-soft)]"
-              >
-                <Send className="size-4" aria-hidden="true" />
-                Enviar para Design
-              </button>
+              <DesignHandoffForm action={sendTaskToDesignAction.bind(null, task.id)} />
             ) : null
           }
         />
-        {showDesignHandoff ? (
-          <ConfirmSubmitForm
-            id={designHandoffFormId}
-            action={sendTaskToDesignAction.bind(null, task.id)}
-            message="Enviar esta tarefa para a Carlota/Design?"
-            className="hidden"
-          />
-        ) : null}
         <ConfirmSubmitForm
           action={deleteTaskAction.bind(null, task.id)}
           message={`Apagar definitivamente a tarefa "${task.title}"?\n\nEsta ação não pode ser anulada.`}

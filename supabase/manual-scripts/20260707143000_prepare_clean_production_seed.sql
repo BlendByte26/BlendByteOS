@@ -38,7 +38,7 @@ begin
   ) then
     alter table public.quick_todos
     add constraint quick_todos_profile_key_check
-    check (profile_key in ('guilherme', 'carlota', 'sofia'));
+    check (profile_key in ('guilherme', 'carlota', 'carolina', 'sofia'));
   end if;
 
   if not exists (
@@ -49,7 +49,7 @@ begin
   ) then
     alter table public.quick_notes
     add constraint quick_notes_profile_key_check
-    check (profile_key in ('guilherme', 'carlota', 'sofia'));
+    check (profile_key in ('guilherme', 'carlota', 'carolina', 'sofia'));
   end if;
 end $$;
 
@@ -73,7 +73,8 @@ insert into public.team_members (name, email, phone, role, active, display_order
 values
   ('Guilherme', null, null, 'Direção / Operações', true, 1),
   ('Carlota', null, null, 'Design', true, 2),
-  ('Sofia', null, null, 'Marketing / Client Ops', true, 3);
+  ('Carolina', null, null, 'Design', true, 3),
+  ('Sofia', null, null, 'Marketing / Client Ops', true, 4);
 
 -- 4) Insert final base clients.
 insert into public.clients (

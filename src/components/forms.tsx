@@ -727,9 +727,10 @@ function FormButtons({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2 pt-2">
-      <SubmitButton label={submitLabel} />
+      <SubmitButton key="submit" label={submitLabel} />
       {onCancel ? (
         <button
+          key="cancel-button"
           type="button"
           onClick={onCancel}
           className="inline-flex min-h-11 items-center rounded-full border border-[var(--bb-border)] bg-[var(--bb-surface)] px-5 text-sm font-bold text-[var(--bb-charcoal)] transition duration-200 hover:bg-[var(--bb-primary-hover)]"
@@ -738,13 +739,18 @@ function FormButtons({
         </button>
       ) : (
         <Link
+          key="cancel-link"
           href={cancelHref}
           className="inline-flex min-h-11 items-center rounded-full border border-[var(--bb-border)] bg-[var(--bb-surface)] px-5 text-sm font-bold text-[var(--bb-charcoal)] transition duration-200 hover:bg-[var(--bb-primary-hover)]"
         >
           Cancelar
         </Link>
       )}
-      {footerAction}
+      {footerAction ? (
+        <span key="footer-action" className="contents">
+          {footerAction}
+        </span>
+      ) : null}
     </div>
   );
 }

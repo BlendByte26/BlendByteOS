@@ -22,7 +22,7 @@ export const sampleClients: Client[] = [
   color_key: entry.color as Client["color_key"],
   type: entry.name === "Blendbyte" ? "internal" : entry.name === "Grupo Investe" ? "grupo_investe" : "external",
   status: entry.name === "Safe Vanguard" ? "paused" : "active",
-  owner_name: ["Marta", "Guilherme", "Inês"][index % 3],
+  owner_name: ["Carlota", "Carolina", "Sofia", "Guilherme"][index % 4],
   service_type: [
     "Gestão de Redes Sociais",
     "Marketing de Performance",
@@ -112,7 +112,7 @@ export const sampleContent: ContentItem[] = sampleClients.slice(0, 6).map(
     status: ["idea", "todo", "in_progress", "ready_to_publish", "published", "archived"][
       index
     ] as ContentItem["status"],
-    assignee_name: ["Rita", "João", "Sofia"][index % 3],
+    assignee_name: ["Carlota", "Carolina", "Sofia"][index % 3],
     media_url: null,
     brief_url: index < 2 ? `https://docs.google.com/document/d/sample-brief-${index + 1}` : null,
     media_folder_url: index < 3 ? `https://drive.google.com/drive/folders/media-${index + 1}` : null,
@@ -155,7 +155,7 @@ export const sampleTasks: Task[] = sampleClients.slice(1, 7).map(
     priority: ["normal", "urgent", "normal", "normal", "urgent", "normal"][
       index
     ] as Task["priority"],
-    assignee_name: ["Rita", "João", "Sofia"][index % 3],
+    assignee_name: ["Carlota", "Carolina", "Sofia"][index % 3],
     due_date: `2026-07-${String(index + 1).padStart(2, "0")}`,
     related_url: index < 2 ? `https://drive.google.com/drive/folders/task-${index + 1}` : null,
     is_blocked: index === 4,

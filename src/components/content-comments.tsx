@@ -24,11 +24,7 @@ type ContentCommentsProps = {
   onCountChange?: (count: number) => void;
 };
 
-const mentionProfiles = [
-  operationalProfiles.guilherme,
-  operationalProfiles.carlota,
-  operationalProfiles.sofia,
-];
+const mentionProfiles = Object.values(operationalProfiles);
 
 function formatCommentDate(value: string) {
   const date = new Date(value);

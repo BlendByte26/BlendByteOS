@@ -120,7 +120,7 @@ create table if not exists public.team_members (
 create table if not exists public.quick_todos (
   id uuid primary key default gen_random_uuid(),
   view text not null check (view in ('marketing', 'design')),
-  profile_key text not null default 'guilherme' check (profile_key in ('carlota', 'sofia', 'guilherme')),
+  profile_key text not null default 'guilherme' check (profile_key in ('carlota', 'carolina', 'sofia', 'guilherme')),
   text text not null check (char_length(btrim(text)) > 0),
   item_type text not null default 'todo' check (item_type in ('todo', 'reminder')),
   done boolean not null default false,
@@ -131,7 +131,7 @@ create table if not exists public.quick_todos (
 create table if not exists public.quick_notes (
   id uuid primary key default gen_random_uuid(),
   view text not null check (view in ('marketing', 'design')),
-  profile_key text not null default 'guilherme' check (profile_key in ('carlota', 'sofia', 'guilherme')),
+  profile_key text not null default 'guilherme' check (profile_key in ('carlota', 'carolina', 'sofia', 'guilherme')),
   text text not null check (char_length(btrim(text)) > 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -616,9 +616,10 @@ using (true);
 insert into public.team_members (name, email, role, active, display_order)
 values
   ('Guilherme', null, 'Direção / Operações', true, 1),
-  ('Carlota', null, 'Client Ops', true, 2),
-  ('Estagiário Design', null, 'Design', true, 3),
-  ('Sofia', null, 'Marketing / Client Ops', true, 4)
+  ('Carlota', null, 'Design', true, 2),
+  ('Carolina', null, 'Design', true, 3),
+  ('Estagiário Design', null, 'Design', true, 4),
+  ('Sofia', null, 'Marketing / Client Ops', true, 5)
 on conflict (name) do update
 set
   role = excluded.role,

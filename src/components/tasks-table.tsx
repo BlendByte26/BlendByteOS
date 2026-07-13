@@ -11,12 +11,17 @@ import { Badge, EmptyState, Panel, TableWrap } from "@/components/ui";
 import { getClientLabel } from "@/lib/client-display";
 import { getClientVisualToken } from "@/lib/client-visuals";
 import { taskPriorityLabels, taskStatusLabels } from "@/lib/labels";
+import {
+  designProfiles,
+  isDesignAssigneeName,
+  type DesignProfileKey,
+} from "@/lib/operational-profiles";
 import { getTaskDisplayTitle } from "@/lib/task-display";
 import { taskStatuses, type Client, type Task, type TaskStatus, type TeamMember } from "@/lib/types";
 
 type UpdateTaskAction = (id: string, formData: FormData) => void | Promise<void>;
 type UpdateTaskStatusAction = (id: string, formData: FormData) => void | Promise<void>;
-type SendToDesignAction = (id: string) => Promise<Task>;
+type SendToDesignAction = (id: string, designerProfileKey?: string) => Promise<Task>;
 type ArchiveTaskAction = (id: string) => void | Promise<void>;
 type DeleteTaskAction = (id: string) => void | Promise<void>;
 type TasksView = "all" | "today" | "week" | "archived";
@@ -144,10 +149,7 @@ function taskBelongsInView(task: Task, view: TasksView) {
 }
 
 function isAssignedToDesign(assigneeName: string | null) {
-  return assigneeName
-    ?.split(",")
-    .map((item) => item.trim().toLowerCase())
-    .includes("carlota") ?? false;
+  return isDesignAssigneeName(assigneeName);
 }
 
 function canSendToDesign(task: Task) {
@@ -240,6 +242,8 @@ export function TasksTable({
   const router = useRouter();
   const [localTasks, setLocalTasks] = useState(tasks);
   const [editing, setEditing] = useState<Task | null>(null);
+  const [handoffTask, setHandoffTask] = useState<Task | null>(null);
+  const [handoffDesignerKey, setHandoffDesignerKey] = useState<DesignProfileKey>("carlota");
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [tableError, setTableError] = useState<string | null>(null);
 
@@ -324,23 +328,21 @@ export function TasksTable({
     }
   }
 
-  async function sendTaskToDesign(task: Task) {
+  async function sendTaskToDesign(task: Task, designerProfileKey: DesignProfileKey) {
     if (!canPersist) {
       setTableError("Modo demo: configure o Supabase para enviar tarefas para Design.");
       return;
     }
 
-    const confirmed = window.confirm("Enviar esta tarefa para a Carlota/Design?");
-    if (!confirmed) return;
-
     setTableError(null);
     setSaveMessage("A enviar para Design...");
     try {
-      const updatedTask = await sendToDesignAction(task.id);
+      const updatedTask = await sendToDesignAction(task.id, designerProfileKey);
       setLocalTasks((current) =>
         current.map((item) => (item.id === updatedTask.id ? updatedTask : item)),
       );
       if (editing?.id === updatedTask.id) setEditing(updatedTask);
+      setHandoffTask(null);
       setSaveMessage("Enviado para Design.");
       router.refresh();
     } catch (error) {
@@ -511,7 +513,10 @@ export function TasksTable({
               canSendToDesign(editing) ? (
                 <button
                   type="button"
-                  onClick={() => sendTaskToDesign(editing)}
+                  onClick={() => {
+                    setHandoffDesignerKey("carlota");
+                    setHandoffTask(editing);
+                  }}
                   className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--bb-border)] bg-white/70 px-5 text-sm font-bold text-[var(--bb-charcoal)] transition hover:border-[rgba(83,183,223,0.42)] hover:bg-[var(--bb-primary-soft)]"
                 >
                   <Send className="size-4" aria-hidden="true" />
@@ -520,6 +525,48 @@ export function TasksTable({
               ) : null
             }
           />
+        </TaskModal>
+      ) : null}
+
+      {handoffTask ? (
+        <TaskModal
+          title="Enviar para Design"
+          subtitle={getTaskDisplayTitle(handoffTask)}
+          onClose={() => setHandoffTask(null)}
+        >
+          <form
+            action={() => sendTaskToDesign(handoffTask, handoffDesignerKey)}
+            className="grid gap-4"
+          >
+            <label className="grid gap-2 text-sm font-bold text-[var(--bb-charcoal)]">
+              Designer responsável
+              <SelectField
+                name="designer_profile_key"
+                value={handoffDesignerKey}
+                onValueChange={(value) => setHandoffDesignerKey(value as DesignProfileKey)}
+                options={designProfiles.map((profile) => ({
+                  value: profile.key,
+                  label: profile.name,
+                }))}
+              />
+            </label>
+            <div className="flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setHandoffTask(null)}
+                className="inline-flex min-h-10 items-center rounded-full border border-[var(--bb-border)] bg-white/70 px-4 text-sm font-extrabold text-[var(--bb-muted)] transition hover:bg-white"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="inline-flex min-h-10 items-center gap-2 rounded-full bg-[var(--bb-black)] px-4 text-sm font-extrabold text-white shadow-[0_14px_30px_rgba(0,0,0,0.14)] transition hover:bg-[var(--bb-primary)] hover:text-[var(--bb-black)]"
+              >
+                <Send className="size-4" aria-hidden="true" />
+                Confirmar
+              </button>
+            </div>
+          </form>
         </TaskModal>
       ) : null}
     </>

@@ -9,8 +9,10 @@ import { baseChecklist } from "./onboarding";
 import {
   OPERATIONAL_PROFILE_COOKIE,
   fallbackOperationalProfile,
+  getDesignProfile,
   getOperationalProfile,
   isOperationalProfileKey,
+  isDesignAssigneeName,
 } from "./operational-profiles";
 import { getSupabase } from "./supabase";
 import {
@@ -948,19 +950,19 @@ function handoffDateLabel(date: Date) {
   }).format(date);
 }
 
-function appendDesignHandoffNote(notes: string | null, profileName: string, date: Date) {
+function appendDesignHandoffNote(
+  notes: string | null,
+  profileName: string,
+  designerName: string,
+  date: Date,
+) {
   const existingNotes = notes?.trimEnd() ?? "";
-  const handoffNote = `Enviado para Design por ${profileName} em ${handoffDateLabel(date)}.`;
+  const handoffNote = `Enviado para Design por ${profileName} para ${designerName} em ${handoffDateLabel(date)}.`;
   return existingNotes ? `${existingNotes}\n${handoffNote}` : handoffNote;
 }
 
 function assigneeIncludesDesign(assigneeName: string | null) {
-  return (
-    assigneeName
-      ?.split(",")
-      .map((item) => item.trim().toLowerCase())
-      .includes("carlota") ?? false
-  );
+  return isDesignAssigneeName(assigneeName);
 }
 
 export async function createTaskAction(formData: FormData) {
@@ -995,9 +997,10 @@ export async function updateTaskStatusInlineAction(id: string, formData: FormDat
   refreshAll();
 }
 
-async function sendTaskToDesign(id: string) {
+async function sendTaskToDesign(id: string, designerProfileKey?: string | null) {
   const supabase = supabaseOrError();
   const profile = await currentOperationalProfile();
+  const designer = getDesignProfile(designerProfileKey);
   const { data: task, error: readError } = await supabase
     .from("tasks")
     .select("*, clients(*)")
@@ -1015,10 +1018,10 @@ async function sendTaskToDesign(id: string) {
   const { data, error } = await supabase
     .from("tasks")
     .update({
-      assignee_name: "Carlota",
+      assignee_name: designer.name,
       status: "todo" as TaskStatus,
       priority: priority as TaskPriority,
-      notes: appendDesignHandoffNote(task.notes, profile.name, new Date()),
+      notes: appendDesignHandoffNote(task.notes, profile.name, designer.name, new Date()),
     })
     .eq("id", id)
     .select("*, clients(*)")
@@ -1029,8 +1032,8 @@ async function sendTaskToDesign(id: string) {
   return data as Task;
 }
 
-export async function sendTaskToDesignInlineAction(id: string) {
-  return sendTaskToDesign(id);
+export async function sendTaskToDesignInlineAction(id: string, designerProfileKey?: string) {
+  return sendTaskToDesign(id, designerProfileKey);
 }
 
 export async function archiveTaskInlineAction(id: string) {
@@ -1050,8 +1053,8 @@ export async function updateTaskAction(id: string, formData: FormData) {
   redirect("/tasks");
 }
 
-export async function sendTaskToDesignAction(id: string) {
-  await sendTaskToDesign(id);
+export async function sendTaskToDesignAction(id: string, formData?: FormData) {
+  await sendTaskToDesign(id, formData ? text(formData, "designer_profile_key") : null);
   redirect("/tasks");
 }
 
