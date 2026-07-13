@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ListPlus, LogOut, Plus } from "lucide-react";
+import { KeyRound, ListPlus, LogOut, Plus } from "lucide-react";
 import type { MouseEvent } from "react";
 import { logoutAction } from "@/app/access/actions";
 import { BrandLogo } from "@/components/brand-logo";
@@ -88,6 +88,14 @@ export function TopNav({ profile }: { profile: AuthenticatedOperationalProfile |
               <span className="hidden max-w-[190px] truncate rounded-full border border-[var(--bb-border)] bg-white/55 px-3 py-2 text-xs font-extrabold text-[var(--bb-muted)] sm:inline-flex">
                 Perfil: {profile.name}
               </span>
+              <Link
+                href="/access/set-password"
+                className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[var(--bb-border)] bg-white/55 px-3 text-xs font-extrabold text-[var(--bb-charcoal)] transition hover:bg-[var(--bb-primary-soft)]"
+                title="Alterar password"
+              >
+                <KeyRound className="size-3.5" aria-hidden="true" />
+                <span className="hidden sm:inline">Password</span>
+              </Link>
               <form action={logoutAction}>
                 <button
                   type="submit"
