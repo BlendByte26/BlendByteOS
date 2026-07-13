@@ -158,6 +158,10 @@ export const sampleTasks: Task[] = sampleClients.slice(1, 7).map(
     assignee_name: ["Carlota", "Carolina", "Sofia"][index % 3],
     due_date: `2026-07-${String(index + 1).padStart(2, "0")}`,
     related_url: index < 2 ? `https://drive.google.com/drive/folders/task-${index + 1}` : null,
+    links:
+      index < 2
+        ? [{ label: "Pasta Drive", url: `https://drive.google.com/drive/folders/task-${index + 1}` }]
+        : [],
     is_blocked: index === 4,
     blocker_reason: index === 4 ? "Falta aprovação do responsável interno." : null,
     notes: null,

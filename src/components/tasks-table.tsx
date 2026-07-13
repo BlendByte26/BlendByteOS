@@ -6,11 +6,13 @@ import { useRouter } from "next/navigation";
 import { Archive, ClipboardList, Pencil, Send, Trash2, X } from "lucide-react";
 import { ClientBadge } from "@/components/client-badge";
 import { TaskForm } from "@/components/forms";
+import { LinksIndicator } from "@/components/links";
 import { SelectField } from "@/components/select-field";
 import { Badge, EmptyState, Panel, TableWrap } from "@/components/ui";
 import { getClientLabel } from "@/lib/client-display";
 import { getClientVisualToken } from "@/lib/client-visuals";
 import { taskPriorityLabels, taskStatusLabels } from "@/lib/labels";
+import { parseLinksFormData } from "@/lib/links";
 import {
   designProfiles,
   isDesignAssigneeName,
@@ -269,6 +271,7 @@ export function TasksTable({
                 priority: String(formData.get("priority") ?? task.priority) as Task["priority"],
                 assignee_name: String(formData.get("assignee_name") ?? "") || null,
                 due_date: String(formData.get("due_date") ?? "") || null,
+                links: parseLinksFormData(formData),
                 notes: String(formData.get("notes") ?? "") || null,
               }
             : task,
@@ -423,6 +426,9 @@ export function TasksTable({
                             {task.notes}
                           </span>
                         ) : null}
+                        <div className="mt-1">
+                          <LinksIndicator links={task.links} />
+                        </div>
                       </td>
                       <td className="max-w-56 px-4 py-4">
                         {task.clients ? (

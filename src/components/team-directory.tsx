@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Mail, Pencil, Phone, Plus, Save, Trash2, UserPlus, X } from "lucide-react";
+import { LinksEditor, LinksList } from "@/components/links";
 import {
   createCompanyContactAction,
   createTeamMemberAction,
@@ -42,42 +43,48 @@ function ContactChip({
 
 function TeamMemberFields({ member }: { member?: TeamMember }) {
   return (
-    <div className="grid gap-3 md:grid-cols-2">
-      <label className={labelClass}>
-        Nome
-        <input name="name" required defaultValue={member?.name ?? ""} className={inputClass} />
-      </label>
-      <label className={labelClass}>
-        Função
-        <input name="role" defaultValue={member?.role ?? ""} className={inputClass} />
-      </label>
-      <label className={labelClass}>
-        Email
-        <input name="email" type="email" defaultValue={member?.email ?? ""} className={inputClass} />
-      </label>
-      <label className={labelClass}>
-        Telemóvel
-        <input name="phone" type="tel" defaultValue={member?.phone ?? ""} className={inputClass} />
-      </label>
+    <div className="grid gap-3">
+      <div className="grid gap-3 md:grid-cols-2">
+        <label className={labelClass}>
+          Nome
+          <input name="name" required defaultValue={member?.name ?? ""} className={inputClass} />
+        </label>
+        <label className={labelClass}>
+          Função
+          <input name="role" defaultValue={member?.role ?? ""} className={inputClass} />
+        </label>
+        <label className={labelClass}>
+          Email
+          <input name="email" type="email" defaultValue={member?.email ?? ""} className={inputClass} />
+        </label>
+        <label className={labelClass}>
+          Telemóvel
+          <input name="phone" type="tel" defaultValue={member?.phone ?? ""} className={inputClass} />
+        </label>
+      </div>
+      <LinksEditor links={member?.links} />
     </div>
   );
 }
 
 function CompanyContactFields({ contact }: { contact?: CompanyContact }) {
   return (
-    <div className="grid gap-3 md:grid-cols-2">
-      <label className={labelClass}>
-        Nome/label
-        <input name="label" required defaultValue={contact?.label ?? ""} className={inputClass} />
-      </label>
-      <label className={labelClass}>
-        Email
-        <input name="email" type="email" required defaultValue={contact?.email ?? ""} className={inputClass} />
-      </label>
-      <label className={labelClass}>
-        Telefone opcional
-        <input name="phone" type="tel" defaultValue={contact?.phone ?? ""} className={inputClass} />
-      </label>
+    <div className="grid gap-3">
+      <div className="grid gap-3 md:grid-cols-2">
+        <label className={labelClass}>
+          Nome/label
+          <input name="label" required defaultValue={contact?.label ?? ""} className={inputClass} />
+        </label>
+        <label className={labelClass}>
+          Email
+          <input name="email" type="email" required defaultValue={contact?.email ?? ""} className={inputClass} />
+        </label>
+        <label className={labelClass}>
+          Telefone opcional
+          <input name="phone" type="tel" defaultValue={contact?.phone ?? ""} className={inputClass} />
+        </label>
+      </div>
+      <LinksEditor links={contact?.links} />
     </div>
   );
 }
@@ -85,7 +92,7 @@ function CompanyContactFields({ contact }: { contact?: CompanyContact }) {
 function MemberContacts({ member }: { member: TeamMember }) {
   const phoneHref = member.phone ? normalizePhoneHref(member.phone) : null;
 
-  if (!member.email && !phoneHref) {
+  if (!member.email && !phoneHref && !member.links.length) {
     return <span className="text-xs font-bold text-[var(--bb-muted)]">Sem contactos</span>;
   }
 
@@ -101,6 +108,7 @@ function MemberContacts({ member }: { member: TeamMember }) {
           {member.phone}
         </ContactChip>
       ) : null}
+      <LinksList links={member.links} />
     </div>
   );
 }
@@ -230,6 +238,7 @@ export function TeamDirectory({
                             {contact.phone}
                           </ContactChip>
                         ) : null}
+                        <LinksList links={contact.links} />
                       </div>
                     </div>
                     {canEdit ? (

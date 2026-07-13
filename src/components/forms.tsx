@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useFormStatus } from "react-dom";
 import { DatePicker, MonthPicker, TimePicker } from "@/components/date-picker";
+import { LinksEditor } from "@/components/links";
 import { SelectField, type SelectOption } from "@/components/select-field";
 import { getClientLabel } from "@/lib/client-display";
 import { clientColorLabels, getClientVisualToken } from "@/lib/client-visuals";
@@ -704,6 +705,7 @@ export function TaskForm({
         Notas
         <textarea name="notes" defaultValue={task?.notes ?? ""} className={textAreaClass} />
       </label>
+      <LinksEditor links={task?.links} />
       <FormButtons
         submitLabel={submitLabel}
         cancelHref="/tasks"

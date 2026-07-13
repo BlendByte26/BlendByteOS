@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { fallbackContentPlatform } from "./content-platform";
 import { invest2030PublicHref, isInvest2030PublicAccessToken } from "./invest2030-public";
+import { parseLinksFormData } from "./links";
 import { baseChecklist } from "./onboarding";
 import {
   OPERATIONAL_PROFILE_COOKIE,
@@ -935,6 +936,7 @@ function taskPayload(formData: FormData) {
     assignee_name: text(formData, "assignee_name"),
     due_date: text(formData, "due_date"),
     related_url: text(formData, "related_url"),
+    links: parseLinksFormData(formData),
     is_blocked: checked(formData, "is_blocked"),
     blocker_reason: text(formData, "blocker_reason"),
     notes: text(formData, "notes"),
@@ -1702,6 +1704,7 @@ function teamMemberPayload(formData: FormData) {
     role: text(formData, "role"),
     email: text(formData, "email"),
     phone: text(formData, "phone"),
+    links: parseLinksFormData(formData),
     active: true,
   };
 }
@@ -1721,6 +1724,7 @@ function companyContactPayload(formData: FormData) {
     label: requiredText(formData, "label"),
     email: requiredText(formData, "email"),
     phone: text(formData, "phone"),
+    links: parseLinksFormData(formData),
   };
 }
 

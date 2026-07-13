@@ -155,10 +155,16 @@ export type TeamMember = {
   email: string | null;
   phone: string | null;
   role: string | null;
+  links: LinkItem[];
   active: boolean;
   display_order: number | null;
   created_at: string;
   updated_at: string;
+};
+
+export type LinkItem = {
+  label?: string;
+  url: string;
 };
 
 export type CompanyContact = {
@@ -166,6 +172,7 @@ export type CompanyContact = {
   label: string;
   email: string;
   phone: string | null;
+  links: LinkItem[];
   created_at: string;
   updated_at: string;
 };
@@ -264,6 +271,7 @@ export type Task = {
   assignee_name: string | null;
   due_date: string | null;
   related_url: string | null;
+  links: LinkItem[];
   is_blocked: boolean;
   blocker_reason: string | null;
   notes: string | null;

@@ -173,7 +173,15 @@ function hasAnyWord(value: string, words: string[]) {
 }
 
 function taskSearchText(task: Task) {
-  return [task.title, task.type, task.notes, task.related_url].filter(Boolean).join(" ");
+  return [
+    task.title,
+    task.type,
+    task.notes,
+    task.related_url,
+    ...task.links.flatMap((link) => [link.label, link.url]),
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 
 function contentSearchText(item: ContentItem) {
@@ -835,9 +843,6 @@ function Metric({
 
   const content = (
     <Panel className={`relative overflow-hidden px-4 py-3 ${href ? "cursor-pointer" : ""}`}>
-      <div className="absolute right-3 top-2 text-3xl font-extrabold text-[rgba(0,0,0,0.04)]">
-        BB
-      </div>
       <div className={`mb-3 h-1.5 w-8 rounded-full ${barClass}`} />
       <div className="text-xs font-bold text-[var(--bb-muted)]">{label}</div>
       <div className="mt-0.5 text-3xl font-extrabold tracking-tight text-[var(--bb-charcoal)]">{value}</div>

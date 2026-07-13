@@ -111,6 +111,7 @@ create table if not exists public.team_members (
   email text,
   phone text,
   role text,
+  links jsonb not null default '[]'::jsonb,
   active boolean not null default true,
   display_order integer,
   created_at timestamptz not null default now(),
@@ -142,6 +143,7 @@ create table if not exists public.company_contacts (
   label text not null check (char_length(btrim(label)) > 0),
   email text not null check (char_length(btrim(email)) > 0),
   phone text,
+  links jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -199,6 +201,7 @@ create table if not exists public.tasks (
   assignee_name text,
   due_date date,
   related_url text,
+  links jsonb not null default '[]'::jsonb,
   is_blocked boolean not null default false,
   blocker_reason text,
   notes text,
@@ -301,12 +304,15 @@ alter table public.content_items add column if not exists recording_date date;
 alter table public.content_items add column if not exists notes text;
 
 alter table public.tasks add column if not exists related_url text;
+alter table public.tasks add column if not exists links jsonb not null default '[]'::jsonb;
 alter table public.tasks add column if not exists is_blocked boolean not null default false;
 alter table public.tasks add column if not exists blocker_reason text;
 alter table public.tasks add column if not exists notes text;
 
 alter table public.clients add column if not exists color_key text;
 alter table public.team_members add column if not exists phone text;
+alter table public.team_members add column if not exists links jsonb not null default '[]'::jsonb;
+alter table public.company_contacts add column if not exists links jsonb not null default '[]'::jsonb;
 
 create index if not exists clients_status_idx on public.clients(status);
 create index if not exists clients_display_order_idx on public.clients(display_order);

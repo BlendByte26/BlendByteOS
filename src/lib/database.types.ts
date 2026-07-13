@@ -45,8 +45,8 @@ export type Database = {
       };
       tasks: {
         Row: Task;
-        Insert: Partial<Pick<Task, "id" | "created_at" | "updated_at">> &
-          Insertable<Task>;
+        Insert: Partial<Pick<Task, "id" | "created_at" | "updated_at" | "links">> &
+          Omit<Insertable<Task>, "links">;
         Update: Updatable<Task>;
         Relationships: [
           {
@@ -90,7 +90,7 @@ export type Database = {
       team_members: {
         Row: TeamMember;
         Insert: Partial<
-          Pick<TeamMember, "id" | "created_at" | "updated_at" | "email" | "phone" | "role" | "active" | "display_order">
+          Pick<TeamMember, "id" | "created_at" | "updated_at" | "email" | "phone" | "role" | "links" | "active" | "display_order">
         > &
           Pick<TeamMember, "name">;
         Update: Updatable<TeamMember>;
@@ -98,7 +98,7 @@ export type Database = {
       };
       company_contacts: {
         Row: CompanyContact;
-        Insert: Partial<Pick<CompanyContact, "id" | "created_at" | "updated_at" | "phone">> &
+        Insert: Partial<Pick<CompanyContact, "id" | "created_at" | "updated_at" | "phone" | "links">> &
           Pick<CompanyContact, "label" | "email">;
         Update: Updatable<CompanyContact>;
         Relationships: [];

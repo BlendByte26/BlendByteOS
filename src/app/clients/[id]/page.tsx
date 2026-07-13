@@ -9,6 +9,7 @@ import {
 } from "@/lib/actions";
 import { ClientBadge } from "@/components/client-badge";
 import { ClientOperationalControls } from "@/components/client-operational-controls";
+import { LinksList } from "@/components/links";
 import { getClientVisualToken } from "@/lib/client-visuals";
 import {
   clientStatusLabels,
@@ -184,7 +185,13 @@ export default async function ClientDetailPage({ params }: Props) {
                     <td className="px-4 py-4 font-medium text-[var(--bb-muted)]">{task.assignee_name ?? "-"}</td>
                     <td className="px-4 py-4 font-medium text-[var(--bb-muted)] whitespace-nowrap">{formatDate(task.due_date)}</td>
                     <td className="px-4 py-4">
-                      {task.related_url ? <LinkPill href={task.related_url} label="Abrir" /> : <span className="text-xs font-bold text-[var(--bb-muted)]">-</span>}
+                      {task.links.length ? (
+                        <LinksList links={task.links} />
+                      ) : task.related_url ? (
+                        <LinkPill href={task.related_url} label="Abrir" />
+                      ) : (
+                        <span className="text-xs font-bold text-[var(--bb-muted)]">-</span>
+                      )}
                     </td>
                     <td className="bb-actions-col sticky right-0 px-2 py-4">
                       <Link href={`/tasks/${task.id}/edit`} className="text-sm font-extrabold text-[var(--bb-charcoal)] hover:underline">
