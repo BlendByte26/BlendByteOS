@@ -53,7 +53,7 @@ export default async function NewInvest2030RequestPage({ searchParams }: Props) 
             <div className="mb-3 flex items-center justify-between gap-3">
               <h2 className="text-sm font-extrabold text-[var(--bb-charcoal)]">Pedidos recentes Invest2030</h2>
             </div>
-            <Invest2030RecentRequests accessToken={accessToken} requests={recentRequests} />
+            <Invest2030RecentRequests requests={recentRequests} />
           </Panel>
         </aside>
       </div>

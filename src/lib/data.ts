@@ -517,7 +517,7 @@ export async function getInvest2030Requests(filters: Invest2030RequestFilters = 
 
   let query = supabase
     .from("invest2030_requests")
-    .select("*, tasks(id, title, status, priority, is_blocked, due_date)")
+    .select("*, tasks(id, title, status, priority, is_blocked, due_date, notes)")
     .order("created_at", { ascending: false });
 
   if (filters.search?.trim()) {

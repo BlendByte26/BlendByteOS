@@ -311,7 +311,7 @@ export type Invest2030Request = {
   notes: string | null;
   created_at: string;
   updated_at: string;
-  tasks?: Pick<Task, "id" | "title" | "status" | "priority" | "is_blocked" | "due_date"> | null;
+  tasks?: Pick<Task, "id" | "title" | "status" | "priority" | "is_blocked" | "due_date" | "notes"> | null;
 };
 
 export type Invest2030RequestFormValues = {
