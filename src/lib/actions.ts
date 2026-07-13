@@ -58,6 +58,8 @@ type BulkCreateContentResult =
   | { ok: true; createdCount: number }
   | { ok: false; message: string };
 
+type ContentMutationResult = { ok: false; message: string };
+
 type ContentCommentsResult =
   | { ok: true; comments: ContentComment[] }
   | { ok: false; message: string };
@@ -185,6 +187,26 @@ function sanitizeChecklist(items: SetupChecklistItem[]) {
 
 function checked(formData: FormData, key: string) {
   return formData.get(key) === "on";
+}
+
+function contentMonthValue(formData: FormData, publishDate: string | null) {
+  if (publishDate) return publishDate.slice(0, 7);
+  return requiredText(formData, "month");
+}
+
+function contentMutationErrorMessage(error: { message?: string; code?: string }) {
+  if (
+    error.code === "23505" ||
+    error.message?.includes("content_items_seed_unique_idx")
+  ) {
+    return "Já existe um conteúdo para este cliente com o mesmo mês e título. Altere o título, a data de publicação ou o mês de planeamento.";
+  }
+
+  return error.message ?? "Não foi possível guardar o conteúdo.";
+}
+
+function contentMutationFailure(error: { message?: string; code?: string }): ContentMutationResult {
+  return { ok: false, message: contentMutationErrorMessage(error) };
 }
 
 function initialTaskPriority(title: string): TaskPriority {
@@ -555,10 +577,11 @@ export async function deleteClientAction(id: string) {
 }
 
 function contentPayload(formData: FormData) {
+  const publishDate = text(formData, "publish_date");
   const payload = {
     client_id: requiredText(formData, "client_id"),
-    month: requiredText(formData, "month"),
-    publish_date: text(formData, "publish_date"),
+    month: contentMonthValue(formData, publishDate),
+    publish_date: publishDate,
     publish_time: text(formData, "publish_time"),
     design_due_date: text(formData, "design_due_date"),
     copy_due_date: text(formData, "copy_due_date"),
@@ -621,7 +644,7 @@ function isMissingPublishTimeColumnError(error: { message?: string; code?: strin
   );
 }
 
-export async function createContentAction(formData: FormData) {
+export async function createContentAction(formData: FormData): Promise<ContentMutationResult | void> {
   await requireRole(["admin", "marketing", "design"]);
   const supabase = await supabaseOrRedirect("/content");
   const payload = contentPayload(formData);
@@ -629,9 +652,9 @@ export async function createContentAction(formData: FormData) {
 
   if (isMissingPublishTimeColumnError(error)) {
     const fallback = await supabase.from("content_items").insert(contentPayloadWithoutPublishTime(payload));
-    if (fallback.error) throw new Error(fallback.error.message);
+    if (fallback.error) return contentMutationFailure(fallback.error);
   } else if (error) {
-    throw new Error(error.message);
+    return contentMutationFailure(error);
   }
   refreshAll();
   redirect("/content");
@@ -689,7 +712,7 @@ export async function bulkCreateContentAction(formData: FormData): Promise<BulkC
 
     payloads.push({
       client_id: clientId,
-      month,
+      month: publishDate.slice(0, 7) || month,
       publish_date: publishDate,
       publish_time: publishTime || null,
       design_due_date: null,
@@ -738,9 +761,9 @@ export async function bulkCreateContentAction(formData: FormData): Promise<BulkC
     const fallback = await supabase
       .from("content_items")
       .insert(payloads.map(contentInsertPayloadWithoutPublishTime));
-    if (fallback.error) return { ok: false, message: fallback.error.message };
+    if (fallback.error) return { ok: false, message: contentMutationErrorMessage(fallback.error) };
   } else if (error) {
-    return { ok: false, message: error.message };
+    return { ok: false, message: contentMutationErrorMessage(error) };
   }
 
   refreshAll();
@@ -837,7 +860,7 @@ export async function deleteContentCommentAction(commentId: string): Promise<Con
   return { ok: true };
 }
 
-async function updateContent(id: string, formData: FormData) {
+async function updateContent(id: string, formData: FormData): Promise<ContentMutationResult | void> {
   await requireRole(["admin", "marketing", "design"]);
   const supabase = await supabaseOrError();
   const payload = contentPayload(formData);
@@ -851,18 +874,18 @@ async function updateContent(id: string, formData: FormData) {
       .from("content_items")
       .update(contentPayloadWithoutPublishTime(payload))
       .eq("id", id);
-    if (fallback.error) throw new Error(fallback.error.message);
+    if (fallback.error) return contentMutationFailure(fallback.error);
   } else if (error) {
-    throw new Error(error.message);
+    return contentMutationFailure(error);
   }
   refreshAll();
 }
 
 export async function updateContentInlineAction(id: string, formData: FormData) {
-  await updateContent(id, formData);
+  return updateContent(id, formData);
 }
 
-export async function updateContentAction(id: string, formData: FormData) {
+export async function updateContentAction(id: string, formData: FormData): Promise<ContentMutationResult | void> {
   await requireRole(["admin", "marketing", "design"]);
   const supabase = await supabaseOrRedirect("/content");
   const payload = contentPayload(formData);
@@ -876,9 +899,9 @@ export async function updateContentAction(id: string, formData: FormData) {
       .from("content_items")
       .update(contentPayloadWithoutPublishTime(payload))
       .eq("id", id);
-    if (fallback.error) throw new Error(fallback.error.message);
+    if (fallback.error) return contentMutationFailure(fallback.error);
   } else if (error) {
-    throw new Error(error.message);
+    return contentMutationFailure(error);
   }
   refreshAll();
   redirect("/content");

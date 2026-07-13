@@ -6,7 +6,10 @@ import { ContentForm } from "@/components/forms";
 import type { OperationalProfile } from "@/lib/operational-profiles";
 import type { Client, ContentComment, ContentItem, TeamMember } from "@/lib/types";
 
-type ContentFormAction = (formData: FormData) => void | Promise<void>;
+type ContentFormAction = (formData: FormData) =>
+  | void
+  | { ok: false; message: string }
+  | Promise<void | { ok: false; message: string }>;
 
 type ContentCommentsResult =
   | { ok: true; comments: ContentComment[] }

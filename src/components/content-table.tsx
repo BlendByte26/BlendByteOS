@@ -13,7 +13,11 @@ import { cleanPrefixedTitle } from "@/lib/title-display";
 import type { AuthenticatedOperationalProfile } from "@/lib/auth";
 import type { Client, ContentComment, ContentItem, TeamMember } from "@/lib/types";
 
-type ContentFormAction = (id: string, formData: FormData) => void | Promise<void>;
+type ContentFormAction = (id: string, formData: FormData) =>
+  | void
+  | { ok: false; message: string }
+  | Promise<void | { ok: false; message: string }>;
+type ContentStatusAction = (id: string, formData: FormData) => void | Promise<void>;
 type ArchiveContentAction = (id: string) => void | Promise<void>;
 type DeleteContentAction = (id: string) => void | Promise<void>;
 type ListContentCommentsAction = (contentId: string) => Promise<
@@ -36,7 +40,7 @@ type ContentTableProps = {
   activeProfile: AuthenticatedOperationalProfile;
   canPersist: boolean;
   updateContentAction: ContentFormAction;
-  updateStatusAction: ContentFormAction;
+  updateStatusAction: ContentStatusAction;
   archiveContentAction: ArchiveContentAction;
   deleteContentAction: DeleteContentAction;
   listCommentsAction: ListContentCommentsAction;

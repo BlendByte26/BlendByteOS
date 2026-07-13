@@ -12,7 +12,10 @@ import type { Client, ContentComment, ContentItem, TeamMember } from "@/lib/type
 export type ContentEditSection = "general" | "brief" | "copy" | "description" | "workflow" | "links";
 export type ContentEditingState = { item: ContentItem; section: ContentEditSection };
 
-type ContentFormAction = (id: string, formData: FormData) => void | Promise<void>;
+type ContentFormAction = (id: string, formData: FormData) =>
+  | void
+  | { ok: false; message: string }
+  | Promise<void | { ok: false; message: string }>;
 type ListContentCommentsAction = (contentId: string) => Promise<
   | { ok: true; comments: ContentComment[] }
   | { ok: false; message: string }
@@ -93,7 +96,11 @@ export function ContentEditModal({
 
     setSaveMessage({ itemId: editing.item.id, message: "A guardar..." });
     try {
-      await updateContentAction(editing.item.id, formData);
+      const result = await updateContentAction(editing.item.id, formData);
+      if (result?.ok === false) {
+        setSaveMessage({ itemId: editing.item.id, message: result.message });
+        return result;
+      }
       setSaveMessage({ itemId: editing.item.id, message: "Guardado." });
       onClose();
       router.refresh();

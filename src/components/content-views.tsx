@@ -17,7 +17,10 @@ import type { AuthenticatedOperationalProfile } from "@/lib/auth";
 import { contentStatuses, type Client, type ContentComment, type ContentItem, type ContentStatus, type TeamMember } from "@/lib/types";
 
 type ContentStatusAction = (id: string, formData: FormData) => void | Promise<void>;
-type ContentFormAction = (id: string, formData: FormData) => void | Promise<void>;
+type ContentFormAction = (id: string, formData: FormData) =>
+  | void
+  | { ok: false; message: string }
+  | Promise<void | { ok: false; message: string }>;
 type ListContentCommentsAction = (contentId: string) => Promise<
   | { ok: true; comments: ContentComment[] }
   | { ok: false; message: string }

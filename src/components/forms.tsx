@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { DatePicker, MonthPicker, TimePicker } from "@/components/date-picker";
 import { LinksEditor } from "@/components/links";
@@ -27,7 +28,10 @@ import {
   type TeamMember,
 } from "@/lib/types";
 
+type ContentActionResult = void | { ok: false; message: string };
 type FormAction = (formData: FormData) => void | Promise<void>;
+type ContentFormAction = (formData: FormData) => ContentActionResult | Promise<ContentActionResult>;
+type ContentFormState = { error: string | null };
 
 const inputClass =
   "bb-input text-sm font-medium placeholder:text-[var(--bb-muted)]";
@@ -77,9 +81,22 @@ function timeInputValue(value: string | null | undefined) {
   return value?.slice(0, 5) ?? "";
 }
 
-function currentMonthValue() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+function publishMonthValue(publishDate: string) {
+  return publishDate.slice(0, 7);
+}
+
+function isRedirectSignal(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "digest" in error &&
+    String((error as { digest?: unknown }).digest).startsWith("NEXT_REDIRECT")
+  );
+}
+
+function contentFormError(error: unknown) {
+  if (error instanceof Error) return error.message;
+  return "Não foi possível guardar o conteúdo.";
 }
 
 function AssigneeMultiSelect({
@@ -469,7 +486,7 @@ export function ContentForm({
   teamMembers = [],
   onCancel,
 }: {
-  action: FormAction;
+  action: ContentFormAction;
   clients: Client[];
   item?: ContentItem;
   defaultClientId?: string;
@@ -478,7 +495,23 @@ export function ContentForm({
   onCancel?: () => void;
 }) {
   const selectedClientId = item?.client_id ?? defaultClientId ?? clients[0]?.id;
-  const selectedMonth = item?.month ?? currentMonthValue();
+  const selectedMonth = item?.month ?? "";
+  const [publishDate, setPublishDate] = useState(item?.publish_date ?? "");
+  const [planningMonth, setPlanningMonth] = useState(selectedMonth);
+  const submittedMonth = publishDate ? publishMonthValue(publishDate) : planningMonth;
+  const [state, formAction] = useActionState(
+    async (_previousState: ContentFormState, formData: FormData): Promise<ContentFormState> => {
+      try {
+        const result = await action(formData);
+        if (result?.ok === false) return { error: result.message };
+        return { error: null };
+      } catch (error) {
+        if (isRedirectSignal(error)) throw error;
+        return { error: contentFormError(error) };
+      }
+    },
+    { error: null },
+  );
   const currentAssignees = splitAssignees(item?.assignee_name);
   const assigneeOptions = Array.from(
     new Set([
@@ -488,11 +521,19 @@ export function ContentForm({
   );
 
   return (
-    <form action={action} className="grid gap-4">
+    <form action={formAction} className="grid gap-4">
       <input type="hidden" name="recording_date" value={item?.recording_date ?? ""} />
       <input type="hidden" name="media_url" value={item?.media_url ?? ""} />
       <input type="hidden" name="delivery_url" value={item?.delivery_url ?? ""} />
       <input type="hidden" name="client_feedback" value={item?.client_feedback ?? ""} />
+      {state.error ? (
+        <div
+          role="alert"
+          className="rounded-[16px] border border-[rgba(214,69,80,0.28)] bg-[rgba(214,69,80,0.08)] px-4 py-3 text-sm font-bold leading-6 text-[#8a2530]"
+        >
+          {state.error}
+        </div>
+      ) : null}
       <div data-content-section="general" className="grid gap-4 md:grid-cols-5">
         <label className={labelClass}>
           Cliente
@@ -504,12 +545,32 @@ export function ContentForm({
           />
         </label>
         <label className={labelClass}>
-          Mês
-          <MonthPicker name="month" required defaultValue={selectedMonth} ariaLabel="Mês" />
+          Data de publicação
+          <DatePicker
+            name="publish_date"
+            value={publishDate}
+            onValueChange={setPublishDate}
+            ariaLabel="Data de publicação"
+          />
         </label>
         <label className={labelClass}>
-          Data de publicação
-          <DatePicker name="publish_date" defaultValue={item?.publish_date ?? ""} ariaLabel="Data de publicação" />
+          {publishDate ? "Mês" : "Mês de planeamento"}
+          {publishDate ? (
+            <>
+              <input type="hidden" name="month" value={submittedMonth} />
+              <span className="flex min-h-11 items-center rounded-2xl border border-[var(--bb-border)] bg-white/55 px-3.5 text-sm font-semibold text-[var(--bb-muted)] shadow-[0_12px_28px_rgba(0,0,0,0.05)]">
+                {submittedMonth}
+              </span>
+            </>
+          ) : (
+            <MonthPicker
+              name="month"
+              required
+              value={planningMonth}
+              onValueChange={setPlanningMonth}
+              ariaLabel="Mês de planeamento"
+            />
+          )}
         </label>
         <label className={labelClass}>
           Hora de publicação
