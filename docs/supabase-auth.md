@@ -1,27 +1,60 @@
 # Supabase Auth setup
 
-BlendByteOS now uses Supabase Auth for internal access. `APP_ACCESS_PASSWORD` can remain in the environment temporarily, but the primary entry point is email/password login through `/access`.
+BlendByteOS uses Supabase Auth for internal access. `APP_ACCESS_PASSWORD` can remain in the environment temporarily, but the primary entry point is email/password login through `/access`.
 
-## Manual setup
+## Automated onboarding
 
-1. In Supabase Dashboard, open Authentication and create four email/password users.
-2. Copy each user's UUID from Authentication > Users.
-3. Run the migration `20260713143000_add_supabase_auth_profiles.sql`.
-4. Insert the operational profiles, replacing only the UUID placeholders:
+Use the local admin script to create/reuse Auth users, upsert `public.user_profiles`, and send invite or password recovery emails:
 
-```sql
-insert into public.user_profiles (auth_user_id, profile_key, display_name, role, active)
-values
-  ('00000000-0000-0000-0000-000000000001', 'guilherme', 'Guilherme', 'admin', true),
-  ('00000000-0000-0000-0000-000000000002', 'sofia', 'Sofia', 'marketing', true),
-  ('00000000-0000-0000-0000-000000000003', 'carlota', 'Carlota', 'design', true),
-  ('00000000-0000-0000-0000-000000000004', 'carolina', 'Carolina', 'design', true);
+```bash
+npm run tsx -- scripts/setup-auth-users.ts
 ```
 
-5. Test each account:
-   - Guilherme and Sofia redirect to `/?view=marketing`.
-   - Carlota and Carolina redirect to `/?view=design`.
-   - Logout returns to `/access`.
-6. Confirm RLS policies are enabled on internal tables and that public Invest2030 pages still load with the existing access token.
+The script reads the four emails from `public.team_members` and never stores passwords or tokens. It requires:
 
-Do not commit real emails, passwords, or Auth UUID mappings beyond the profile rows needed in the Supabase project.
+```bash
+NEXT_PUBLIC_SUPABASE_URL=...
+SUPABASE_SERVICE_ROLE_KEY=...
+```
+
+Keep `SUPABASE_SERVICE_ROLE_KEY` only in local ignored env files such as `.env.local`. Do not add it to browser code, commits, or Vercel runtime unless a future server-only runtime feature explicitly needs it.
+
+## Profiles
+
+The script maintains exactly these active operational profiles:
+
+```text
+guilherme | Guilherme | admin
+sofia     | Sofia     | marketing
+carlota   | Carlota   | design
+carolina  | Carolina  | design
+```
+
+## Password flow
+
+Invite and recovery emails should redirect to:
+
+```text
+https://blend-byte-os.vercel.app/auth/confirm?next=/access/set-password
+```
+
+Flow:
+
+```text
+email link -> /auth/confirm -> /access/set-password -> dashboard
+```
+
+Guilherme and Sofia land on `/?view=marketing`; Carlota and Carolina land on `/?view=design`.
+
+## Validation
+
+After onboarding, run:
+
+```bash
+npm run tsx -- scripts/check-anon-rls.ts
+npm run typecheck
+npm run lint
+npm run build
+```
+
+The anonymous RLS check should show no access to internal operational tables, except the temporary public Invest2030 compatibility policies documented in the auth migration.

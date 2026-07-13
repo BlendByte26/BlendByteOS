@@ -15,6 +15,7 @@ function valueOf(params: Record<string, string | string[] | undefined>, key: str
 export default async function AccessPage({ searchParams }: Props) {
   const params = (await searchParams) ?? {};
   const inactive = valueOf(params, "inactive") === "1";
+  const authStatus = valueOf(params, "auth");
   const setupMissing = valueOf(params, "setup") === "missing";
   const supabaseConfigured = isSupabaseConfigured();
   const showSetupNotice = setupMissing || (!supabaseConfigured && isProductionEnvironment());
@@ -45,6 +46,14 @@ export default async function AccessPage({ searchParams }: Props) {
         {inactive ? (
           <div className="mb-4 rounded-[16px] border border-[#f3c56a] bg-[#fff6dd] px-4 py-3 text-sm font-bold leading-6 text-[#6f4a00]">
             A tua conta existe, mas o perfil operacional está inativo.
+          </div>
+        ) : null}
+
+        {authStatus === "invalid" || authStatus === "expired" ? (
+          <div className="mb-4 rounded-[16px] border border-[#f3c56a] bg-[#fff6dd] px-4 py-3 text-sm font-bold leading-6 text-[#6f4a00]">
+            {authStatus === "expired"
+              ? "O link expirou. Pede um novo convite ou recuperação de password."
+              : "O link de autenticação não é válido."}
           </div>
         ) : null}
 

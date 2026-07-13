@@ -9,6 +9,8 @@ import { getValidSupabaseConfig } from "@/lib/supabase";
 import type { Database } from "@/lib/database.types";
 
 const ACCESS_PATH = "/access";
+const SET_PASSWORD_PATH = "/access/set-password";
+const AUTH_CONFIRM_PATH = "/auth/confirm";
 const PUBLIC_INVEST2030_PATHS = ["/invest2030/novo-pedido", "/invest2030/pedidos"];
 
 function createNextResponse(request: NextRequest) {
@@ -59,9 +61,11 @@ function isPublicInvest2030Path(pathname: string) {
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const isAccessPage = pathname.startsWith(ACCESS_PATH);
+  const isSetPasswordPage = pathname === SET_PASSWORD_PATH;
+  const isAuthConfirmPage = pathname === AUTH_CONFIRM_PATH;
   const isApiRoute = pathname.startsWith("/api");
 
-  if (isPublicInvest2030Path(pathname) || pathname === "/api/health") {
+  if (isPublicInvest2030Path(pathname) || isAuthConfirmPage || pathname === "/api/health") {
     return withPathHeader(request);
   }
 
@@ -124,7 +128,7 @@ export async function proxy(request: NextRequest) {
     return isAccessPage ? response : NextResponse.redirect(inactiveUrl);
   }
 
-  if (isAccessPage) {
+  if (isAccessPage && !isSetPasswordPage) {
     return NextResponse.redirect(new URL(redirectForRole(profile.role), request.url));
   }
 

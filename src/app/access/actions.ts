@@ -16,6 +16,10 @@ export type LoginState = {
   error: string | null;
 };
 
+export type SetPasswordState = {
+  error: string | null;
+};
+
 function text(formData: FormData, key: string) {
   const value = formData.get(key);
   return typeof value === "string" ? value.trim() : "";
@@ -29,6 +33,40 @@ function clearLegacyOperationalCookies(cookieStore: Awaited<ReturnType<typeof co
 
 function redirectViewForRole(role: string): AppAccessView {
   return role === "design" ? "design" : "marketing";
+}
+
+async function redirectToOperationalHome(authUserId: string): Promise<never> {
+  const supabase = await getSupabase();
+  if (!supabase) redirect("/access");
+
+  const { data: profile, error: profileError } = await supabase
+    .from("user_profiles")
+    .select("role, active")
+    .eq("auth_user_id", authUserId)
+    .maybeSingle();
+
+  if (profileError || !profile) {
+    await supabase.auth.signOut();
+    redirect("/access");
+  }
+
+  if (!profile.active) {
+    await supabase.auth.signOut();
+    redirect("/access?inactive=1");
+  }
+
+  const view = redirectViewForRole(profile.role);
+  const cookieStore = await cookies();
+  clearLegacyOperationalCookies(cookieStore);
+  cookieStore.set(APP_ACCESS_VIEW_COOKIE, view, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: isProductionEnvironment(),
+    path: "/",
+    maxAge: 60 * 60 * 24 * 90,
+  });
+
+  redirect(`/?view=${view}`);
 }
 
 export async function loginWithPasswordAction(
@@ -62,34 +100,42 @@ export async function loginWithPasswordAction(
     return { error: "Email ou password inválidos." };
   }
 
-  const { data: profile, error: profileError } = await supabase
-    .from("user_profiles")
-    .select("profile_key, role, active")
-    .eq("auth_user_id", signInData.user.id)
-    .maybeSingle();
+  return await redirectToOperationalHome(signInData.user.id);
+}
 
-  if (profileError || !profile) {
-    await supabase.auth.signOut();
-    return { error: "Esta conta ainda não tem perfil operacional associado." };
+export async function setPasswordAction(
+  _previousState: SetPasswordState,
+  formData: FormData,
+): Promise<SetPasswordState> {
+  const password = text(formData, "password");
+  const passwordConfirm = text(formData, "password_confirm");
+
+  if (password.length < 8) {
+    return { error: "A password deve ter pelo menos 8 caracteres." };
   }
 
-  if (!profile.active) {
-    await supabase.auth.signOut();
-    return { error: "Esta conta está inativa. Fala com o administrador." };
+  if (password !== passwordConfirm) {
+    return { error: "As passwords não coincidem." };
   }
 
-  const view = redirectViewForRole(profile.role);
-  const cookieStore = await cookies();
-  clearLegacyOperationalCookies(cookieStore);
-  cookieStore.set(APP_ACCESS_VIEW_COOKIE, view, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: isProductionEnvironment(),
-    path: "/",
-    maxAge: 60 * 60 * 24 * 90,
-  });
+  const supabase = await getSupabase();
+  if (!supabase) return { error: "Supabase não está configurado." };
 
-  redirect(`/?view=${view}`);
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return { error: "A sessão expirou. Abre novamente o link do convite." };
+  }
+
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) {
+    return { error: "Não foi possível definir a password. Tenta novamente." };
+  }
+
+  return await redirectToOperationalHome(user.id);
 }
 
 export async function logoutAction() {
