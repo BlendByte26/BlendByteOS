@@ -21,6 +21,28 @@ const operationalUsers: OperationalUser[] = [
   { displayName: "Carolina", profileKey: "carolina" },
 ];
 
+function selectedOperationalUsers() {
+  const requestedProfiles = process.argv.slice(2).map(normalize);
+  if (!requestedProfiles.length) return operationalUsers;
+
+  const selected = operationalUsers.filter((user) => {
+    const profileKey = normalize(user.profileKey);
+    const displayName = normalize(user.displayName);
+    return requestedProfiles.includes(profileKey) || requestedProfiles.includes(displayName);
+  });
+
+  const selectedKeys = new Set(
+    selected.flatMap((user) => [normalize(user.profileKey), normalize(user.displayName)]),
+  );
+  const unknown = requestedProfiles.filter((requested) => !selectedKeys.has(requested));
+
+  if (unknown.length) {
+    throw new Error(`Unknown profile(s): ${unknown.join(", ")}`);
+  }
+
+  return selected;
+}
+
 loadEnv(".env.local");
 loadEnv(".env");
 
@@ -68,8 +90,8 @@ function normalize(value: string | null | undefined) {
     .trim();
 }
 
-async function getTeamEmails() {
-  const names = operationalUsers.map((user) => user.displayName);
+async function getTeamEmails(users: OperationalUser[]) {
+  const names = users.map((user) => user.displayName);
   const { data, error } = await supabase
     .from("team_members")
     .select("name, email")
@@ -79,14 +101,14 @@ async function getTeamEmails() {
 
   const rows = (data ?? []) as TeamMemberRow[];
   const byName = new Map(rows.map((row) => [normalize(row.name), row.email?.trim() ?? ""]));
-  const missing = operationalUsers.filter((user) => !byName.get(normalize(user.displayName)));
+  const missing = users.filter((user) => !byName.get(normalize(user.displayName)));
 
   if (missing.length) {
     throw new Error(`Missing team email for: ${missing.map((user) => user.displayName).join(", ")}`);
   }
 
   return new Map(
-    operationalUsers.map((user) => [
+    users.map((user) => [
       user.profileKey,
       byName.get(normalize(user.displayName)) as string,
     ]),
@@ -104,7 +126,8 @@ function accessLinkFor(hashedToken: string) {
 }
 
 async function main() {
-  const emailsByProfile = await getTeamEmails();
+  const users = selectedOperationalUsers();
+  const emailsByProfile = await getTeamEmails(users);
   const generatedAt = new Date();
   const lines = [
     "BlendByteOS access links",
@@ -120,7 +143,7 @@ async function main() {
     status: "generated";
   }> = [];
 
-  for (const operationalUser of operationalUsers) {
+  for (const operationalUser of users) {
     const email = emailsByProfile.get(operationalUser.profileKey);
     if (!email) throw new Error(`Missing email for ${operationalUser.displayName}`);
 
