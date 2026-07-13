@@ -77,6 +77,11 @@ function timeInputValue(value: string | null | undefined) {
   return value?.slice(0, 5) ?? "";
 }
 
+function currentMonthValue() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
 function AssigneeMultiSelect({
   name,
   options,
@@ -473,6 +478,7 @@ export function ContentForm({
   onCancel?: () => void;
 }) {
   const selectedClientId = item?.client_id ?? defaultClientId ?? clients[0]?.id;
+  const selectedMonth = item?.month ?? currentMonthValue();
   const currentAssignees = splitAssignees(item?.assignee_name);
   const assigneeOptions = Array.from(
     new Set([
@@ -499,7 +505,7 @@ export function ContentForm({
         </label>
         <label className={labelClass}>
           Mês
-          <MonthPicker name="month" required defaultValue={item?.month} ariaLabel="Mês" />
+          <MonthPicker name="month" required defaultValue={selectedMonth} ariaLabel="Mês" />
         </label>
         <label className={labelClass}>
           Data de publicação
