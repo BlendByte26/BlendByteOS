@@ -1,23 +1,47 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
-import { CalendarDays, ChevronLeft, ChevronRight, Pencil, TriangleAlert } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Eye, Pencil, TriangleAlert, X } from "lucide-react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { ClientBadge } from "@/components/client-badge";
+import { ContentEditModal, type ContentEditingState } from "@/components/content-edit-modal";
 import { ContentStatusControl } from "@/components/content-status-control";
 import { Badge, EmptyState } from "@/components/ui";
 import { displayContentPlatform } from "@/lib/content-platform";
 import { getClientVisualToken } from "@/lib/client-visuals";
 import { contentStatusLabels } from "@/lib/labels";
 import { cleanPrefixedTitle } from "@/lib/title-display";
-import { contentStatuses, type ContentItem, type ContentStatus } from "@/lib/types";
+import type { AuthenticatedOperationalProfile } from "@/lib/auth";
+import { contentStatuses, type Client, type ContentComment, type ContentItem, type ContentStatus, type TeamMember } from "@/lib/types";
 
 type ContentStatusAction = (id: string, formData: FormData) => void | Promise<void>;
+type ContentFormAction = (id: string, formData: FormData) => void | Promise<void>;
+type ListContentCommentsAction = (contentId: string) => Promise<
+  | { ok: true; comments: ContentComment[] }
+  | { ok: false; message: string }
+>;
+type ContentCommentAction = (formData: FormData) => Promise<
+  | { ok: true; comment?: ContentComment }
+  | { ok: false; message: string }
+>;
+type DeleteContentCommentAction = (commentId: string) => Promise<
+  | { ok: true; comment?: ContentComment }
+  | { ok: false; message: string }
+>;
 
-type ContentViewProps = {
+type ContentPipelineViewProps = {
   items: ContentItem[];
+  clients: Client[];
+  teamMembers: TeamMember[];
+  activeProfile: AuthenticatedOperationalProfile;
   canPersist: boolean;
+  updateContentAction: ContentFormAction;
   updateStatusAction: ContentStatusAction;
+  listCommentsAction: ListContentCommentsAction;
+  createCommentAction: ContentCommentAction;
+  deleteCommentAction: DeleteContentCommentAction;
 };
 
 const attentionStatuses: ContentStatus[] = ["todo", "in_progress", "ready_to_publish"];
@@ -186,6 +210,11 @@ function formatPublishStamp(item: ContentItem) {
   return time ? `${date} · ${time}` : date;
 }
 
+function displayDetailValue(value: string | null | undefined) {
+  const cleanValue = value?.trim();
+  return cleanValue || "Não definido";
+}
+
 function sortByPublishDate(a: ContentItem, b: ContentItem) {
   const left = a.publish_date ?? `${a.month ?? "9999-12"}-31`;
   const right = b.publish_date ?? `${b.month ?? "9999-12"}-31`;
@@ -258,14 +287,158 @@ function attentionLabel(item: ContentItem, missing: string[]) {
   return null;
 }
 
+function DetailBadge({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex min-h-8 items-center rounded-full border border-[var(--bb-border)] bg-white px-3 text-xs font-extrabold text-[var(--bb-charcoal)] shadow-[0_8px_18px_rgba(0,0,0,0.04)]">
+      {children}
+    </span>
+  );
+}
+
+function DetailField({
+  label,
+  children,
+  long = false,
+}: {
+  label: string;
+  children: React.ReactNode;
+  long?: boolean;
+}) {
+  return (
+    <section className={long ? "grid gap-2 md:col-span-2" : "grid gap-2"}>
+      <h3 className="text-xs font-extrabold uppercase text-[var(--bb-muted)]">{label}</h3>
+      <div
+        className={`rounded-[18px] border border-[var(--bb-border)] bg-white/60 px-4 py-3 text-sm font-bold leading-6 text-[var(--bb-charcoal)] ${
+          long ? "min-h-24 whitespace-pre-wrap break-words" : ""
+        }`}
+      >
+        {children}
+      </div>
+    </section>
+  );
+}
+
+function ContentDetailModal({
+  item,
+  onClose,
+  onEdit,
+}: {
+  item: ContentItem | null;
+  onClose: () => void;
+  onEdit: (item: ContentItem) => void;
+}) {
+  useEffect(() => {
+    if (!item) return;
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [item, onClose]);
+
+  if (!item || typeof document === "undefined") return null;
+
+  const platform = item.platform?.trim() ? displayContentPlatform(item.platform) : "Não definido";
+  const format = displayDetailValue(item.format);
+  const publishDate = formatPublishStamp(item) ?? "Não definido";
+
+  return createPortal(
+    <div
+      data-portal="modal"
+      className="fixed inset-0 bg-[rgba(12,16,18,0.32)] p-3 backdrop-blur-sm md:p-6"
+      style={{ zIndex: 99990 }}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Consultar conteúdo"
+        className="mx-auto flex max-h-[calc(100vh-1.5rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[24px] border border-[var(--bb-border)] bg-[var(--bb-surface)] shadow-[0_28px_90px_rgba(0,0,0,0.22)] md:max-h-[calc(100vh-3rem)]"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--bb-border)] bg-white/60 px-5 py-4">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-extrabold uppercase text-[var(--bb-muted)]">
+              <Eye className="size-4" aria-hidden="true" />
+              Consultar conteúdo
+            </div>
+            <h2 className="mt-1 text-lg font-extrabold text-[var(--bb-charcoal)]">
+              {contentTitle(item)}
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fechar"
+            title="Fechar"
+            className="grid size-10 place-items-center rounded-full border border-[var(--bb-border)] bg-white/70 text-[var(--bb-charcoal)] transition hover:bg-[var(--bb-primary-soft)]"
+          >
+            <X className="size-4" aria-hidden="true" />
+          </button>
+        </div>
+
+        <div className="grid gap-4 overflow-y-auto px-5 py-5 md:grid-cols-2">
+          <DetailField label="Título" long>
+            {displayDetailValue(contentTitle(item))}
+          </DetailField>
+          <DetailField label="Plataforma">
+            <DetailBadge>{platform}</DetailBadge>
+          </DetailField>
+          <DetailField label="Formato">
+            <DetailBadge>{format}</DetailBadge>
+          </DetailField>
+          <DetailField label="Brief criativo" long>
+            {displayDetailValue(item.creative_brief)}
+          </DetailField>
+          <DetailField label="Copy" long>
+            {displayDetailValue(item.copy_text)}
+          </DetailField>
+          <DetailField label="Descrição" long>
+            {displayDetailValue(item.description)}
+          </DetailField>
+          <DetailField label="Data de publicação" long>
+            {publishDate}
+          </DetailField>
+        </div>
+
+        <div className="flex flex-wrap justify-end gap-2 border-t border-[var(--bb-border)] bg-white/60 px-5 py-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex min-h-11 items-center rounded-full border border-[var(--bb-border)] bg-[var(--bb-surface)] px-5 text-sm font-bold text-[var(--bb-charcoal)] transition duration-200 hover:bg-[var(--bb-primary-hover)]"
+          >
+            Fechar
+          </button>
+          <button
+            type="button"
+            onClick={() => onEdit(item)}
+            className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[var(--bb-black)] px-5 text-sm font-bold text-white shadow-[0_14px_30px_rgba(0,0,0,0.14)] transition duration-200 hover:bg-[var(--bb-primary)] hover:text-[var(--bb-black)]"
+          >
+            <Pencil className="size-4" aria-hidden="true" />
+            Editar
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 function ContentMiniCard({
   item,
   canPersist,
   updateStatusAction,
+  onOpenDetail,
+  onOpenEdit,
 }: {
   item: ContentItem;
   canPersist: boolean;
   updateStatusAction: ContentStatusAction;
+  onOpenDetail: (item: ContentItem) => void;
+  onOpenEdit: (item: ContentItem) => void;
 }) {
   const clientToken = getClientVisualToken({
     clientCode: item.clients?.client_code,
@@ -310,8 +483,14 @@ function ContentMiniCard({
         <Badge value={item.status} label={contentStatusLabels[item.status]} />
       </div>
 
-      <h3 className="bb-line-clamp-2 mt-1.5 text-sm font-extrabold leading-5 text-[var(--bb-charcoal)]">
-        {cleanPrefixedTitle(item.title, item.clients)}
+      <h3 className="mt-1.5 text-sm font-extrabold leading-5 text-[var(--bb-charcoal)]">
+        <button
+          type="button"
+          onClick={() => onOpenDetail(item)}
+          className="bb-line-clamp-2 text-left transition hover:text-[var(--bb-black)] hover:underline focus:outline-none focus:ring-4 focus:ring-[var(--bb-primary-soft)]"
+        >
+          {cleanPrefixedTitle(item.title, item.clients)}
+        </button>
       </h3>
 
       <div className="mt-1.5 flex flex-wrap gap-x-1.5 gap-y-1 text-[11px] font-bold leading-4 text-[var(--bb-muted)]">
@@ -344,57 +523,94 @@ function ContentMiniCard({
           canPersist={canPersist}
           updateStatusAction={updateStatusAction}
         />
-        <Link
-          href={`/content/${item.id}/edit`}
+        <button
+          type="button"
+          onClick={() => onOpenEdit(item)}
           className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-[var(--bb-border)] bg-white/65 px-3 text-xs font-extrabold text-[var(--bb-charcoal)] transition hover:bg-[var(--bb-primary-soft)]"
         >
           <Pencil className="size-3.5" aria-hidden="true" />
           Editar
-        </Link>
+        </button>
       </div>
     </article>
   );
 }
 
-export function ContentPipelineView({ items, canPersist, updateStatusAction }: ContentViewProps) {
-  return (
-    <div className="-mx-1 overflow-x-auto overscroll-x-contain pb-3 [scrollbar-gutter:stable]">
-      <div className="grid min-w-[1680px] grid-cols-6 gap-3 px-1">
-        {contentStatuses.map((status) => {
-          const statusItems = items.filter((item) => item.status === status).sort(sortByPublishDate);
+export function ContentPipelineView({
+  items,
+  clients,
+  teamMembers,
+  activeProfile,
+  canPersist,
+  updateContentAction,
+  updateStatusAction,
+  listCommentsAction,
+  createCommentAction,
+  deleteCommentAction,
+}: ContentPipelineViewProps) {
+  const [detailItem, setDetailItem] = useState<ContentItem | null>(null);
+  const [editing, setEditing] = useState<ContentEditingState | null>(null);
 
-          return (
-            <section
-              key={status}
-              className="min-w-0 rounded-lg border border-[var(--bb-border)] bg-white/48 p-3 shadow-[0_12px_34px_rgba(0,0,0,0.05)]"
-            >
-              <div className="mb-2.5 flex items-center justify-between gap-3">
-                <h2 className="bb-line-clamp-2 text-sm font-extrabold leading-5 text-[var(--bb-charcoal)]">
-                  {contentStatusLabels[status]}
-                </h2>
-                <span className="rounded-full bg-white/78 px-2 py-0.5 text-xs font-extrabold text-[var(--bb-muted)] ring-1 ring-[var(--bb-border)]">
-                  {statusItems.length}
-                </span>
-              </div>
-              {statusItems.length ? (
-                <div className="grid gap-2">
-                  {statusItems.map((item) => (
-                    <ContentMiniCard
-                      key={item.id}
-                      item={item}
-                      canPersist={canPersist}
-                      updateStatusAction={updateStatusAction}
-                    />
-                  ))}
+  function openEditor(item: ContentItem) {
+    setDetailItem(null);
+    setEditing({ item, section: "general" });
+  }
+
+  return (
+    <>
+      <div className="-mx-1 overflow-x-auto overscroll-x-contain pb-3 [scrollbar-gutter:stable]">
+        <div className="grid min-w-[1680px] grid-cols-6 gap-3 px-1">
+          {contentStatuses.map((status) => {
+            const statusItems = items.filter((item) => item.status === status).sort(sortByPublishDate);
+
+            return (
+              <section
+                key={status}
+                className="min-w-0 rounded-lg border border-[var(--bb-border)] bg-white/48 p-3 shadow-[0_12px_34px_rgba(0,0,0,0.05)]"
+              >
+                <div className="mb-2.5 flex items-center justify-between gap-3">
+                  <h2 className="bb-line-clamp-2 text-sm font-extrabold leading-5 text-[var(--bb-charcoal)]">
+                    {contentStatusLabels[status]}
+                  </h2>
+                  <span className="rounded-full bg-white/78 px-2 py-0.5 text-xs font-extrabold text-[var(--bb-muted)] ring-1 ring-[var(--bb-border)]">
+                    {statusItems.length}
+                  </span>
                 </div>
-              ) : (
-                <EmptyState title={`Sem conteúdos em ${contentStatusLabels[status]}.`} />
-              )}
-            </section>
-          );
-        })}
+                {statusItems.length ? (
+                  <div className="grid gap-2">
+                    {statusItems.map((item) => (
+                      <ContentMiniCard
+                        key={item.id}
+                        item={item}
+                        canPersist={canPersist}
+                        updateStatusAction={updateStatusAction}
+                        onOpenDetail={setDetailItem}
+                        onOpenEdit={openEditor}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState title={`Sem conteúdos em ${contentStatusLabels[status]}.`} />
+                )}
+              </section>
+            );
+          })}
+        </div>
       </div>
-    </div>
+      <ContentDetailModal item={detailItem} onClose={() => setDetailItem(null)} onEdit={openEditor} />
+      <ContentEditModal
+        editing={editing}
+        clients={clients}
+        teamMembers={teamMembers}
+        activeProfile={activeProfile}
+        canPersist={canPersist}
+        updateContentAction={updateContentAction}
+        listCommentsAction={listCommentsAction}
+        createCommentAction={createCommentAction}
+        deleteCommentAction={deleteCommentAction}
+        onClose={() => setEditing(null)}
+      />
+    </>
   );
 }
 

@@ -176,8 +176,15 @@ export default async function ContentPage({ searchParams }: Props) {
       {currentView === "pipeline" ? (
         <ContentPipelineView
           items={items}
+          clients={clients}
+          teamMembers={teamMembers}
+          activeProfile={activeProfile}
           canPersist={isSupabaseConfigured()}
+          updateContentAction={updateContentInlineAction}
           updateStatusAction={updateContentStatusAction}
+          listCommentsAction={listContentCommentsAction}
+          createCommentAction={createContentCommentAction}
+          deleteCommentAction={deleteContentCommentAction}
         />
       ) : null}
 
