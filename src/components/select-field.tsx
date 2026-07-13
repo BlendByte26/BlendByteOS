@@ -62,9 +62,10 @@ export function SelectField({
         160,
         Math.min(280, openAbove ? availableAbove : availableBelow),
       );
-      const top = openAbove
+      const preferredTop = openAbove
         ? Math.max(viewportPadding, rect.top - maxHeight - gap)
         : Math.min(window.innerHeight - viewportPadding - maxHeight, rect.bottom + gap);
+      const top = Math.max(viewportPadding, preferredTop);
 
       setPosition({
         left: Math.max(viewportPadding, Math.min(rect.left, window.innerWidth - rect.width - viewportPadding)),
@@ -74,16 +75,12 @@ export function SelectField({
       });
     }
 
-    function closeOnScroll() {
-      setOpen(false);
-    }
-
     updatePosition();
     window.addEventListener("resize", updatePosition);
-    window.addEventListener("scroll", closeOnScroll, true);
+    window.addEventListener("scroll", updatePosition, true);
     return () => {
       window.removeEventListener("resize", updatePosition);
-      window.removeEventListener("scroll", closeOnScroll, true);
+      window.removeEventListener("scroll", updatePosition, true);
     };
   }, [open]);
 
