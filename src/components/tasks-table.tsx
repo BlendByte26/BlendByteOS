@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Archive, ClipboardList, Pencil, Send, Trash2, X } from "lucide-react";
+import { Archive, ClipboardList, Mail, Pencil, Send, Trash2, X } from "lucide-react";
 import { ClientBadge } from "@/components/client-badge";
 import { TaskForm } from "@/components/forms";
 import { LinksIndicator } from "@/components/links";
@@ -13,6 +13,7 @@ import { getClientLabel } from "@/lib/client-display";
 import { getClientVisualToken } from "@/lib/client-visuals";
 import { taskPriorityLabels, taskStatusLabels } from "@/lib/labels";
 import { parseLinksFormData } from "@/lib/links";
+import { isInvest2030NewsletterTask } from "@/lib/invest2030-newsletter";
 import {
   designProfiles,
   isDesignAssigneeName,
@@ -250,6 +251,25 @@ export function TasksTable({
   const [handoffDesignerKey, setHandoffDesignerKey] = useState<DesignProfileKey>("carlota");
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [tableError, setTableError] = useState<string | null>(null);
+  const invest2030ClientId = clients.find((client) => client.client_code === "02_I2030")?.id ?? null;
+
+  function taskFromFormData(task: Task, formData: FormData): Task {
+    const clientId = String(formData.get("client_id") ?? "") || null;
+    const selectedClient = clientId ? clients.find((client) => client.id === clientId) : null;
+
+    return {
+      ...task,
+      client_id: clientId,
+      clients: selectedClient ?? null,
+      title: String(formData.get("title") ?? task.title),
+      status: String(formData.get("status") ?? task.status) as Task["status"],
+      priority: String(formData.get("priority") ?? task.priority) as Task["priority"],
+      assignee_name: String(formData.get("assignee_name") ?? "") || null,
+      due_date: String(formData.get("due_date") ?? "") || null,
+      links: parseLinksFormData(formData),
+      notes: String(formData.get("notes") ?? "") || null,
+    };
+  }
 
   async function saveTask(formData: FormData) {
     if (!editing) return;
@@ -264,19 +284,7 @@ export function TasksTable({
       setSaveMessage("Guardado.");
       setLocalTasks((current) =>
         current.map((task) =>
-          task.id === editing.id
-            ? {
-                ...task,
-                client_id: String(formData.get("client_id") ?? "") || null,
-                title: String(formData.get("title") ?? task.title),
-                status: String(formData.get("status") ?? task.status) as Task["status"],
-                priority: String(formData.get("priority") ?? task.priority) as Task["priority"],
-                assignee_name: String(formData.get("assignee_name") ?? "") || null,
-                due_date: String(formData.get("due_date") ?? "") || null,
-                links: parseLinksFormData(formData),
-                notes: String(formData.get("notes") ?? "") || null,
-              }
-            : task,
+          task.id === editing.id ? taskFromFormData(task, formData) : task,
         ),
       );
       setEditing(null);
@@ -284,6 +292,39 @@ export function TasksTable({
     } catch (error) {
       console.error("Erro ao guardar tarefa", error);
       setSaveMessage(error instanceof Error ? error.message : "Não foi possível guardar.");
+    }
+  }
+
+  async function prepareNewsletterFromModal(
+    task: Task,
+    event: React.MouseEvent<HTMLButtonElement>,
+  ) {
+    const form = event.currentTarget.form;
+    if (!form) return;
+
+    if (!canPersist) {
+      setSaveMessage("Modo demo: configure o Supabase para gravar alterações antes de preparar a newsletter.");
+      return;
+    }
+
+    const formData = new FormData(form);
+    const taskToSave = taskFromFormData(task, formData);
+    if (!isInvest2030NewsletterTask(taskToSave, { invest2030ClientId })) {
+      setSaveMessage("Esta tarefa não cumpre os critérios para preparar newsletter Invest2030.");
+      return;
+    }
+
+    setSaveMessage("A guardar alterações antes de abrir a newsletter...");
+    try {
+      await updateTaskAction(task.id, formData);
+      setLocalTasks((current) =>
+        current.map((item) => (item.id === task.id ? taskToSave : item)),
+      );
+      router.refresh();
+      router.push(`/tasks/${task.id}/newsletter`);
+    } catch (error) {
+      console.error("Erro ao guardar tarefa antes de preparar newsletter", error);
+      setSaveMessage(error instanceof Error ? error.message : "Não foi possível guardar antes de abrir a newsletter.");
     }
   }
 
@@ -518,18 +559,33 @@ export function TasksTable({
             submitLabel="Guardar alterações"
             onCancel={() => setEditing(null)}
             footerAction={
+              isInvest2030NewsletterTask(editing, { invest2030ClientId }) ||
               canSendToDesign(editing) ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setHandoffDesignerKey("carlota");
-                    setHandoffTask(editing);
-                  }}
-                  className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--bb-border)] bg-white/70 px-5 text-sm font-bold text-[var(--bb-charcoal)] transition hover:border-[rgba(83,183,223,0.42)] hover:bg-[var(--bb-primary-soft)]"
-                >
-                  <Send className="size-4" aria-hidden="true" />
-                  Enviar para Design
-                </button>
+                <>
+                  {isInvest2030NewsletterTask(editing, { invest2030ClientId }) ? (
+                    <button
+                      type="button"
+                      onClick={(event) => prepareNewsletterFromModal(editing, event)}
+                      className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--bb-border)] bg-white/70 px-5 text-sm font-bold text-[var(--bb-charcoal)] transition hover:border-[rgba(83,183,223,0.42)] hover:bg-[var(--bb-primary-soft)]"
+                    >
+                      <Mail className="size-4" aria-hidden="true" />
+                      Preparar newsletter
+                    </button>
+                  ) : null}
+                  {canSendToDesign(editing) ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHandoffDesignerKey("carlota");
+                        setHandoffTask(editing);
+                      }}
+                      className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--bb-border)] bg-white/70 px-5 text-sm font-bold text-[var(--bb-charcoal)] transition hover:border-[rgba(83,183,223,0.42)] hover:bg-[var(--bb-primary-soft)]"
+                    >
+                      <Send className="size-4" aria-hidden="true" />
+                      Enviar para Design
+                    </button>
+                  ) : null}
+                </>
               ) : null
             }
           />

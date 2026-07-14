@@ -187,13 +187,13 @@ export function parseInvest2030TaskNotes(notes: string | null | undefined): Inve
 }
 
 export function isInvest2030NewsletterTask(
-  task: Pick<Task, "notes" | "clients"> & { clients?: Pick<Client, "name" | "client_code" | "short_name"> | null },
+  task: Pick<Task, "client_id" | "notes" | "clients"> & { clients?: Pick<Client, "client_code"> | null },
+  options: { invest2030ClientId?: string | null } = {},
 ) {
   const client = task.clients;
   const isInvestClient =
     client?.client_code === "02_I2030" ||
-    normalizeHeading(client?.name ?? "") === "invest2030" ||
-    normalizeHeading(client?.short_name ?? "") === "i2030";
+    Boolean(options.invest2030ClientId && task.client_id === options.invest2030ClientId);
 
   if (!isInvestClient) return false;
   const parsed = parseInvest2030TaskNotes(task.notes);

@@ -1140,7 +1140,7 @@ function refreshNewsletterTask(taskId: string) {
 async function readTaskForNewsletter(supabase: SupabaseClient, taskId: string) {
   const { data, error } = await supabase
     .from("tasks")
-    .select("id, notes, clients(id, name, client_code, short_name)")
+    .select("id, client_id, notes, clients(id, name, client_code, short_name)")
     .eq("id", taskId)
     .maybeSingle();
 

@@ -28,7 +28,9 @@ export default async function EditTaskPage({ params }: Props) {
   const showDesignHandoff = task ? task.status !== "archived" && !isDesignAssigneeName(task.assignee_name) : false;
 
   if (!task) notFound();
-  const showNewsletterPreparation = task.status !== "archived" && isInvest2030NewsletterTask(task);
+  const invest2030ClientId = clients.find((client) => client.client_code === "02_I2030")?.id ?? null;
+  const showNewsletterPreparation =
+    task.status !== "archived" && isInvest2030NewsletterTask(task, { invest2030ClientId });
 
   return (
     <>
