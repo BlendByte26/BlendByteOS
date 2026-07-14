@@ -3,6 +3,7 @@ import type {
   CompanyContact,
   ContentComment,
   ContentItem,
+  Invest2030Newsletter,
   Invest2030Request,
   QuickNote,
   QuickTodo,
@@ -79,6 +80,53 @@ export type Database = {
             foreignKeyName: "invest2030_requests_task_id_fkey";
             columns: ["task_id"];
             isOneToOne: false;
+            referencedRelation: "tasks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      invest2030_newsletters: {
+        Row: Invest2030Newsletter;
+        Insert: Partial<
+          Pick<
+            Invest2030Newsletter,
+            | "id"
+            | "created_at"
+            | "updated_at"
+            | "status"
+            | "scheduled_at"
+            | "sent_at"
+            | "scheduled_note"
+            | "scheduled_by"
+            | "scheduled_recorded_at"
+            | "sent_by"
+            | "sent_recorded_at"
+            | "created_by"
+            | "updated_by"
+          >
+        > &
+          Omit<
+            Invest2030Newsletter,
+            | "id"
+            | "created_at"
+            | "updated_at"
+            | "status"
+            | "scheduled_at"
+            | "sent_at"
+            | "scheduled_note"
+            | "scheduled_by"
+            | "scheduled_recorded_at"
+            | "sent_by"
+            | "sent_recorded_at"
+            | "created_by"
+            | "updated_by"
+          >;
+        Update: Updatable<Invest2030Newsletter>;
+        Relationships: [
+          {
+            foreignKeyName: "invest2030_newsletters_task_id_fkey";
+            columns: ["task_id"];
+            isOneToOne: true;
             referencedRelation: "tasks";
             referencedColumns: ["id"];
           },

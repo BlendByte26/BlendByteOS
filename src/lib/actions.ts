@@ -3,6 +3,14 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { fallbackContentPlatform } from "./content-platform";
+import {
+  INVEST2030_NEWSLETTER_TEMPLATE_VERSION,
+  generateInvest2030NewsletterHtml,
+  parseInvest2030NewsletterJson,
+  parseInvest2030TaskNotes,
+  safeInvest2030CtaUrl,
+  validateInvest2030Newsletter,
+} from "./invest2030-newsletter";
 import { buildInvest2030TaskSummary } from "./invest2030-notes";
 import { invest2030PublicHref, isInvest2030PublicAccessToken } from "./invest2030-public";
 import { parseLinksFormData } from "./links";
@@ -32,6 +40,7 @@ import type {
   Invest2030RequestFormField,
   Invest2030RequestFormState,
   Invest2030RequestFormValues,
+  Invest2030NewsletterStatus,
   QuickNote,
   QuickTodo,
   QuickTodoItemType,
@@ -68,6 +77,10 @@ type ContentCommentsResult =
 
 type ContentCommentMutationResult =
   | { ok: true; comment?: ContentComment }
+  | { ok: false; message: string };
+
+export type NewsletterMutationResult =
+  | { ok: true; message: string }
   | { ok: false; message: string };
 
 function text(formData: FormData, key: string) {
@@ -1116,6 +1129,157 @@ export async function deleteTaskAction(id: string) {
   if (error) throw new Error(error.message);
   refreshAll();
   redirect("/tasks");
+}
+
+function refreshNewsletterTask(taskId: string) {
+  refreshAll();
+  revalidatePath(`/tasks/${taskId}/edit`);
+  revalidatePath(`/tasks/${taskId}/newsletter`);
+}
+
+async function readTaskForNewsletter(supabase: SupabaseClient, taskId: string) {
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("id, notes, clients(id, name, client_code, short_name)")
+    .eq("id", taskId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Tarefa não encontrada.");
+  return data as Pick<Task, "id" | "notes" | "clients">;
+}
+
+export async function saveInvest2030NewsletterDraftAction(
+  taskId: string,
+  _previousState: NewsletterMutationResult,
+  formData: FormData,
+): Promise<NewsletterMutationResult> {
+  await requireRole(["admin", "marketing", "design"]);
+  const supabase = await supabaseOrError();
+  const profile = await currentOperationalProfile();
+  const task = await readTaskForNewsletter(supabase, taskId);
+  const parsed = parseInvest2030TaskNotes(task.notes);
+  const rawContent = text(formData, "content_json");
+
+  if (!rawContent) {
+    return { ok: false, message: "Conteúdo da newsletter em falta." };
+  }
+
+  const parsedContent = parseInvest2030NewsletterJson(rawContent);
+  if (!parsedContent.content) {
+    return { ok: false, message: parsedContent.errors.join(" ") };
+  }
+
+  const finalCta = safeInvest2030CtaUrl(parsed.primaryButtonUrl);
+  const content = { ...parsedContent.content, cta_url: finalCta.url };
+  const generatedHtml = generateInvest2030NewsletterHtml(content);
+  const validation = validateInvest2030Newsletter(content, parsed);
+  const status: Invest2030NewsletterStatus = validation.blockers.length ? "draft" : "ready_to_export";
+
+  const { data: existing, error: existingError } = await supabase
+    .from("invest2030_newsletters")
+    .select("id")
+    .eq("task_id", taskId)
+    .maybeSingle();
+
+  if (existingError) throw new Error(existingError.message);
+
+  const payload = {
+    task_id: taskId,
+    template_version: INVEST2030_NEWSLETTER_TEMPLATE_VERSION,
+    parsed_request_json: parsed,
+    content_json: content,
+    generated_html: generatedHtml,
+    status,
+    updated_by: profile.name,
+  };
+
+  const query = existing?.id
+    ? supabase.from("invest2030_newsletters").update(payload).eq("id", existing.id)
+    : supabase.from("invest2030_newsletters").insert({ ...payload, created_by: profile.name });
+
+  const { error } = await query;
+  if (error) return { ok: false, message: error.message };
+
+  refreshNewsletterTask(taskId);
+  return {
+    ok: true,
+    message: status === "ready_to_export" ? "Rascunho guardado. A newsletter está pronta para exportar." : "Rascunho guardado.",
+  };
+}
+
+export async function saveInvest2030NewsletterFormAction(taskId: string, formData: FormData) {
+  const result = await saveInvest2030NewsletterDraftAction(
+    taskId,
+    { ok: true, message: "" },
+    formData,
+  );
+  if (!result.ok) throw new Error(result.message);
+}
+
+export async function markInvest2030NewsletterScheduledAction(taskId: string, formData: FormData) {
+  await requireRole(["admin", "marketing", "design"]);
+  const supabase = await supabaseOrError();
+  const profile = await currentOperationalProfile();
+  const sendDate = requiredText(formData, "scheduled_date");
+  const sendTime = requiredText(formData, "scheduled_time");
+  const note = text(formData, "scheduled_note");
+  const scheduledAt = new Date(`${sendDate}T${sendTime}:00`);
+
+  if (Number.isNaN(scheduledAt.getTime())) {
+    throw new Error("Data ou hora de envio inválida.");
+  }
+
+  const { error } = await supabase
+    .from("invest2030_newsletters")
+    .update({
+      status: "scheduled" as Invest2030NewsletterStatus,
+      scheduled_at: scheduledAt.toISOString(),
+      scheduled_note: note,
+      scheduled_by: profile.name,
+      scheduled_recorded_at: new Date().toISOString(),
+      updated_by: profile.name,
+    })
+    .eq("task_id", taskId);
+
+  if (error) throw new Error(error.message);
+  refreshNewsletterTask(taskId);
+}
+
+export async function markInvest2030NewsletterExportedAction(taskId: string) {
+  await requireRole(["admin", "marketing", "design"]);
+  const supabase = await supabaseOrError();
+  const profile = await currentOperationalProfile();
+  const { error } = await supabase
+    .from("invest2030_newsletters")
+    .update({
+      status: "exported" as Invest2030NewsletterStatus,
+      updated_by: profile.name,
+    })
+    .eq("task_id", taskId);
+
+  if (error) throw new Error(error.message);
+  refreshNewsletterTask(taskId);
+}
+
+export async function markInvest2030NewsletterSentAction(taskId: string) {
+  await requireRole(["admin", "marketing", "design"]);
+  const supabase = await supabaseOrError();
+  const profile = await currentOperationalProfile();
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("invest2030_newsletters")
+    .update({
+      status: "sent" as Invest2030NewsletterStatus,
+      sent_at: now,
+      sent_by: profile.name,
+      sent_recorded_at: now,
+      updated_by: profile.name,
+    })
+    .eq("task_id", taskId);
+
+  if (error) throw new Error(error.message);
+  refreshNewsletterTask(taskId);
 }
 
 function requiredOption<T extends readonly string[]>(formData: FormData, key: string, options: T) {

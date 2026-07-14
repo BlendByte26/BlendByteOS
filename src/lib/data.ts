@@ -11,6 +11,7 @@ import type {
   ContentMention,
   ContentItem,
   ContentStatus,
+  Invest2030Newsletter,
   Invest2030Request,
   QuickNote,
   QuickTodo,
@@ -137,6 +138,7 @@ const sampleQuickNotes: QuickNote[] = [];
 const sampleContentComments: ContentComment[] = [];
 const sampleCompanyContacts: CompanyContact[] = [];
 const sampleInvest2030Requests: Invest2030Request[] = [];
+const sampleInvest2030Newsletters: Invest2030Newsletter[] = [];
 
 function getToday() {
   const now = new Date();
@@ -475,6 +477,29 @@ export async function getTasks(filters: TaskFilters = {}) {
 export async function getTask(id: string) {
   const tasks = await getTasks();
   return tasks.find((task) => task.id === id) ?? null;
+}
+
+export async function getInvest2030NewsletterByTaskId(taskId: string) {
+  const supabase = await getSupabase();
+  if (!supabase) {
+    return sampleInvest2030Newsletters.find((newsletter) => newsletter.task_id === taskId) ?? null;
+  }
+
+  const { data, error } = await supabase
+    .from("invest2030_newsletters")
+    .select("*")
+    .eq("task_id", taskId)
+    .maybeSingle();
+
+  if (error) {
+    return handleSupabaseReadError(
+      error,
+      sampleInvest2030Newsletters.find((newsletter) => newsletter.task_id === taskId) ?? null,
+      "newsletter Invest2030",
+    );
+  }
+
+  return data as Invest2030Newsletter | null;
 }
 
 function invest2030RequestMatches(request: Invest2030Request, filters: Invest2030RequestFilters) {

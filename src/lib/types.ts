@@ -315,6 +315,35 @@ export type Invest2030Request = {
   tasks?: Pick<Task, "id" | "title" | "status" | "priority" | "is_blocked" | "due_date" | "notes"> | null;
 };
 
+export type Invest2030NewsletterStatus =
+  | "draft"
+  | "in_review"
+  | "ready_to_export"
+  | "exported"
+  | "scheduled"
+  | "sent";
+
+export type Invest2030Newsletter = {
+  id: string;
+  task_id: string;
+  template_version: string;
+  parsed_request_json: Record<string, unknown>;
+  content_json: Record<string, unknown>;
+  generated_html: string;
+  status: Invest2030NewsletterStatus;
+  scheduled_at: string | null;
+  sent_at: string | null;
+  scheduled_note: string | null;
+  scheduled_by: string | null;
+  scheduled_recorded_at: string | null;
+  sent_by: string | null;
+  sent_recorded_at: string | null;
+  created_by: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Invest2030RequestFormValues = {
   campaign_name: string;
   action_type: string[];
