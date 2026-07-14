@@ -274,15 +274,24 @@ function SubmitButton() {
       disabled={pending}
       className="min-h-11 rounded-full bg-[var(--bb-black)] px-5 text-sm font-bold text-white shadow-[0_14px_30px_rgba(0,0,0,0.14)] transition duration-200 hover:bg-[var(--bb-primary)] hover:text-[var(--bb-black)] disabled:cursor-wait disabled:opacity-70"
     >
-      {pending ? "A criar..." : "Criar pedido"}
+      {pending ? "A criar pedido..." : "Criar pedido"}
     </button>
   );
 }
 
-export function Invest2030RequestForm({ action, accessToken }: { action: FormAction; accessToken: string }) {
+export function Invest2030RequestForm({
+  action,
+  accessToken,
+  submissionKey,
+}: {
+  action: FormAction;
+  accessToken: string;
+  submissionKey: string;
+}) {
   const [state, formAction] = useActionState(action, initialFormState);
   const values = state.values;
   const fieldErrors = state.fieldErrors ?? {};
+  const activeSubmissionKey = state.submissionKey ?? submissionKey;
   const [periodType, setPeriodType] = useState<Invest2030PeriodType>(
     (values?.period_type as Invest2030PeriodType | undefined) ?? "Dia específico",
   );
@@ -292,8 +301,9 @@ export function Invest2030RequestForm({ action, accessToken }: { action: FormAct
   }
 
   return (
-    <form key={state.submissionKey ?? "new"} action={formAction} noValidate className="grid gap-4">
+    <form action={formAction} noValidate className="grid gap-4">
       <input type="hidden" name="access" value={accessToken} />
+      <input type="hidden" name="submission_key" value={activeSubmissionKey} />
       <input type="text" name="company_website" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden="true" />
       {state.message ? (
         <div className="rounded-[18px] border border-[#f3c56a] bg-[#fff6dd] px-4 py-3 text-sm font-bold leading-6 text-[#6f4a00]">

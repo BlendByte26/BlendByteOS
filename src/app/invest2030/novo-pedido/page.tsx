@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Invest2030RecentRequests, Invest2030RequestForm } from "@/components/invest2030-requests";
 import { Invest2030InvalidAccess, Invest2030PublicShell } from "@/components/invest2030-public-shell";
 import { Panel } from "@/components/ui";
@@ -46,7 +47,11 @@ export default async function NewInvest2030RequestPage({ searchParams }: Props) 
               {errorMessage}
             </div>
           ) : null}
-          <Invest2030RequestForm action={createInvest2030RequestAction} accessToken={accessToken} />
+          <Invest2030RequestForm
+            action={createInvest2030RequestAction}
+            accessToken={accessToken}
+            submissionKey={randomUUID()}
+          />
         </Panel>
         <aside className="xl:sticky xl:top-28 xl:self-start">
           <Panel className="p-4">

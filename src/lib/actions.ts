@@ -1,4 +1,5 @@
 "use server";
+import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { fallbackContentPlatform } from "./content-platform";
@@ -12,7 +13,7 @@ import {
   isDesignAssigneeName,
 } from "./operational-profiles";
 import { requireCurrentOperationalProfile, requireRole } from "./auth";
-import { getSupabase } from "./supabase";
+import { getSupabase, getSupabaseAdmin } from "./supabase";
 import {
   clientColorKeys,
   invest2030ActionTypes,
@@ -1236,13 +1237,15 @@ function invest2030FormValues(formData: FormData): Invest2030RequestFormValues {
 function invest2030ValidationError(
   values: Invest2030RequestFormValues,
   fieldErrors: Partial<Record<Invest2030RequestFormField, string>>,
+  submissionKey: string,
+  message = "Há campos em falta ou inválidos. Revê os campos assinalados.",
 ): Invest2030RequestFormState {
   return {
     status: "error",
-    message: "Há campos em falta ou inválidos. Revê os campos assinalados.",
+    message,
     fieldErrors,
     values,
-    submissionKey: String(Date.now()),
+    submissionKey,
   };
 }
 
@@ -1324,6 +1327,55 @@ async function sofiaAssignee(supabase: SupabaseClient) {
   return data?.name ?? null;
 }
 
+function isUuid(value: string | null | undefined): value is string {
+  return Boolean(
+    value &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value),
+  );
+}
+
+async function findInvest2030RequestBySubmissionKey(supabase: SupabaseClient, submissionKey: string) {
+  const { data, error } = await supabase
+    .from("invest2030_requests")
+    .select("id, task_id")
+    .eq("submission_key", submissionKey)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Erro ao procurar submissão Invest2030 existente", {
+      submissionKey,
+      code: error.code,
+      message: error.message,
+    });
+  }
+
+  return data ?? null;
+}
+
+async function deleteInvest2030RequestDraft(supabase: SupabaseClient, requestId: string, context: Record<string, unknown>) {
+  const { error } = await supabase.from("invest2030_requests").delete().eq("id", requestId);
+  if (error) {
+    console.error("Erro ao limpar pedido Invest2030 incompleto", {
+      ...context,
+      requestId,
+      code: error.code,
+      message: error.message,
+    });
+  }
+}
+
+async function deleteInvest2030TaskDraft(supabase: SupabaseClient, taskId: string, context: Record<string, unknown>) {
+  const { error } = await supabase.from("tasks").delete().eq("id", taskId);
+  if (error) {
+    console.error("Erro ao limpar task Invest2030 incompleta", {
+      ...context,
+      taskId,
+      code: error.code,
+      message: error.message,
+    });
+  }
+}
+
 export async function createInvest2030RequestAction(
   _previousState: Invest2030RequestFormState,
   formData: FormData,
@@ -1336,14 +1388,29 @@ export async function createInvest2030RequestAction(
   const validAccessToken = accessToken ?? "";
   const formFailureHref = (error: string) =>
     invest2030PublicHref("/invest2030/novo-pedido", validAccessToken, { error });
+  const duplicateHref = () =>
+    `/invest2030/pedidos?access=${encodeURIComponent(validAccessToken)}&duplicate=1`;
 
-  const supabase = await supabaseOrRedirect(`/invest2030/novo-pedido?access=${encodeURIComponent(validAccessToken)}`);
+  const publicSupabase = await supabaseOrRedirect(`/invest2030/novo-pedido?access=${encodeURIComponent(validAccessToken)}`);
+  const supabase = getSupabaseAdmin() ?? publicSupabase;
   const values = invest2030FormValues(formData);
+  const rawSubmissionKey = text(formData, "submission_key");
+  const submissionKey = isUuid(rawSubmissionKey) ? rawSubmissionKey : randomUUID();
   const fieldErrors = validateInvest2030FormValues(values);
 
   if (Object.keys(fieldErrors).length) {
     console.error("Erro ao validar formulário Invest2030", { fields: Object.keys(fieldErrors) });
-    return invest2030ValidationError(values, fieldErrors);
+    return invest2030ValidationError(values, fieldErrors, submissionKey);
+  }
+
+  if (!isUuid(rawSubmissionKey)) {
+    console.error("Chave de submissão Invest2030 ausente ou inválida", { submissionKey: rawSubmissionKey });
+    return invest2030ValidationError(
+      values,
+      {},
+      submissionKey,
+      "Não conseguimos validar esta submissão. Revê o pedido e tenta novamente.",
+    );
   }
 
   let campaignName: string;
@@ -1376,12 +1443,69 @@ export async function createInvest2030RequestAction(
     console.error("Erro ao validar formulário Invest2030", error);
     return invest2030ValidationError(values, {
       period_type: "Revê o período do pedido.",
-    });
+    }, submissionKey);
   }
 
   const needsAttention = informationStatus !== "Informação completa";
 
+  const existingRequest = await findInvest2030RequestBySubmissionKey(supabase, submissionKey);
+  if (existingRequest) {
+    refreshAll();
+    redirect(duplicateHref());
+  }
+
+  const requestPayload = {
+    submission_key: submissionKey,
+    task_id: null,
+    campaign_name: campaignName,
+    action_type: actionType,
+    requested_by: requestedBy,
+    period_type: period.periodType,
+    period_start: period.periodStart,
+    period_end: period.periodEnd,
+    period_label: period.periodLabel,
+    main_goal: mainGoal,
+    target_audience: targetAudience,
+    main_cta: mainCta,
+    main_link: mainLink,
+    main_message: mainMessage,
+    mandatory_info: mandatoryInfo,
+    information_status: informationStatus,
+    notes,
+  };
+
+  const { data: request, error: requestError } = await supabase
+    .from("invest2030_requests")
+    .insert(requestPayload)
+    .select("id")
+    .single();
+
+  if (requestError) {
+    if (requestError.code === "23505") {
+      refreshAll();
+      redirect(duplicateHref());
+    }
+
+    console.error("Erro ao gravar histórico Invest2030", {
+      submissionKey,
+      campaignName,
+      actionType,
+      requestedBy,
+      code: requestError.code,
+      message: requestError.message,
+    });
+    redirect(formFailureHref("history-error"));
+  }
+
+  const requestId = request.id as string;
   let taskId: string;
+  const logContext = {
+    requestId,
+    submissionKey,
+    campaignName,
+    actionType,
+    requestedBy,
+  };
 
   try {
     const [clientId, assigneeName] = await Promise.all([
@@ -1423,34 +1547,27 @@ export async function createInvest2030RequestAction(
     if (taskError) throw taskError;
     taskId = task.id;
   } catch (error) {
-    console.error("Erro ao criar task Invest2030", error);
+    await deleteInvest2030RequestDraft(supabase, requestId, logContext);
+    console.error("Erro ao criar task Invest2030", {
+      ...logContext,
+      error,
+    });
     redirect(formFailureHref("task-error"));
   }
 
-  const { error: requestError } = await supabase.from("invest2030_requests").insert({
-    task_id: taskId,
-    campaign_name: campaignName,
-    action_type: actionType,
-    requested_by: requestedBy,
-    period_type: period.periodType,
-    period_start: period.periodStart,
-    period_end: period.periodEnd,
-    period_label: period.periodLabel,
-    main_goal: mainGoal,
-    target_audience: targetAudience,
-    main_cta: mainCta,
-    main_link: mainLink,
-    main_message: mainMessage,
-    mandatory_info: mandatoryInfo,
-    information_status: informationStatus,
-    notes,
-  });
+  const { error: taskLinkError } = await supabase
+    .from("invest2030_requests")
+    .update({ task_id: taskId })
+    .eq("id", requestId);
 
-  if (requestError) {
-    console.error("Erro ao gravar histórico Invest2030", {
+  if (taskLinkError) {
+    await deleteInvest2030TaskDraft(supabase, taskId, logContext);
+    await deleteInvest2030RequestDraft(supabase, requestId, logContext);
+    console.error("Erro ao ligar task ao histórico Invest2030", {
+      ...logContext,
       taskId,
-      code: requestError.code,
-      message: requestError.message,
+      code: taskLinkError.code,
+      message: taskLinkError.message,
     });
     redirect(formFailureHref("history-error"));
   }

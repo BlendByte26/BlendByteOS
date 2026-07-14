@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types";
 
 export function getValidSupabaseConfig() {
@@ -44,6 +45,22 @@ export async function getSupabase() {
           // Server Components cannot write cookies; the proxy refreshes sessions.
         }
       },
+    },
+  });
+}
+
+export function getSupabaseAdmin() {
+  const config = getValidSupabaseConfig();
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+
+  if (!config || !serviceRoleKey) {
+    return null;
+  }
+
+  return createClient<Database>(config.url, serviceRoleKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
     },
   });
 }

@@ -293,6 +293,7 @@ export type Task = {
 
 export type Invest2030Request = {
   id: string;
+  submission_key: string | null;
   task_id: string | null;
   campaign_name: string;
   action_type: Invest2030ActionType | string;

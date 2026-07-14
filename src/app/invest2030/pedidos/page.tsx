@@ -73,12 +73,18 @@ export default async function Invest2030RequestsPage({ searchParams }: Props) {
     getInvest2030Requests(),
   ]);
   const created = valueOf(params, "created") === "1";
+  const duplicate = valueOf(params, "duplicate") === "1";
 
   return (
     <Invest2030PublicShell accessToken={accessToken} active="history">
       {created ? (
         <div className="mb-5 rounded-[18px] border border-[rgba(83,183,223,0.38)] bg-[var(--bb-primary-soft)] px-4 py-3 text-sm font-extrabold text-[var(--bb-charcoal)]">
           Pedido enviado com sucesso.
+        </div>
+      ) : null}
+      {duplicate ? (
+        <div className="mb-5 rounded-[18px] border border-[#f3c56a] bg-[#fff6dd] px-4 py-3 text-sm font-extrabold text-[#6f4a00]">
+          Este pedido já tinha sido registado.
         </div>
       ) : null}
 

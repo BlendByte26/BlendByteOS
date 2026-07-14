@@ -211,6 +211,7 @@ create table if not exists public.tasks (
 
 create table if not exists public.invest2030_requests (
   id uuid primary key default gen_random_uuid(),
+  submission_key uuid,
   task_id uuid references public.tasks(id) on delete set null,
   campaign_name text not null,
   action_type text not null,
@@ -333,7 +334,7 @@ create index if not exists tasks_due_date_idx on public.tasks(due_date);
 create index if not exists tasks_status_idx on public.tasks(status);
 create index if not exists tasks_assignee_name_idx on public.tasks(assignee_name);
 create index if not exists tasks_is_blocked_idx on public.tasks(is_blocked);
-create unique index if not exists tasks_seed_unique_idx on public.tasks(client_id, title);
+create unique index if not exists invest2030_requests_submission_key_unique_idx on public.invest2030_requests(submission_key) where submission_key is not null;
 create index if not exists invest2030_requests_task_id_idx on public.invest2030_requests(task_id);
 create index if not exists invest2030_requests_created_at_idx on public.invest2030_requests(created_at);
 create index if not exists invest2030_requests_period_start_idx on public.invest2030_requests(period_start);
