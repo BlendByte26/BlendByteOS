@@ -395,27 +395,46 @@ function renderInline(value: string) {
     .join("");
 }
 
-function renderParagraphs(paragraphs: string[], color = "#364047") {
-  return paragraphs
-    .filter((paragraph) => paragraph.trim())
-    .map(
-      (paragraph) => `<p style="margin:0 0 18px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.62;color:${color};">${renderInline(paragraph)}</p>`,
-    )
-    .join("\n");
+function renderHeroStat(value: string) {
+  return renderInline(value).replace(/\n/g, "<br />");
 }
 
-function renderBenefits(benefits: string[]) {
-  return benefits
-    .filter((benefit) => benefit.trim())
-    .map(
-      (benefit) => `<tr>
-  <td width="26" valign="top" style="padding:0 0 12px;">
-    <span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#1e63b6;color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;text-align:center;font-weight:bold;">✓</span>
-  </td>
-  <td style="padding:0 0 12px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.55;color:#383c48;">${renderInline(benefit)}</td>
-</tr>`,
-    )
-    .join("\n");
+function renderMainParagraphs(paragraphs: string[], lastMargin = "24px") {
+  const visibleParagraphs = paragraphs.filter((paragraph) => paragraph.trim());
+  return visibleParagraphs
+    .map((paragraph, index) => {
+      const margin = index === visibleParagraphs.length - 1 ? lastMargin : "24px";
+      return `<p style="margin:0 0 ${margin} 0;">${renderInline(paragraph)}</p>`;
+    })
+    .join("\n\n                ");
+}
+
+function renderClosingParagraphs(paragraphs: string[]) {
+  const visibleParagraphs = paragraphs.filter((paragraph) => paragraph.trim());
+  return visibleParagraphs
+    .map((paragraph, index) => {
+      const margin = index === visibleParagraphs.length - 1 ? "32px" : "26px";
+      return `<p style="margin:0 0 ${margin} 0;">${renderInline(paragraph)}</p>`;
+    })
+    .join("\n\n                ");
+}
+
+function renderApprovedBenefitRows(benefits: string[]) {
+  const visibleBenefits = benefits.filter((benefit) => benefit.trim());
+  return visibleBenefits
+    .map((benefit, index) => {
+      const isFirst = index === 0;
+      const isLast = index === visibleBenefits.length - 1;
+      const bulletPadding = isFirst ? "0 0 14px 0" : "14px 0";
+      const contentPadding = isFirst ? "0 0 14px 0" : "14px 0";
+      const border = isLast ? "" : " border-bottom:1px solid #e4e4e4;";
+
+      return `<tr>
+                      <td style="padding:${bulletPadding}; font-size:22px; line-height:24px; color:#1e63b6;" valign="top" width="18">•</td>
+                      <td style="padding:${contentPadding}; font-family:Arial, Helvetica, sans-serif; font-size:17px; line-height:25px; color:#2e2e2e;${border}">${renderInline(benefit)}</td>
+                    </tr>`;
+    })
+    .join("\n                    ");
 }
 
 export function generateInvest2030NewsletterHtml(content: Invest2030NewsletterContent) {
@@ -427,116 +446,286 @@ export function generateInvest2030NewsletterHtml(content: Invest2030NewsletterCo
 <html lang="pt-PT">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="x-ua-compatible" content="ie=edge">
   <title>${escapeHtml(content.subject)}</title>
-  <style>
-    body { margin:0; padding:0; background:#f3f1ea; -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; }
-    table { border-collapse:collapse; mso-table-lspace:0pt; mso-table-rspace:0pt; }
-    img { border:0; outline:none; text-decoration:none; -ms-interpolation-mode:bicubic; }
-    a { text-decoration:none; }
-    @media only screen and (max-width: 480px) {
-      .outer { width:100% !important; }
-      .container { width:100% !important; max-width:100% !important; }
-      .px { padding-left:24px !important; padding-right:24px !important; }
-      .hero-title { font-size:30px !important; line-height:1.08 !important; }
-      .stack { display:block !important; width:100% !important; }
-      .stat-cell { display:block !important; width:100% !important; padding:0 0 14px !important; }
-      .mobile-center { text-align:center !important; }
+  <style type="text/css">
+    body, table, td, a {
+      -webkit-text-size-adjust: 100%;
+      -ms-text-size-adjust: 100%;
+    }
+
+    table, td {
+      mso-table-lspace: 0pt;
+      mso-table-rspace: 0pt;
+    }
+
+    img {
+      -ms-interpolation-mode: bicubic;
+      border: 0;
+      outline: none;
+      text-decoration: none;
+      display: block;
+    }
+
+    body {
+      margin: 0 !important;
+      padding: 0 !important;
+      width: 100% !important;
+      background-color: #f3f1ea;
+    }
+
+    a {
+      text-decoration: none;
+    }
+
+    @media screen and (max-width: 640px) {
+      .container {
+        width: 100% !important;
+      }
+
+      .mobile-padding {
+        padding-left: 22px !important;
+        padding-right: 22px !important;
+      }
+
+      .hero-title {
+        font-size: 28px !important;
+        line-height: 36px !important;
+      }
+
+      .hero-subtitle {
+        font-size: 20px !important;
+        line-height: 28px !important;
+      }
+
+      .stack-column {
+        display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+
+      .info-cell {
+        padding-bottom: 18px !important;
+      }
+
+      .button {
+        width: 100% !important;
+      }
+
+      .button a {
+        display: block !important;
+      }
     }
   </style>
 </head>
-<body style="margin:0;padding:0;background:#f3f1ea;">
-  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${escapeHtml(content.preheader)}</div>
-  <table role="presentation" class="outer" width="100%" bgcolor="#f3f1ea" cellpadding="0" cellspacing="0">
+<body style="margin:0; padding:0; background-color:#f3f1ea;">
+<!-- Preheader invisível -->
+<div style="display:none; max-height:0; overflow:hidden; opacity:0; color:transparent; font-size:1px; line-height:1px;">
+  ${escapeHtml(content.preheader)}
+</div>
+
+<table border="0" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#f3f1ea;" width="100%">
+  <tbody>
     <tr>
-      <td align="center" style="padding:34px 12px;">
-        <table role="presentation" class="container" width="680" cellpadding="0" cellspacing="0" style="width:680px;max-width:680px;background:#ffffff;border-radius:0;overflow:hidden;">
-          <tr>
-            <td bgcolor="#18182d" class="px" style="padding:30px 44px;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td align="left">
-                    <img src="https://www.invest2030.pt/assets/logo_branco.png" width="188" alt="Invest2030" style="display:block;width:188px;max-width:188px;height:auto;">
-                  </td>
-                  <td align="right" style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.4;color:#ffffff;font-weight:bold;text-transform:uppercase;letter-spacing:1px;">${escapeHtml(content.eyebrow)}</td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-          <tr>
-            <td bgcolor="#18182d" class="px" style="padding:46px 44px 42px;background:#18182d;">
-              <h1 class="hero-title" style="margin:0 0 18px;font-family:Arial,Helvetica,sans-serif;font-size:42px;line-height:1.1;color:#ffffff;font-weight:800;">${renderInline(content.hero_title)}</h1>
-              <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:18px;line-height:1.55;color:#e4e6f4;">${renderInline(content.hero_subtitle)}</p>
-            </td>
-          </tr>
-          <tr>
-            <td class="px" style="padding:30px 44px 12px;background:#ffffff;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  ${stats
-                    .map(
-                      (stat) => `<td class="stat-cell" width="25%" valign="top" style="padding:0 12px 18px 0;">
-                    <div style="font-family:Arial,Helvetica,sans-serif;font-size:24px;line-height:1.12;color:#1e63b6;font-weight:800;">${renderInline(stat.value)}</div>
-                    <div style="margin-top:6px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.35;color:#5f6472;font-weight:bold;text-transform:uppercase;">${renderInline(stat.label)}</div>
-                  </td>`,
-                    )
-                    .join("\n")}
-                </tr>
-              </table>
-            </td>
-          </tr>
-          <tr>
-            <td class="px" style="padding:18px 44px 12px;background:#ffffff;">
-              ${renderParagraphs(content.intro_paragraphs)}
-            </td>
-          </tr>
-          <tr>
-            <td align="center" class="px" style="padding:8px 44px 34px;background:#ffffff;">
-              <a href="${escapeHtml(safeUrl)}" target="_blank" style="display:inline-block;background:#1e63b6;color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1;font-weight:800;padding:16px 28px;border-radius:3px;">${escapeHtml(content.primary_cta_label)}</a>
-            </td>
-          </tr>
-          <tr>
-            <td class="px" bgcolor="#f6f7fb" style="padding:34px 44px;">
-              <h2 style="margin:0 0 18px;font-family:Arial,Helvetica,sans-serif;font-size:24px;line-height:1.22;color:#18182d;font-weight:800;">${renderInline(content.benefits_title)}</h2>
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-                ${renderBenefits(content.benefits)}
-              </table>
-            </td>
-          </tr>
-          <tr>
-            <td class="px" style="padding:34px 44px;background:#ffffff;">
-              <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.4;color:#1e63b6;font-weight:800;text-transform:uppercase;letter-spacing:1px;">${escapeHtml(content.audience_section_title)}</div>
-              <h2 style="margin:8px 0 12px;font-family:Arial,Helvetica,sans-serif;font-size:24px;line-height:1.25;color:#18182d;font-weight:800;">${renderInline(content.audience_title)}</h2>
-              <p style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.62;color:#383c48;">${renderInline(content.audience_body)}</p>
-              ${
-                content.exclusions.trim()
-                  ? `<div style="margin-top:18px;padding:16px 18px;background:#f3f1ea;border-left:4px solid #1e63b6;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.55;color:#383c48;"><strong>Exclusões e notas:</strong> ${renderInline(content.exclusions)}</div>`
-                  : ""
-              }
-            </td>
-          </tr>
-          <tr>
-            <td class="px" style="padding:14px 44px 8px;background:#ffffff;">
-              ${renderParagraphs(content.closing_paragraphs)}
-            </td>
-          </tr>
-          <tr>
-            <td align="center" class="px" style="padding:10px 44px 42px;background:#ffffff;">
-              <a href="${escapeHtml(safeUrl)}" target="_blank" style="display:inline-block;background:#1e63b6;color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1;font-weight:800;padding:16px 28px;border-radius:3px;">${escapeHtml(content.secondary_cta_label)}</a>
-            </td>
-          </tr>
-          <tr>
-            <td bgcolor="#18182d" class="px" style="padding:26px 44px;">
-              <p style="margin:0 0 12px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.55;color:#ffffff;">[COMPANY_FULL_ADDRESS]</p>
-              <p style="margin:0 0 12px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.55;color:#d8daea;">Recebeu este email porque manifestou interesse em comunicações da Invest2030 ou porque o seu contacto consta da nossa base de dados empresarial.</p>
-              <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.55;color:#d8daea;"><a href="[UNSUBSCRIBE_URL]" target="_blank" style="color:#ffffff;text-decoration:underline;">Remover subscrição</a></p>
-            </td>
-          </tr>
+      <td align="center" style="padding:24px 10px;">
+        <!-- Container principal -->
+        <table border="0" cellpadding="0" cellspacing="0" class="container" role="presentation" style="width:680px; max-width:680px; background-color:#ffffff; border-collapse:collapse;" width="680">
+          <tbody>
+            <!-- Topo -->
+            <tr>
+              <td class="mobile-padding" style="padding:24px 36px 16px 36px; font-family:Arial, Helvetica, sans-serif; font-size:14px; line-height:21px; color:#555555;">
+                Newsletter Invest2030
+              </td>
+            </tr>
+
+            <!-- Hero -->
+            <tr>
+              <td style="padding:0 20px;">
+                <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#18182d; border-collapse:collapse;" width="100%">
+                  <tbody>
+                    <tr>
+                      <td align="center" class="mobile-padding" style="padding:56px 34px 28px 34px; font-family:Arial, Helvetica, sans-serif;">
+                        <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin:0 auto 28px auto;">
+                          <tbody>
+                            <tr>
+                              <td align="center">
+                                <img alt="Invest2030" src="https://www.invest2030.pt/pt/wp-content/uploads/2024/04/logo_branco.png" style="display:block; width:150px; max-width:150px; height:auto; border:0; outline:none; text-decoration:none;" width="150" />
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+
+                        <div style="font-size:13px; line-height:18px; letter-spacing:4px; color:#aeb4cc; font-weight:bold; text-transform:uppercase;">${escapeHtml(content.eyebrow)}</div>
+
+                        <div class="hero-title" style="padding-top:24px; font-size:34px; line-height:42px; color:#ffffff; font-weight:bold;">${renderInline(content.hero_title)}</div>
+
+                        <div class="hero-subtitle" style="font-size:29px; line-height:37px; color:#ffffff; font-weight:bold;">${renderInline(content.hero_subtitle)}</div>
+                      </td>
+                    </tr>
+
+                    <!-- Info blocks -->
+                    <tr>
+                      <td style="padding:0 28px 46px 28px;">
+                        <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%">
+                          <tbody>
+                            <tr>
+                              <td align="center" class="stack-column info-cell" style="font-family:Arial, Helvetica, sans-serif; padding:0 6px;" width="25%">
+                                <div style="font-size:12px; line-height:18px; color:#aeb4cc; font-weight:bold; letter-spacing:2px; text-transform:uppercase;">${renderInline(stats[0]?.label ?? "")}</div>
+                                <div style="font-size:15px; line-height:21px; color:#ffffff; font-weight:bold; padding-top:8px;">${renderHeroStat(stats[0]?.value ?? "")}</div>
+                              </td>
+                              <td align="center" class="stack-column info-cell" style="font-family:Arial, Helvetica, sans-serif; padding:0 6px;" width="25%">
+                                <div style="font-size:12px; line-height:18px; color:#aeb4cc; font-weight:bold; letter-spacing:2px; text-transform:uppercase;">${renderInline(stats[1]?.label ?? "")}</div>
+                                <div style="font-size:15px; line-height:21px; color:#ffffff; font-weight:bold; padding-top:8px;">${renderHeroStat(stats[1]?.value ?? "")}</div>
+                              </td>
+                              <td align="center" class="stack-column info-cell" style="font-family:Arial, Helvetica, sans-serif; padding:0 6px;" width="25%">
+                                <div style="font-size:12px; line-height:18px; color:#aeb4cc; font-weight:bold; letter-spacing:2px; text-transform:uppercase;">${renderInline(stats[2]?.label ?? "")}</div>
+                                <div style="font-size:15px; line-height:21px; color:#ffffff; font-weight:bold; padding-top:8px;">${renderHeroStat(stats[2]?.value ?? "")}</div>
+                              </td>
+                              <td align="center" class="stack-column" style="font-family:Arial, Helvetica, sans-serif; padding:0 6px;" width="25%">
+                                <div style="font-size:12px; line-height:18px; color:#aeb4cc; font-weight:bold; letter-spacing:2px; text-transform:uppercase;">${renderInline(stats[3]?.label ?? "")}</div>
+                                <div style="font-size:15px; line-height:21px; color:#ffffff; font-weight:bold; padding-top:8px;">${renderHeroStat(stats[3]?.value ?? "")}</div>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Conteúdo principal -->
+            <tr>
+              <td class="mobile-padding" style="padding:42px 56px 20px 56px; font-family:Arial, Helvetica, sans-serif; font-size:19px; line-height:31px; color:#2e2e2e;">
+                ${renderMainParagraphs(content.intro_paragraphs, "34px")}
+
+                <!-- Botão -->
+                <table align="center" border="0" cellpadding="0" cellspacing="0" class="button" role="presentation" style="margin:0 auto;">
+                  <tbody>
+                    <tr>
+                      <td align="center" bgcolor="#1e63b6" style="border-radius:8px;">
+                        <a href="${escapeHtml(safeUrl)}" style="display:inline-block; padding:16px 34px; font-family:Arial, Helvetica, sans-serif; font-size:17px; line-height:20px; color:#ffffff; font-weight:bold; text-transform:uppercase;" target="_blank">${escapeHtml(content.primary_cta_label)}</a>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Separador -->
+            <tr>
+              <td class="mobile-padding" style="padding:18px 56px 0 56px;">
+                <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%">
+                  <tbody>
+                    <tr>
+                      <td style="border-top:1px solid #dddddd; font-size:1px; line-height:1px;"> </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Lista -->
+            <tr>
+              <td class="mobile-padding" style="padding:36px 56px 18px 56px; font-family:Arial, Helvetica, sans-serif;">
+                <div style="font-size:15px; line-height:22px; color:#7a7a7a; font-weight:bold; letter-spacing:1px;">// ${escapeHtml(content.benefits_title)}</div>
+
+                <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin-top:20px;" width="100%">
+                  <tbody>
+                    ${renderApprovedBenefitRows(content.benefits)}
+                  </tbody>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Separador -->
+            <tr>
+              <td class="mobile-padding" style="padding:18px 56px 0 56px;">
+                <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%">
+                  <tbody>
+                    <tr>
+                      <td style="border-top:1px solid #dddddd; font-size:1px; line-height:1px;"> </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Enquadramento -->
+            <tr>
+              <td class="mobile-padding" style="padding:36px 56px 18px 56px; font-family:Arial, Helvetica, sans-serif;">
+                <div style="font-size:15px; line-height:22px; color:#7a7a7a; font-weight:bold; letter-spacing:1px;">// ${escapeHtml(content.audience_section_title)}</div>
+
+                <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin-top:24px; background-color:#f3f1ea;" width="100%">
+                  <tbody>
+                    <tr>
+                      <td style="padding:26px 28px; font-family:Arial, Helvetica, sans-serif;">
+                        <div style="font-size:18px; line-height:26px; color:#111111; font-weight:bold; margin-bottom:10px;">${renderInline(content.audience_title)}</div>
+
+                        <div style="font-size:16px; line-height:25px; color:#555555;">${renderInline(content.audience_body)}</div>
+
+                        ${
+                          content.exclusions.trim()
+                            ? `<div style="font-size:15px; line-height:24px; color:#666666; margin-top:18px;">${renderInline(content.exclusions)}</div>`
+                            : ""
+                        }
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Separador -->
+            <tr>
+              <td class="mobile-padding" style="padding:18px 56px 0 56px;">
+                <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%">
+                  <tbody>
+                    <tr>
+                      <td style="border-top:1px solid #dddddd; font-size:1px; line-height:1px;"> </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Fecho -->
+            <tr>
+              <td class="mobile-padding" style="padding:34px 56px 42px 56px; font-family:Arial, Helvetica, sans-serif; font-size:18px; line-height:30px; color:#2e2e2e;">
+                ${renderClosingParagraphs(content.closing_paragraphs)}
+
+                <table align="center" border="0" cellpadding="0" cellspacing="0" class="button" role="presentation" style="margin:0 auto;">
+                  <tbody>
+                    <tr>
+                      <td align="center" bgcolor="#1e63b6" style="border-radius:8px;">
+                        <a href="${escapeHtml(safeUrl)}" style="display:inline-block; padding:16px 34px; font-family:Arial, Helvetica, sans-serif; font-size:17px; line-height:20px; color:#ffffff; font-weight:bold; text-transform:uppercase;" target="_blank">${escapeHtml(content.secondary_cta_label)}</a>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td style="background-color:#18182d; padding:28px 36px; font-family:Arial, Helvetica, sans-serif; font-size:13px; line-height:20px; color:#b8bdd0; text-align:center;">
+                [COMPANY_FULL_ADDRESS]<br />
+                <br />
+                <br />
+                <br />
+                Recebeu este email porque está inscrito na nossa lista de comunicações.<br>
+                <a href="[UNSUBSCRIBE_URL]" style="color:#ffffff; text-decoration:underline;" target="_blank">Remover subscrição</a>
+              </td>
+            </tr>
+          </tbody>
         </table>
+        <!-- Fim container -->
       </td>
     </tr>
-  </table>
+  </tbody>
+</table>
 </body>
 </html>`;
 }

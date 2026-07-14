@@ -211,9 +211,9 @@ export function Invest2030NewsletterWorkspace({
   }
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(260px,0.9fr)_minmax(360px,1.25fr)_minmax(320px,1fr)]">
+    <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(280px,0.85fr)_minmax(520px,1.15fr)] 2xl:grid-cols-[minmax(260px,0.8fr)_minmax(420px,1.1fr)_minmax(380px,1fr)]">
       <form ref={exportedFormRef} action={markExportedAction} className="hidden" />
-      <aside className="grid content-start gap-4">
+      <aside className="grid min-w-0 content-start gap-4">
         <section className={sectionClass}>
           <div className="mb-3 flex items-center justify-between gap-2">
             <h2 className="text-sm font-extrabold text-[var(--bb-charcoal)]">Pedido recebido</h2>
@@ -286,7 +286,7 @@ export function Invest2030NewsletterWorkspace({
         </section>
       </aside>
 
-      <main className="grid content-start gap-4">
+      <main className="grid min-w-0 content-start gap-4">
         <section className={sectionClass}>
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-extrabold text-[var(--bb-charcoal)]">Editor de conteúdo</h2>
@@ -353,7 +353,7 @@ export function Invest2030NewsletterWorkspace({
         </section>
       </main>
 
-      <aside className="grid content-start gap-4">
+      <aside className="grid min-w-0 content-start gap-4 xl:col-span-2 2xl:col-span-1">
         <section className={sectionClass}>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-extrabold text-[var(--bb-charcoal)]">Preview e exportação</h2>
