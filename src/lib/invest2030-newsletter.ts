@@ -204,7 +204,7 @@ export function isInvest2030NewsletterTask(
 }
 
 export function safeInvest2030CtaUrl(rawUrl: string | null | undefined) {
-  const value = rawUrl?.trim() ?? "";
+  const value = normalizeCtaUrlInput(rawUrl);
   if (!value || normalizeHeading(value) === "sem link definido") {
     return { url: INVEST2030_DEFAULT_CTA_URL, usedDefault: true };
   }
@@ -219,6 +219,17 @@ export function safeInvest2030CtaUrl(rawUrl: string | null | undefined) {
   }
 
   return { url: INVEST2030_DEFAULT_CTA_URL, usedDefault: true };
+}
+
+export function normalizeCtaUrlInput(rawUrl: string | null | undefined) {
+  const value = rawUrl?.trim() ?? "";
+  const markdownMatch = value.match(/\[[^\]]*?(https?:\/\/[^\]\s]+)[^\]]*?\]\((https?:\/\/[^)\s]+)\)/i);
+  if (markdownMatch?.[2]) return markdownMatch[2].trim();
+
+  const bareMatch = value.match(/https?:\/\/[^\s)]+/i);
+  if (bareMatch?.[0]) return bareMatch[0].trim();
+
+  return value.replace(/^[<(]+|[>),.]+$/g, "").trim();
 }
 
 export function initialInvest2030NewsletterContent(
@@ -311,7 +322,7 @@ export function parseInvest2030NewsletterJson(rawJson: string): {
     closing_paragraphs: stringArray(record.closing_paragraphs),
     primary_cta_label: stringValue(record.primary_cta_label),
     secondary_cta_label: stringValue(record.secondary_cta_label),
-    cta_url: stringValue(record.cta_url),
+    cta_url: safeInvest2030CtaUrl(stringValue(record.cta_url)).url,
   };
 
   if (stats.length !== 4) errors.push("O campo stats tem de conter exatamente quatro indicadores.");
@@ -399,9 +410,9 @@ function renderBenefits(benefits: string[]) {
     .map(
       (benefit) => `<tr>
   <td width="26" valign="top" style="padding:0 0 12px;">
-    <span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#37a651;color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;text-align:center;font-weight:bold;">✓</span>
+    <span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#1e63b6;color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;text-align:center;font-weight:bold;">✓</span>
   </td>
-  <td style="padding:0 0 12px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.55;color:#273238;">${renderInline(benefit)}</td>
+  <td style="padding:0 0 12px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.55;color:#383c48;">${renderInline(benefit)}</td>
 </tr>`,
     )
     .join("\n");
@@ -413,61 +424,61 @@ export function generateInvest2030NewsletterHtml(content: Invest2030NewsletterCo
   while (stats.length < 4) stats.push({ label: "", value: "" });
 
   return `<!doctype html>
-<html lang="pt">
+<html lang="pt-PT">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="x-ua-compatible" content="ie=edge">
   <title>${escapeHtml(content.subject)}</title>
   <style>
-    body { margin:0; padding:0; background:#eef3ef; -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; }
+    body { margin:0; padding:0; background:#f3f1ea; -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; }
     table { border-collapse:collapse; mso-table-lspace:0pt; mso-table-rspace:0pt; }
     img { border:0; outline:none; text-decoration:none; -ms-interpolation-mode:bicubic; }
     a { text-decoration:none; }
-    @media only screen and (max-width: 620px) {
+    @media only screen and (max-width: 480px) {
       .outer { width:100% !important; }
       .container { width:100% !important; max-width:100% !important; }
-      .px { padding-left:22px !important; padding-right:22px !important; }
-      .hero-title { font-size:32px !important; line-height:1.05 !important; }
+      .px { padding-left:24px !important; padding-right:24px !important; }
+      .hero-title { font-size:30px !important; line-height:1.08 !important; }
       .stack { display:block !important; width:100% !important; }
-      .stat-cell { display:block !important; width:100% !important; padding:0 0 10px !important; }
+      .stat-cell { display:block !important; width:100% !important; padding:0 0 14px !important; }
       .mobile-center { text-align:center !important; }
     }
   </style>
 </head>
-<body style="margin:0;padding:0;background:#eef3ef;">
+<body style="margin:0;padding:0;background:#f3f1ea;">
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${escapeHtml(content.preheader)}</div>
-  <table role="presentation" width="100%" bgcolor="#eef3ef" cellpadding="0" cellspacing="0">
+  <table role="presentation" class="outer" width="100%" bgcolor="#f3f1ea" cellpadding="0" cellspacing="0">
     <tr>
-      <td align="center" style="padding:28px 12px;">
+      <td align="center" style="padding:34px 12px;">
         <table role="presentation" class="container" width="680" cellpadding="0" cellspacing="0" style="width:680px;max-width:680px;background:#ffffff;border-radius:0;overflow:hidden;">
           <tr>
-            <td bgcolor="#122216" class="px" style="padding:30px 42px;">
+            <td bgcolor="#18182d" class="px" style="padding:30px 44px;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="left">
                     <img src="https://www.invest2030.pt/assets/logo_branco.png" width="188" alt="Invest2030" style="display:block;width:188px;max-width:188px;height:auto;">
                   </td>
-                  <td align="right" style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.4;color:#bde7c8;font-weight:bold;text-transform:uppercase;letter-spacing:1px;">${escapeHtml(content.eyebrow)}</td>
+                  <td align="right" style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.4;color:#ffffff;font-weight:bold;text-transform:uppercase;letter-spacing:1px;">${escapeHtml(content.eyebrow)}</td>
                 </tr>
               </table>
             </td>
           </tr>
           <tr>
-            <td bgcolor="#15351d" class="px" style="padding:44px 42px 40px;background:linear-gradient(135deg,#15351d 0%,#245c2e 100%);">
-              <h1 class="hero-title" style="margin:0 0 18px;font-family:Arial,Helvetica,sans-serif;font-size:42px;line-height:1.08;color:#ffffff;font-weight:800;">${renderInline(content.hero_title)}</h1>
-              <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:18px;line-height:1.55;color:#dff0e4;">${renderInline(content.hero_subtitle)}</p>
+            <td bgcolor="#18182d" class="px" style="padding:46px 44px 42px;background:#18182d;">
+              <h1 class="hero-title" style="margin:0 0 18px;font-family:Arial,Helvetica,sans-serif;font-size:42px;line-height:1.1;color:#ffffff;font-weight:800;">${renderInline(content.hero_title)}</h1>
+              <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:18px;line-height:1.55;color:#e4e6f4;">${renderInline(content.hero_subtitle)}</p>
             </td>
           </tr>
           <tr>
-            <td class="px" style="padding:28px 42px 10px;background:#ffffff;">
+            <td class="px" style="padding:30px 44px 12px;background:#ffffff;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   ${stats
                     .map(
-                      (stat) => `<td class="stat-cell" width="25%" valign="top" style="padding:0 8px 18px 0;">
-                    <div style="font-family:Arial,Helvetica,sans-serif;font-size:24px;line-height:1.1;color:#1f7a35;font-weight:800;">${renderInline(stat.value)}</div>
-                    <div style="margin-top:6px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.35;color:#5d6970;font-weight:bold;text-transform:uppercase;">${renderInline(stat.label)}</div>
+                      (stat) => `<td class="stat-cell" width="25%" valign="top" style="padding:0 12px 18px 0;">
+                    <div style="font-family:Arial,Helvetica,sans-serif;font-size:24px;line-height:1.12;color:#1e63b6;font-weight:800;">${renderInline(stat.value)}</div>
+                    <div style="margin-top:6px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.35;color:#5f6472;font-weight:bold;text-transform:uppercase;">${renderInline(stat.label)}</div>
                   </td>`,
                     )
                     .join("\n")}
@@ -476,50 +487,50 @@ export function generateInvest2030NewsletterHtml(content: Invest2030NewsletterCo
             </td>
           </tr>
           <tr>
-            <td class="px" style="padding:18px 42px 12px;background:#ffffff;">
+            <td class="px" style="padding:18px 44px 12px;background:#ffffff;">
               ${renderParagraphs(content.intro_paragraphs)}
             </td>
           </tr>
           <tr>
-            <td align="center" class="px" style="padding:8px 42px 34px;background:#ffffff;">
-              <a href="${escapeHtml(safeUrl)}" target="_blank" style="display:inline-block;background:#37a651;color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1;font-weight:800;padding:16px 28px;border-radius:3px;">${escapeHtml(content.primary_cta_label)}</a>
+            <td align="center" class="px" style="padding:8px 44px 34px;background:#ffffff;">
+              <a href="${escapeHtml(safeUrl)}" target="_blank" style="display:inline-block;background:#1e63b6;color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1;font-weight:800;padding:16px 28px;border-radius:3px;">${escapeHtml(content.primary_cta_label)}</a>
             </td>
           </tr>
           <tr>
-            <td class="px" bgcolor="#f3f7f4" style="padding:34px 42px;">
-              <h2 style="margin:0 0 18px;font-family:Arial,Helvetica,sans-serif;font-size:24px;line-height:1.22;color:#17241b;font-weight:800;">${renderInline(content.benefits_title)}</h2>
+            <td class="px" bgcolor="#f6f7fb" style="padding:34px 44px;">
+              <h2 style="margin:0 0 18px;font-family:Arial,Helvetica,sans-serif;font-size:24px;line-height:1.22;color:#18182d;font-weight:800;">${renderInline(content.benefits_title)}</h2>
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                 ${renderBenefits(content.benefits)}
               </table>
             </td>
           </tr>
           <tr>
-            <td class="px" style="padding:34px 42px;background:#ffffff;">
-              <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.4;color:#37a651;font-weight:800;text-transform:uppercase;letter-spacing:1px;">${escapeHtml(content.audience_section_title)}</div>
-              <h2 style="margin:8px 0 12px;font-family:Arial,Helvetica,sans-serif;font-size:24px;line-height:1.25;color:#17241b;font-weight:800;">${renderInline(content.audience_title)}</h2>
-              <p style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.62;color:#364047;">${renderInline(content.audience_body)}</p>
+            <td class="px" style="padding:34px 44px;background:#ffffff;">
+              <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.4;color:#1e63b6;font-weight:800;text-transform:uppercase;letter-spacing:1px;">${escapeHtml(content.audience_section_title)}</div>
+              <h2 style="margin:8px 0 12px;font-family:Arial,Helvetica,sans-serif;font-size:24px;line-height:1.25;color:#18182d;font-weight:800;">${renderInline(content.audience_title)}</h2>
+              <p style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.62;color:#383c48;">${renderInline(content.audience_body)}</p>
               ${
                 content.exclusions.trim()
-                  ? `<div style="margin-top:18px;padding:16px 18px;background:#fff7eb;border-left:4px solid #f0a23b;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.55;color:#5b4323;"><strong>Exclusões e notas:</strong> ${renderInline(content.exclusions)}</div>`
+                  ? `<div style="margin-top:18px;padding:16px 18px;background:#f3f1ea;border-left:4px solid #1e63b6;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.55;color:#383c48;"><strong>Exclusões e notas:</strong> ${renderInline(content.exclusions)}</div>`
                   : ""
               }
             </td>
           </tr>
           <tr>
-            <td class="px" style="padding:14px 42px 8px;background:#ffffff;">
+            <td class="px" style="padding:14px 44px 8px;background:#ffffff;">
               ${renderParagraphs(content.closing_paragraphs)}
             </td>
           </tr>
           <tr>
-            <td align="center" class="px" style="padding:10px 42px 42px;background:#ffffff;">
-              <a href="${escapeHtml(safeUrl)}" target="_blank" style="display:inline-block;background:#17241b;color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1;font-weight:800;padding:16px 28px;border-radius:3px;">${escapeHtml(content.secondary_cta_label)}</a>
+            <td align="center" class="px" style="padding:10px 44px 42px;background:#ffffff;">
+              <a href="${escapeHtml(safeUrl)}" target="_blank" style="display:inline-block;background:#1e63b6;color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1;font-weight:800;padding:16px 28px;border-radius:3px;">${escapeHtml(content.secondary_cta_label)}</a>
             </td>
           </tr>
           <tr>
-            <td bgcolor="#122216" class="px" style="padding:26px 42px;">
-              <p style="margin:0 0 12px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.55;color:#d7e6da;">[COMPANY_FULL_ADDRESS]</p>
-              <p style="margin:0 0 12px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.55;color:#d7e6da;">Recebeu este email porque manifestou interesse em comunicações da Invest2030 ou porque o seu contacto consta da nossa base de dados empresarial.</p>
-              <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.55;color:#d7e6da;"><a href="[UNSUBSCRIBE_URL]" target="_blank" style="color:#bde7c8;text-decoration:underline;">Remover subscrição</a></p>
+            <td bgcolor="#18182d" class="px" style="padding:26px 44px;">
+              <p style="margin:0 0 12px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.55;color:#ffffff;">[COMPANY_FULL_ADDRESS]</p>
+              <p style="margin:0 0 12px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.55;color:#d8daea;">Recebeu este email porque manifestou interesse em comunicações da Invest2030 ou porque o seu contacto consta da nossa base de dados empresarial.</p>
+              <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.55;color:#d8daea;"><a href="[UNSUBSCRIBE_URL]" target="_blank" style="color:#ffffff;text-decoration:underline;">Remover subscrição</a></p>
             </td>
           </tr>
         </table>
@@ -562,8 +573,32 @@ function allContentText(content: Invest2030NewsletterContent) {
   );
 }
 
+function normalizedIncludes(haystack: string, needle: string) {
+  const normalizedNeedle = normalizeSearchText(needle);
+  return Boolean(normalizedNeedle && haystack.includes(normalizedNeedle));
+}
+
 function extractMatches(value: string, regex: RegExp) {
   return Array.from(value.matchAll(regex), (match) => match[0]).filter(Boolean);
+}
+
+function factualRequestText(parsed: Invest2030NewsletterParsedRequest) {
+  return [
+    parsed.mandatoryInformation,
+    parsed.targetAudience,
+    parsed.mainMessage,
+  ].join(" ");
+}
+
+function observationsIndicateExclusions(value: string) {
+  const normalized = normalizeSearchText(value);
+  return (
+    normalized.includes("exclu") ||
+    normalized.includes("fica de fora") ||
+    normalized.includes("ficam de fora") ||
+    normalized.includes("nao abrang") ||
+    normalized.includes("nao eleg")
+  );
 }
 
 export function validateInvest2030Newsletter(
@@ -587,21 +622,14 @@ export function validateInvest2030Newsletter(
   if (!html.includes("[COMPANY_FULL_ADDRESS]") || !html.includes("[UNSUBSCRIBE_URL]")) blockers.push("Tags MagicSpider obrigatórias em falta.");
   if (html.includes("Ver no navegador") || html.includes('href=""')) blockers.push("Footer contém elementos proibidos.");
 
-  const requestText = [
-    parsed.period,
-    parsed.mainObjective,
-    parsed.targetAudience,
-    parsed.mainMessage,
-    parsed.mandatoryInformation,
-    parsed.observations,
-  ].join(" ");
+  const requestText = factualRequestText(parsed);
 
   for (const date of extractMatches(requestText, /\b\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?\b|\b\d{4}-\d{2}-\d{2}\b/g)) {
-    if (!text.includes(normalizeSearchText(date))) warnings.push(`Data aparentemente ausente no conteúdo: ${date}.`);
+    if (!normalizedIncludes(text, date)) warnings.push(`Data aparentemente ausente no conteúdo: ${date}.`);
   }
 
   for (const percentage of extractMatches(requestText, /\b\d+(?:[,.]\d+)?\s?%/g)) {
-    if (!text.includes(normalizeSearchText(percentage))) warnings.push(`Percentagem aparentemente ausente no conteúdo: ${percentage}.`);
+    if (!normalizedIncludes(text, percentage)) warnings.push(`Percentagem aparentemente ausente no conteúdo: ${percentage}.`);
   }
 
   const mandatoryTokens = normalizeSearchText(parsed.mandatoryInformation)
@@ -612,7 +640,7 @@ export function validateInvest2030Newsletter(
     warnings.push("Informação obrigatória aparentemente ausente.");
   }
 
-  if (/exclus|exclu/i.test(parsed.observations) && !/exclus|exclu/i.test(content.exclusions)) {
+  if (observationsIndicateExclusions(parsed.observations) && !normalizeSearchText(content.exclusions)) {
     warnings.push("Exclusões nas observações aparentemente ausentes.");
   }
 
@@ -651,6 +679,7 @@ Regras:
 - Não uses markdown.
 - Devolve apenas JSON válido, sem texto antes ou depois.
 - O array "stats" tem obrigatoriamente quatro elementos.
+- cta_url deve conter apenas o URL bruto, sem markdown, parênteses ou texto adicional.
 - Se uma informação não estiver no pedido, deixa o campo neutro e factual.
 
 Schema obrigatório:

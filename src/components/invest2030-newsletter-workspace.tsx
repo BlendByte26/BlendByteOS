@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useRef, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Clipboard, Download, ExternalLink, Save, Send, Smartphone, Trash2, Monitor } from "lucide-react";
 import type { NewsletterMutationResult } from "@/lib/actions";
 import {
@@ -132,8 +132,10 @@ export function Invest2030NewsletterWorkspace({
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop");
+  const [previewWidth, setPreviewWidth] = useState(680);
   const [saveState, formAction, saving] = useActionState(saveAction, { ok: true, message: "" });
   const exportedFormRef = useRef<HTMLFormElement>(null);
+  const previewShellRef = useRef<HTMLDivElement>(null);
   const finalCta = safeInvest2030CtaUrl(parsedRequest.primaryButtonUrl);
   const contentWithFinalLink = useMemo(
     () => ({ ...content, cta_url: finalCta.url }),
@@ -144,6 +146,20 @@ export function Invest2030NewsletterWorkspace({
     () => validateInvest2030Newsletter(contentWithFinalLink, parsedRequest),
     [contentWithFinalLink, parsedRequest],
   );
+  const iframeViewportWidth = previewMode === "desktop" ? 680 : 375;
+  const previewScale = Math.min(1, Math.max(0.45, (previewWidth - 24) / iframeViewportWidth));
+  const iframeHeight = 720;
+
+  useEffect(() => {
+    const node = previewShellRef.current;
+    if (!node) return;
+
+    const updateWidth = () => setPreviewWidth(node.clientWidth || iframeViewportWidth);
+    updateWidth();
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [iframeViewportWidth]);
 
   function patchContent(patch: Partial<Invest2030NewsletterContent>) {
     setContent((current) => ({ ...current, ...patch }));
@@ -362,14 +378,31 @@ export function Invest2030NewsletterWorkspace({
               </button>
             </div>
           </div>
-          <div className="overflow-auto rounded-[18px] border border-[var(--bb-border)] bg-[#dfe7e1] p-3">
-            <iframe
-              title="Preview da newsletter Invest2030"
-              srcDoc={html}
-              sandbox=""
-              className="mx-auto h-[720px] bg-white shadow-[0_20px_50px_rgba(0,0,0,0.16)]"
-              style={{ width: previewMode === "desktop" ? 680 : 375, maxWidth: "100%" }}
-            />
+          <div ref={previewShellRef} className="overflow-hidden rounded-[18px] border border-[var(--bb-border)] bg-[#f3f1ea] p-3">
+            <div
+              className="mx-auto"
+              style={{
+                width: iframeViewportWidth * previewScale,
+                height: iframeHeight * previewScale,
+              }}
+            >
+              <div
+                style={{
+                  width: iframeViewportWidth,
+                  height: iframeHeight,
+                  transform: `scale(${previewScale})`,
+                  transformOrigin: "top left",
+                }}
+              >
+                <iframe
+                  title="Preview da newsletter Invest2030"
+                  srcDoc={html}
+                  sandbox=""
+                  className="h-[720px] bg-white shadow-[0_20px_50px_rgba(0,0,0,0.16)]"
+                  style={{ width: iframeViewportWidth }}
+                />
+              </div>
+            </div>
           </div>
         </section>
 
