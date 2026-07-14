@@ -8,6 +8,7 @@ import { ArrowUpRight, Check, Eye, History, X } from "lucide-react";
 import { DatePicker, MonthPicker } from "@/components/date-picker";
 import { SelectField } from "@/components/select-field";
 import { TableWrap } from "@/components/ui";
+import { visibleInvest2030InternalNotes } from "@/lib/invest2030-notes";
 import { invest2030PublicHref } from "@/lib/invest2030-public";
 import { taskPriorityLabels, taskStatusLabels } from "@/lib/labels";
 import {
@@ -129,6 +130,8 @@ function Invest2030RequestModal({
 
   if (!request || typeof document === "undefined") return null;
 
+  const internalNotes = visibleInvest2030InternalNotes(request);
+
   return createPortal(
     <div
       data-portal="modal"
@@ -183,7 +186,7 @@ function Invest2030RequestModal({
           <DetailField label="Materiais disponíveis">{notIndicated}</DetailField>
           <DetailField label="Observações / urgência" long>{requestUrgencyLabel(request)}</DetailField>
           <DetailField label="Estado do pedido">{requestStatusLabel(request)}</DetailField>
-          <DetailField label="Notas internas" long>{displayValue(request.tasks?.notes)}</DetailField>
+          {internalNotes ? <DetailField label="Notas internas" long>{internalNotes}</DetailField> : null}
           <DetailField label="Data de criação">{formatDateTime(request.created_at)}</DetailField>
         </div>
 

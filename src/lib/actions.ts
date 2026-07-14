@@ -2,6 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { fallbackContentPlatform } from "./content-platform";
+import { buildInvest2030TaskSummary } from "./invest2030-notes";
 import { invest2030PublicHref, isInvest2030PublicAccessToken } from "./invest2030-public";
 import { parseLinksFormData } from "./links";
 import { baseChecklist } from "./onboarding";
@@ -1290,72 +1291,6 @@ function validateInvest2030FormValues(values: Invest2030RequestFormValues) {
   return fieldErrors;
 }
 
-function invest2030Description({
-  campaignName,
-  actionType,
-  requestedBy,
-  periodLabel,
-  mainGoal,
-  targetAudience,
-  mainCta,
-  mainLink,
-  mainMessage,
-  mandatoryInfo,
-  informationStatus,
-  notes,
-}: {
-  campaignName: string;
-  actionType: string;
-  requestedBy: string;
-  periodLabel: string;
-  mainGoal: string;
-  targetAudience: string;
-  mainCta: string;
-  mainLink: string | null;
-  mainMessage: string;
-  mandatoryInfo: string;
-  informationStatus: string;
-  notes: string | null;
-}) {
-  return `Pedido recebido via Form Invest2030
-
-Nome da campanha:
-${campaignName}
-
-Tipo de ação:
-${actionType}
-
-Quem está a pedir:
-${requestedBy}
-
-Período:
-${periodLabel}
-
-Objetivo principal:
-${mainGoal}
-
-Público-alvo / segmentação:
-${targetAudience}
-
-Texto do botão principal:
-${mainCta}
-
-Link do botão principal:
-${mainLink ?? "Sem link definido"}
-
-Tema / mensagem principal:
-${mainMessage}
-
-Informação obrigatória a mencionar:
-${mandatoryInfo}
-
-Estado da informação:
-${informationStatus}
-
-Observações:
-${notes ?? "Sem observações"}`;
-}
-
 async function findInvest2030ClientId(supabase: SupabaseClient) {
   const { data, error } = await supabase
     .from("clients")
@@ -1467,7 +1402,7 @@ export async function createInvest2030RequestAction(
         related_url: mainLink && mainLink.toLowerCase() !== "a criar" ? mainLink : null,
         is_blocked: needsAttention,
         blocker_reason: needsAttention ? informationStatus : null,
-        notes: invest2030Description({
+        notes: buildInvest2030TaskSummary({
           campaignName,
           actionType,
           requestedBy,
