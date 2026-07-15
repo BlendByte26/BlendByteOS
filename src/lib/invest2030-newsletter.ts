@@ -186,12 +186,7 @@ export function initialInvest2030NewsletterContent(
     eyebrow: "Invest2030",
     hero_title: "",
     hero_subtitle: "",
-    stats: [
-      { label: "Apoio", value: "" },
-      { label: "Prazo", value: "" },
-      { label: "Destino", value: "" },
-      { label: "Condição", value: "" },
-    ],
+    stats: [],
     intro_paragraphs: [],
     benefits_title: "O que pode representar para a sua empresa",
     benefits: [],
@@ -202,7 +197,7 @@ export function initialInvest2030NewsletterContent(
     closing_paragraphs: [],
     primary_cta_label: "Pedir informação",
     secondary_cta_label: "Falar com a Invest2030",
-    cta_url: INVEST2030_DEFAULT_CTA_URL,
+    cta_url: "",
   };
 }
 
@@ -266,7 +261,7 @@ export function parseInvest2030NewsletterJson(rawJson: string): {
     closing_paragraphs: stringArray(record.closing_paragraphs),
     primary_cta_label: stringValue(record.primary_cta_label),
     secondary_cta_label: stringValue(record.secondary_cta_label),
-    cta_url: safeInvest2030CtaUrl(stringValue(record.cta_url)).url,
+    cta_url: normalizeCtaUrlInput(stringValue(record.cta_url)),
   };
 
   if (stats.length !== 4) errors.push("O campo stats tem de conter exatamente quatro indicadores.");
@@ -708,44 +703,14 @@ export function validateInvest2030Newsletter(
 }
 
 export function buildInvest2030GptBriefing(parsed: Invest2030NewsletterParsedRequest) {
-  return `Usa o GPT dedicado Invest2030 para transformar o briefing original abaixo numa newsletter pronta a validar no BlendByteOS.
+  return `Gera o JSON desta newsletter com base no briefing integral abaixo.
+Usa as instruções permanentes deste GPT e devolve exclusivamente JSON válido.
 
-Mantém o sentido integral do briefing original. Não omitas, reordenes nem substituas partes do briefing por interpretação própria sem necessidade.
-Devolve apenas JSON válido, sem markdown, sem HTML, sem texto antes ou depois.
-
-Briefing original integral:
 ${parsed.originalNotes || "Sem briefing original."}
 
-Regras:
-- O array "stats" tem obrigatoriamente quatro elementos.
-- cta_url deve conter apenas o URL bruto, sem markdown, parênteses ou texto adicional.
-- Se o briefing não trouxer um URL válido, usa exatamente ${INVEST2030_DEFAULT_CTA_URL}.
-
-Schema obrigatório:
-{
-  "subject": "",
-  "preheader": "",
-  "eyebrow": "",
-  "hero_title": "",
-  "hero_subtitle": "",
-  "stats": [
-    { "label": "", "value": "" },
-    { "label": "", "value": "" },
-    { "label": "", "value": "" },
-    { "label": "", "value": "" }
-  ],
-  "intro_paragraphs": [],
-  "benefits_title": "",
-  "benefits": [],
-  "audience_section_title": "",
-  "audience_title": "",
-  "audience_body": "",
-  "exclusions": "",
-  "closing_paragraphs": [],
-  "primary_cta_label": "",
-  "secondary_cta_label": "",
-  "cta_url": ""
-}`;
+Não adicionar parsing, resumos ou reorganização.
+Não omitir nenhuma parte das notas da tarefa.
+Não é necessário incluir novamente o schema, porque está nas instruções permanentes do GPT personalizado.`;
 }
 
 export function invest2030NewsletterFilename(campaignName: string) {

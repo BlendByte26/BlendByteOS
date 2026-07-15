@@ -5,7 +5,10 @@ import path from "node:path";
 import {
   buildInvest2030GptBriefing,
   generateInvest2030NewsletterHtml,
+  INVEST2030_DEFAULT_CTA_URL,
   parseInvest2030TaskNotes,
+  parseInvest2030NewsletterJson,
+  safeInvest2030CtaUrl,
   validateInvest2030Newsletter,
   type Invest2030NewsletterContent,
 } from "../src/lib/invest2030-newsletter.ts";
@@ -187,7 +190,9 @@ async function assertMobileVisual(page: PageLike, html: string) {
 
 function assertWorkspaceResponsiveSource() {
   const workspace = readFileSync(path.join(process.cwd(), "src/components/invest2030-newsletter-workspace.tsx"), "utf8");
-  assert(workspace.includes('const [activeTab, setActiveTab] = useState<TabKey>("summary")'), "Workspace deve abrir no separador Resumo.");
+  assert(workspace.includes('const [activeTab, setActiveTab] = useState<TabKey>(newsletter ? "summary" : "import")'), "Workspace deve aguardar importação antes de abrir o Resumo.");
+  assert(workspace.includes("Aguardando conteúdo do GPT"), "Workspace deve explicitar o estado awaiting_import.");
+  assert(workspace.includes("visibleTabs = hasImported"), "Workspace deve mudar separadores consoante a importação.");
   assert(workspace.includes('aria-label="Separadores da newsletter"'), "Workspace deve ter separadores acessíveis.");
   assert(workspace.includes("Gerar/importar conteúdo"), "Importação JSON deve estar disponível no resumo.");
   assert(workspace.includes('role="dialog"'), "Importação e texto original devem abrir em modal acessível.");
@@ -196,6 +201,28 @@ function assertWorkspaceResponsiveSource() {
   assert(!workspace.includes("<h2 className=\"mb-3 text-sm font-extrabold text-[var(--bb-charcoal)]\">Preparação para GPT</h2>"), "Preparação GPT não deve ocupar espaço permanente na página.");
   assert(!workspace.includes("<h2 className=\"mb-3 text-sm font-extrabold text-[var(--bb-charcoal)]\">Colar resposta do GPT</h2>"), "Importação JSON não deve ocupar espaço permanente na página.");
   assert(!workspace.includes("xl:grid-cols-[minmax(260px,0.9fr)_minmax(360px,1.25fr)_minmax(320px,1fr)]"), "Workspace ainda usa a grelha antiga de três colunas em 13 polegadas.");
+}
+
+function assertJsonImportStates() {
+  const emptyCta = parseInvest2030NewsletterJson(JSON.stringify({ ...sourceContent, cta_url: "" }));
+  assert(emptyCta.content?.cta_url === "", "cta_url vazio deve permanecer vazio no JSON importado.");
+  assert(safeInvest2030CtaUrl(emptyCta.content?.cta_url).url === INVEST2030_DEFAULT_CTA_URL, "cta_url vazio deve aplicar fallback de contacto na camada final.");
+
+  const customUrl = "https://example.com/contactos/";
+  const validCta = parseInvest2030NewsletterJson(JSON.stringify({ ...sourceContent, cta_url: customUrl }));
+  assert(validCta.content?.cta_url === customUrl, "URL válido do JSON deve ser preservado.");
+
+  const invalid = parseInvest2030NewsletterJson("{invalid");
+  assert(!invalid.content && invalid.errors.length > 0, "JSON inválido deve devolver erro claro.");
+
+  const editedContent = {
+    ...sourceContent,
+    subject: "Assunto editado",
+    cta_url: customUrl,
+  };
+  const editedHtml = generateInvest2030NewsletterHtml(editedContent);
+  assert(editedHtml.includes("Assunto editado"), "Edição após importação deve regenerar o HTML.");
+  assert(editedHtml.startsWith("<!doctype html>") && editedHtml.trimEnd().endsWith("</html>"), "HTML copiado deve ser documento completo.");
 }
 
 function assertOriginalBriefingsStayOpaque() {
@@ -217,6 +244,7 @@ function assertOriginalBriefingsStayOpaque() {
     assert(parsed.missingFields.length === 0, "Briefing não deve gerar campos obrigatórios em falta.");
     assert(parsed.unrecognizedHeadings.length === 0, "Briefing não deve gerar títulos inesperados.");
     assert(buildInvest2030GptBriefing(parsed).includes(briefing), "Briefing copiado para GPT deve conter o texto original sem omissões.");
+    assert(!buildInvest2030GptBriefing(parsed).includes("Schema obrigatório"), "Briefing copiado não deve repetir o schema.");
 
     const validation = validateInvest2030Newsletter(validContent, parsed);
     assert(validation.blockers.length === 0, "Estrutura do briefing original não deve gerar bloqueios.");
@@ -235,6 +263,7 @@ async function main() {
 
   assertStaticTemplateMatchesSource(generatedHtml);
   assertWorkspaceResponsiveSource();
+  assertJsonImportStates();
   assertOriginalBriefingsStayOpaque();
 
   const { chromium } = loadPlaywright();

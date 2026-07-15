@@ -43,7 +43,7 @@ type SaveAction = (
   formData: FormData,
 ) => Promise<NewsletterMutationResult>;
 type FormAction = (formData: FormData) => void | Promise<void>;
-type TabKey = "summary" | "edit" | "request" | "schedule";
+type TabKey = "summary" | "edit" | "request" | "import" | "schedule";
 type AccordionKey = "hero" | "stats" | "intro" | "benefits" | "audience" | "closing";
 
 type Props = {
@@ -78,6 +78,7 @@ const tabs: Array<{ key: TabKey; label: string; icon: React.ReactNode }> = [
   { key: "summary", label: "Resumo", icon: <Eye className="size-4" aria-hidden="true" /> },
   { key: "edit", label: "Editar conteúdo", icon: <Pencil className="size-4" aria-hidden="true" /> },
   { key: "request", label: "Pedido original", icon: <FileText className="size-4" aria-hidden="true" /> },
+  { key: "import", label: "Gerar/importar conteúdo", icon: <Upload className="size-4" aria-hidden="true" /> },
   { key: "schedule", label: "Agendamento", icon: <Calendar className="size-4" aria-hidden="true" /> },
 ];
 
@@ -148,6 +149,10 @@ function moveItem(items: string[], index: number, direction: -1 | 1) {
   return next;
 }
 
+function completedStatsCount(stats: Invest2030NewsletterContent["stats"]) {
+  return stats.filter((stat) => stat.label.trim() && stat.value.trim()).length;
+}
+
 export function Invest2030NewsletterWorkspace({
   taskId,
   campaignTitle,
@@ -162,10 +167,11 @@ export function Invest2030NewsletterWorkspace({
 }: Props) {
   const initialContent = newsletter?.content_json ?? initialInvest2030NewsletterContent(parsedRequest);
   const [content, setContent] = useState<Invest2030NewsletterContent>(initialContent);
+  const [hasImported, setHasImported] = useState(Boolean(newsletter));
   const [jsonInput, setJsonInput] = useState("");
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<TabKey>("summary");
+  const [activeTab, setActiveTab] = useState<TabKey>(newsletter ? "summary" : "import");
   const [openAccordion, setOpenAccordion] = useState<AccordionKey>("hero");
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop");
   const [previewWidth, setPreviewWidth] = useState(680);
@@ -177,21 +183,46 @@ export function Invest2030NewsletterWorkspace({
   const previewShellRef = useRef<HTMLDivElement>(null);
   const importCloseRef = useRef<HTMLButtonElement>(null);
   const originalCloseRef = useRef<HTMLButtonElement>(null);
-  const finalCta = safeInvest2030CtaUrl(content.cta_url);
+  const finalCta = hasImported ? safeInvest2030CtaUrl(content.cta_url) : { url: "", usedDefault: false };
   const contentWithFinalLink = useMemo(
     () => ({ ...content, cta_url: finalCta.url }),
     [content, finalCta.url],
   );
-  const html = useMemo(() => generateInvest2030NewsletterHtml(contentWithFinalLink), [contentWithFinalLink]);
+  const html = useMemo(
+    () => hasImported ? generateInvest2030NewsletterHtml(contentWithFinalLink) : "",
+    [contentWithFinalLink, hasImported],
+  );
   const validation = useMemo(
-    () => validateInvest2030Newsletter(contentWithFinalLink, parsedRequest),
-    [contentWithFinalLink, parsedRequest],
+    () => hasImported ? validateInvest2030Newsletter(contentWithFinalLink, parsedRequest) : { blockers: [], warnings: [] },
+    [contentWithFinalLink, hasImported, parsedRequest],
   );
   const iframeViewportWidth = previewMode === "desktop" ? 680 : 375;
   const previewScale = Math.min(1, Math.max(0.45, (previewWidth - 24) / iframeViewportWidth));
   const iframeHeight = 920;
-  const statusLabel = newsletter ? invest2030NewsletterStatusLabels[newsletter.status] : "Novo rascunho";
-  const linkStatus = finalCta.usedDefault ? "Fallback aplicado" : "Link original validado";
+  const pageState = !hasImported
+    ? "awaiting_import"
+    : newsletter?.status === "sent"
+      ? "sent"
+      : newsletter?.status === "scheduled"
+        ? "scheduled"
+        : newsletter
+          ? "saved"
+          : "imported";
+  const statusLabel = pageState === "awaiting_import"
+    ? "Aguardando conteúdo do GPT"
+    : pageState === "imported"
+      ? "Importado"
+      : pageState === "scheduled"
+        ? "Agendada"
+        : pageState === "sent"
+          ? "Enviada"
+          : newsletter
+            ? invest2030NewsletterStatusLabels[newsletter.status]
+            : "Importado";
+  const linkStatus = hasImported ? (finalCta.usedDefault ? "Link de contacto aplicado automaticamente" : "Link do briefing") : "";
+  const visibleTabs = hasImported
+    ? tabs.filter((tab) => tab.key !== "import")
+    : tabs.filter((tab) => tab.key === "request" || tab.key === "import");
 
   useEffect(() => {
     const node = previewShellRef.current;
@@ -233,10 +264,11 @@ export function Invest2030NewsletterWorkspace({
 
   function resetDraft() {
     setContent(initialInvest2030NewsletterContent(parsedRequest));
+    setHasImported(false);
     setJsonInput("");
     setJsonError(null);
     setNotice("Novo rascunho iniciado. Guarde para persistir.");
-    setActiveTab("edit");
+    setActiveTab("import");
     setOpenAccordion("hero");
   }
 
@@ -254,12 +286,17 @@ export function Invest2030NewsletterWorkspace({
 
     setJsonError(null);
     setContent(parsed.content);
+    setHasImported(true);
     setNotice("Conteúdo importado para o editor.");
     setImportModalOpen(false);
     setActiveTab("summary");
   }
 
   async function copyHtml() {
+    if (!hasImported) {
+      setNotice("Importe o conteúdo do GPT antes de copiar o HTML.");
+      return;
+    }
     if (validation.blockers.length) {
       setNotice("Corrija os bloqueios antes de copiar o HTML.");
       return;
@@ -271,6 +308,10 @@ export function Invest2030NewsletterWorkspace({
   }
 
   function downloadHtml() {
+    if (!hasImported) {
+      setNotice("Importe o conteúdo do GPT antes de descarregar o HTML.");
+      return;
+    }
     if (validation.blockers.length) {
       setNotice("Corrija os bloqueios antes de descarregar o HTML.");
       return;
@@ -312,7 +353,7 @@ export function Invest2030NewsletterWorkspace({
               <ArrowLeft className="size-4" aria-hidden="true" />
               Voltar à tarefa
             </Link>
-            <ButtonShell onClick={submitSave} tone="primary" disabled={saving}>
+            <ButtonShell onClick={submitSave} tone="primary" disabled={saving || !hasImported}>
               <Save className="size-4" aria-hidden="true" />
               Guardar rascunho
             </ButtonShell>
@@ -347,7 +388,7 @@ export function Invest2030NewsletterWorkspace({
         className="sticky top-[116px] z-20 -mx-1 overflow-x-auto rounded-[18px] border border-[var(--bb-border)] bg-[rgba(255,255,255,0.9)] p-1 shadow-[0_10px_24px_rgba(0,0,0,0.05)] backdrop-blur"
       >
         <div className="flex min-w-max gap-1">
-          {tabs.map((tab) => (
+          {visibleTabs.map((tab) => (
             <button
               key={tab.key}
               type="button"
@@ -367,7 +408,23 @@ export function Invest2030NewsletterWorkspace({
         </div>
       </nav>
 
-      {activeTab === "summary" ? (
+      {activeTab === "import" && !hasImported ? (
+        <AwaitingImportTab
+          taskSummary={taskSummary}
+          gptUrl={gptUrl}
+          jsonInput={jsonInput}
+          jsonError={jsonError}
+          onCopyBriefing={copyBriefing}
+          onJsonChange={setJsonInput}
+          onImport={importJson}
+          onCopyOriginal={async () => {
+            await navigator.clipboard.writeText(taskSummary.notes || "");
+            setNotice("Pedido original copiado.");
+          }}
+        />
+      ) : null}
+
+      {activeTab === "summary" && hasImported ? (
         <SummaryTab
           content={contentWithFinalLink}
           linkStatus={linkStatus}
@@ -390,7 +447,7 @@ export function Invest2030NewsletterWorkspace({
         />
       ) : null}
 
-      {activeTab === "edit" ? (
+      {activeTab === "edit" && hasImported ? (
         <EditTab
           content={content}
           finalCtaUrl={finalCta.url}
@@ -415,7 +472,7 @@ export function Invest2030NewsletterWorkspace({
         />
       ) : null}
 
-      {activeTab === "schedule" ? (
+      {activeTab === "schedule" && hasImported ? (
         <ScheduleTab
           newsletter={newsletter}
           markScheduledAction={markScheduledAction}
@@ -423,14 +480,14 @@ export function Invest2030NewsletterWorkspace({
         />
       ) : null}
 
-      {activeTab === "summary" ? (
+      {activeTab === "summary" && hasImported ? (
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--bb-border)] bg-[rgba(247,245,239,0.96)] p-3 shadow-[0_-12px_30px_rgba(0,0,0,0.1)] backdrop-blur md:hidden">
           <div className="grid grid-cols-3 gap-2">
             <ButtonShell onClick={() => setImportModalOpen(true)} className="px-2 text-xs">
               <Upload className="size-4" aria-hidden="true" />
               Importar
             </ButtonShell>
-            <ButtonShell onClick={copyHtml} tone="primary" className="px-2 text-xs">
+            <ButtonShell onClick={copyHtml} tone="primary" disabled={validation.blockers.length > 0} className="px-2 text-xs">
               <Clipboard className="size-4" aria-hidden="true" />
               Copiar
             </ButtonShell>
@@ -512,7 +569,7 @@ function SummaryTab({
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
           <SummaryMetric label="Assunto" value={content.subject || "Por importar"} />
           <SummaryMetric label="Preheader" value={content.preheader || "Por importar"} />
-          <SummaryMetric label="Indicadores" value={`${content.stats.length}/4`} />
+          <SummaryMetric label="Indicadores" value={`${completedStatsCount(content.stats)}/4`} />
           <SummaryMetric label="CTA" value={content.cta_url} />
           <SummaryMetric label="Estado do link" value={linkStatus} />
         </div>
@@ -603,11 +660,11 @@ function SummaryTab({
                 <Pencil className="size-4" aria-hidden="true" />
                 Editar conteúdo
               </ButtonShell>
-              <ButtonShell onClick={onCopyHtml} tone="primary">
+              <ButtonShell onClick={onCopyHtml} tone="primary" disabled={validation.blockers.length > 0}>
                 <Clipboard className="size-4" aria-hidden="true" />
                 Copiar HTML
               </ButtonShell>
-              <ButtonShell onClick={onDownloadHtml}>
+              <ButtonShell onClick={onDownloadHtml} disabled={validation.blockers.length > 0}>
                 <Download className="size-4" aria-hidden="true" />
                 Descarregar HTML
               </ButtonShell>
@@ -628,6 +685,96 @@ function SummaryTab({
         </aside>
       </div>
     </div>
+  );
+}
+
+function AwaitingImportTab({
+  taskSummary,
+  gptUrl,
+  jsonInput,
+  jsonError,
+  onCopyBriefing,
+  onJsonChange,
+  onImport,
+  onCopyOriginal,
+}: {
+  taskSummary: Props["taskSummary"];
+  gptUrl: string | null;
+  jsonInput: string;
+  jsonError: string | null;
+  onCopyBriefing: () => void;
+  onJsonChange: (value: string) => void;
+  onImport: () => void;
+  onCopyOriginal: () => void;
+}) {
+  return (
+    <section className={panelClass}>
+      <div className="mb-4 rounded-[16px] bg-[var(--bb-yellow-soft)] px-4 py-3 text-sm font-extrabold text-[var(--bb-charcoal)]">
+        Aguardando conteúdo do GPT
+      </div>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(360px,0.75fr)]">
+        <div className="grid content-start gap-4">
+          <div className="grid gap-3 md:grid-cols-5">
+            <TaskMetric label="Título" value={taskSummary.title} />
+            <TaskMetric label="Cliente" value={taskSummary.clientName} />
+            <TaskMetric label="Responsável" value={taskSummary.assigneeName} />
+            <TaskMetric label="Prazo" value={taskSummary.dueDate} />
+            <TaskMetric label="Estado" value={taskSummary.status} />
+          </div>
+          <div>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-sm font-extrabold text-[var(--bb-charcoal)]">Briefing original integral</h2>
+              <ButtonShell onClick={onCopyOriginal}>
+                <Clipboard className="size-4" aria-hidden="true" />
+                Copiar pedido original
+              </ButtonShell>
+            </div>
+            <pre className="max-h-[460px] overflow-auto whitespace-pre-wrap rounded-[16px] border border-[var(--bb-border)] bg-white/72 p-4 text-sm font-semibold leading-6 text-[var(--bb-charcoal)]">
+              {taskSummary.notes || "Sem notas."}
+            </pre>
+          </div>
+        </div>
+        <div className="grid content-start gap-4">
+          <div className={subtlePanelClass}>
+            <div className="grid gap-2">
+              <ButtonShell onClick={onCopyBriefing} tone="primary">
+                <Clipboard className="size-4" aria-hidden="true" />
+                Copiar briefing para GPT
+              </ButtonShell>
+              <a
+                href={gptUrl ?? undefined}
+                target="_blank"
+                rel="noreferrer"
+                aria-disabled={!gptUrl}
+                className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[var(--bb-border)] bg-white/75 px-4 text-sm font-extrabold text-[var(--bb-charcoal)] transition hover:bg-[var(--bb-primary-soft)] ${gptUrl ? "" : "pointer-events-none opacity-45"}`}
+              >
+                <ExternalLink className="size-4" aria-hidden="true" />
+                Abrir GPT Invest2030
+              </a>
+              {!gptUrl ? (
+                <div className="rounded-[14px] bg-white/72 px-3 py-2 text-xs font-bold text-[var(--bb-muted)]">
+                  GPT Invest2030 ainda não configurado.
+                </div>
+              ) : null}
+            </div>
+          </div>
+          <label className={labelClass}>
+            Colar resposta do GPT
+            <textarea
+              value={jsonInput}
+              onChange={(event) => onJsonChange(event.target.value)}
+              className={`${textareaClass} min-h-72 w-full font-mono text-xs`}
+              placeholder='{"subject": "..."}'
+            />
+          </label>
+          {jsonError ? <div className="rounded-[14px] bg-[var(--bb-red-soft)] px-3 py-2 text-xs font-bold text-[#8f2415]">{jsonError}</div> : null}
+          <ButtonShell onClick={onImport} tone="primary">
+            <Upload className="size-4" aria-hidden="true" />
+            Importar conteúdo
+          </ButtonShell>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -990,7 +1137,7 @@ function ImportModal({
             </div>
           ) : null}
           <label className={labelClass}>
-            Colar JSON
+            Colar resposta do GPT
             <textarea
               value={jsonInput}
               onChange={(event) => onJsonChange(event.target.value)}
