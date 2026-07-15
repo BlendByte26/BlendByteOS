@@ -49,6 +49,14 @@ type AccordionKey = "hero" | "stats" | "intro" | "benefits" | "audience" | "clos
 type Props = {
   taskId: string;
   campaignTitle: string;
+  taskSummary: {
+    title: string;
+    clientName: string;
+    assigneeName: string;
+    dueDate: string;
+    status: string;
+    notes: string;
+  };
   parsedRequest: Invest2030NewsletterParsedRequest;
   newsletter: Invest2030Newsletter | null;
   gptUrl: string | null;
@@ -140,20 +148,10 @@ function moveItem(items: string[], index: number, direction: -1 | 1) {
   return next;
 }
 
-function requestSummaryRows(parsedRequest: Invest2030NewsletterParsedRequest) {
-  return [
-    ["Identificação", `${parsedRequest.campaignName || "-"}\n${parsedRequest.actionTypes || "-"}`],
-    ["Objetivo", parsedRequest.mainObjective],
-    ["Público", parsedRequest.targetAudience],
-    ["CTA", `${parsedRequest.primaryButtonText || "-"}\n${parsedRequest.primaryButtonUrl || "-"}`],
-    ["Informação obrigatória", parsedRequest.mandatoryInformation],
-    ["Observações", parsedRequest.observations],
-  ] as const;
-}
-
 export function Invest2030NewsletterWorkspace({
   taskId,
   campaignTitle,
+  taskSummary,
   parsedRequest,
   newsletter,
   gptUrl,
@@ -179,7 +177,7 @@ export function Invest2030NewsletterWorkspace({
   const previewShellRef = useRef<HTMLDivElement>(null);
   const importCloseRef = useRef<HTMLButtonElement>(null);
   const originalCloseRef = useRef<HTMLButtonElement>(null);
-  const finalCta = safeInvest2030CtaUrl(parsedRequest.primaryButtonUrl);
+  const finalCta = safeInvest2030CtaUrl(content.cta_url);
   const contentWithFinalLink = useMemo(
     () => ({ ...content, cta_url: finalCta.url }),
     [content, finalCta.url],
@@ -255,7 +253,7 @@ export function Invest2030NewsletterWorkspace({
     }
 
     setJsonError(null);
-    setContent({ ...parsed.content, cta_url: finalCta.url });
+    setContent(parsed.content);
     setNotice("Conteúdo importado para o editor.");
     setImportModalOpen(false);
     setActiveTab("summary");
@@ -282,7 +280,7 @@ export function Invest2030NewsletterWorkspace({
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = invest2030NewsletterFilename(parsedRequest.campaignName);
+    link.download = invest2030NewsletterFilename(content.subject || campaignTitle);
     link.click();
     URL.revokeObjectURL(url);
     setNotice("HTML descarregado.");
@@ -371,9 +369,7 @@ export function Invest2030NewsletterWorkspace({
 
       {activeTab === "summary" ? (
         <SummaryTab
-          parsedRequest={parsedRequest}
           content={contentWithFinalLink}
-          finalCtaUrl={finalCta.url}
           linkStatus={linkStatus}
           usedDefaultCta={finalCta.usedDefault}
           statusLabel={statusLabel}
@@ -410,8 +406,12 @@ export function Invest2030NewsletterWorkspace({
 
       {activeTab === "request" ? (
         <RequestTab
-          parsedRequest={parsedRequest}
+          taskSummary={taskSummary}
           onOpenOriginal={() => setOriginalModalOpen(true)}
+          onCopyOriginal={async () => {
+            await navigator.clipboard.writeText(taskSummary.notes || "");
+            setNotice("Pedido original copiado.");
+          }}
         />
       ) : null}
 
@@ -459,7 +459,7 @@ export function Invest2030NewsletterWorkspace({
       {isOriginalModalOpen ? (
         <OriginalRequestModal
           closeRef={originalCloseRef}
-          originalNotes={parsedRequest.originalNotes}
+          originalNotes={taskSummary.notes}
           onClose={() => setOriginalModalOpen(false)}
         />
       ) : null}
@@ -468,9 +468,7 @@ export function Invest2030NewsletterWorkspace({
 }
 
 function SummaryTab({
-  parsedRequest,
   content,
-  finalCtaUrl,
   linkStatus,
   usedDefaultCta,
   statusLabel,
@@ -489,9 +487,7 @@ function SummaryTab({
   onDownloadHtml,
   onSchedule,
 }: {
-  parsedRequest: Invest2030NewsletterParsedRequest;
   content: Invest2030NewsletterContent;
-  finalCtaUrl: string;
   linkStatus: string;
   usedDefaultCta: boolean;
   statusLabel: string;
@@ -514,10 +510,10 @@ function SummaryTab({
     <div className="grid gap-4">
       <section className={panelClass}>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-          <SummaryMetric label="Campanha" value={parsedRequest.campaignName || content.subject} />
-          <SummaryMetric label="Data pretendida" value={parsedRequest.period || "-"} />
-          <SummaryMetric label="Objetivo" value={parsedRequest.mainObjective || "-"} />
-          <SummaryMetric label="CTA" value={finalCtaUrl} />
+          <SummaryMetric label="Assunto" value={content.subject || "Por importar"} />
+          <SummaryMetric label="Preheader" value={content.preheader || "Por importar"} />
+          <SummaryMetric label="Indicadores" value={`${content.stats.length}/4`} />
+          <SummaryMetric label="CTA" value={content.cta_url} />
           <SummaryMetric label="Estado do link" value={linkStatus} />
         </div>
         {usedDefaultCta ? (
@@ -818,39 +814,52 @@ function AccordionSection({
 }
 
 function RequestTab({
-  parsedRequest,
+  taskSummary,
   onOpenOriginal,
+  onCopyOriginal,
 }: {
-  parsedRequest: Invest2030NewsletterParsedRequest;
+  taskSummary: Props["taskSummary"];
   onOpenOriginal: () => void;
+  onCopyOriginal: () => void;
 }) {
   return (
     <section className={panelClass}>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-base font-extrabold text-[var(--bb-charcoal)]">Pedido original</h2>
-          <p className="mt-1 text-sm font-semibold text-[var(--bb-muted)]">Resumo legível do pedido recebido.</p>
+          <p className="mt-1 text-sm font-semibold text-[var(--bb-muted)]">Briefing integral da tarefa, sem interpretação automática.</p>
         </div>
-        <ButtonShell onClick={onOpenOriginal}>
-          <FileText className="size-4" aria-hidden="true" />
-          Ver texto original completo
-        </ButtonShell>
-      </div>
-      <div className="grid gap-3 lg:grid-cols-2">
-        {requestSummaryRows(parsedRequest).map(([label, value]) => (
-          <div key={label} className={subtlePanelClass}>
-            <div className="text-[11px] font-extrabold uppercase text-[var(--bb-muted)]">{label}</div>
-            <div className="mt-1 whitespace-pre-wrap text-sm font-semibold leading-6 text-[var(--bb-charcoal)]">{value || "-"}</div>
-          </div>
-        ))}
-      </div>
-      {parsedRequest.missingFields.length || parsedRequest.unrecognizedHeadings.length ? (
-        <div className="mt-4 rounded-[16px] border border-[rgba(232,76,49,0.2)] bg-[var(--bb-red-soft)] p-3 text-xs font-bold leading-5 text-[#8f2415]">
-          {parsedRequest.missingFields.length ? `Campos não reconhecidos: ${parsedRequest.missingFields.join(", ")}. ` : ""}
-          {parsedRequest.unrecognizedHeadings.length ? `Títulos inesperados: ${parsedRequest.unrecognizedHeadings.join(", ")}.` : ""}
+        <div className="flex flex-wrap gap-2">
+          <ButtonShell onClick={onCopyOriginal}>
+            <Clipboard className="size-4" aria-hidden="true" />
+            Copiar pedido original
+          </ButtonShell>
+          <ButtonShell onClick={onOpenOriginal}>
+            <FileText className="size-4" aria-hidden="true" />
+            Ver em ecrã completo
+          </ButtonShell>
         </div>
-      ) : null}
+      </div>
+      <div className="grid gap-3 md:grid-cols-5">
+        <TaskMetric label="Título" value={taskSummary.title} />
+        <TaskMetric label="Cliente" value={taskSummary.clientName} />
+        <TaskMetric label="Responsável" value={taskSummary.assigneeName} />
+        <TaskMetric label="Prazo" value={taskSummary.dueDate} />
+        <TaskMetric label="Estado" value={taskSummary.status} />
+      </div>
+      <pre className="mt-4 max-h-[560px] overflow-auto whitespace-pre-wrap rounded-[16px] border border-[var(--bb-border)] bg-white/72 p-4 text-sm font-semibold leading-6 text-[var(--bb-charcoal)]">
+        {taskSummary.notes || "Sem notas."}
+      </pre>
     </section>
+  );
+}
+
+function TaskMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className={subtlePanelClass}>
+      <div className="text-[11px] font-extrabold uppercase text-[var(--bb-muted)]">{label}</div>
+      <div className="mt-1 break-words text-sm font-bold leading-5 text-[var(--bb-charcoal)]">{value || "-"}</div>
+    </div>
   );
 }
 

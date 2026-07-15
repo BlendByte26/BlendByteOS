@@ -47,12 +47,20 @@ export default async function Invest2030NewsletterPage({ params }: Props) {
         },
       }
     : null;
-  const title = parsedRequest.campaignName || getTaskDisplayTitle(task);
+  const title = getTaskDisplayTitle(task);
 
   return (
     <Invest2030NewsletterWorkspace
       taskId={id}
       campaignTitle={title}
+      taskSummary={{
+        title: getTaskDisplayTitle(task),
+        clientName: task.clients?.name ?? task.clients?.short_name ?? "-",
+        assigneeName: task.assignee_name ?? "-",
+        dueDate: task.due_date ? new Date(task.due_date).toLocaleDateString("pt-PT") : "-",
+        status: task.status,
+        notes: task.notes ?? "",
+      }}
       parsedRequest={parsedRequest}
       newsletter={normalizedNewsletter}
       gptUrl={process.env.NEXT_PUBLIC_INVEST2030_GPT_URL ?? null}

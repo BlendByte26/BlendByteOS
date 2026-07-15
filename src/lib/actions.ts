@@ -1170,7 +1170,7 @@ export async function saveInvest2030NewsletterDraftAction(
     return { ok: false, message: parsedContent.errors.join(" ") };
   }
 
-  const finalCta = safeInvest2030CtaUrl(parsed.primaryButtonUrl);
+  const finalCta = safeInvest2030CtaUrl(parsedContent.content.cta_url);
   const content = { ...parsedContent.content, cta_url: finalCta.url };
   const generatedHtml = generateInvest2030NewsletterHtml(content);
   const validation = validateInvest2030Newsletter(content, parsed);

@@ -3,7 +3,10 @@ import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import path from "node:path";
 import {
+  buildInvest2030GptBriefing,
   generateInvest2030NewsletterHtml,
+  parseInvest2030TaskNotes,
+  validateInvest2030Newsletter,
   type Invest2030NewsletterContent,
 } from "../src/lib/invest2030-newsletter.ts";
 
@@ -195,6 +198,32 @@ function assertWorkspaceResponsiveSource() {
   assert(!workspace.includes("xl:grid-cols-[minmax(260px,0.9fr)_minmax(360px,1.25fr)_minmax(320px,1fr)]"), "Workspace ainda usa a grelha antiga de três colunas em 13 polegadas.");
 }
 
+function assertOriginalBriefingsStayOpaque() {
+  const validContent: Invest2030NewsletterContent = {
+    ...sourceContent,
+    cta_url: "https://www.invest2030.pt/pt/contactos/",
+  };
+  const briefings = [
+    "Objetivo diferente:\nGerar reuniões\n\nSubtítulo com dois pontos: Norte: Ave\n\nNewsletter",
+    "Briefing livre\n- ponto A\n- ponto B: com dois pontos\n\nVariante 1\nVariante 2\nVariante 3\nNewsletter",
+    "Texto sem qualquer estrutura, mas com intenção de newsletter e um URL https://example.com/contactos.",
+    "Secção adicional desconhecida:\nConteúdo extra\n\nMarketing:\nCopy especial\n\nNewsletter",
+    "Newsletter\n\nVariantes:\nA\nB\nC\nD\nE\n\nNotas finais: manter integral.",
+  ];
+
+  for (const briefing of briefings) {
+    const parsed = parseInvest2030TaskNotes(briefing);
+    assert(parsed.originalNotes === briefing, "Briefing original deve ser preservado integralmente.");
+    assert(parsed.missingFields.length === 0, "Briefing não deve gerar campos obrigatórios em falta.");
+    assert(parsed.unrecognizedHeadings.length === 0, "Briefing não deve gerar títulos inesperados.");
+    assert(buildInvest2030GptBriefing(parsed).includes(briefing), "Briefing copiado para GPT deve conter o texto original sem omissões.");
+
+    const validation = validateInvest2030Newsletter(validContent, parsed);
+    assert(validation.blockers.length === 0, "Estrutura do briefing original não deve gerar bloqueios.");
+    assert(validation.warnings.length === 0, "Estrutura do briefing original não deve gerar avisos.");
+  }
+}
+
 async function main() {
   const generatedHtml = generateInvest2030NewsletterHtml(sourceContent);
   assert(generatedHtml.startsWith("<!doctype html>"), "HTML gerado deve começar em <!doctype html>.");
@@ -206,6 +235,7 @@ async function main() {
 
   assertStaticTemplateMatchesSource(generatedHtml);
   assertWorkspaceResponsiveSource();
+  assertOriginalBriefingsStayOpaque();
 
   const { chromium } = loadPlaywright();
   const browser = await chromium.launch({ headless: true });

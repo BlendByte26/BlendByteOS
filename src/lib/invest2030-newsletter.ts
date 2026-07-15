@@ -107,10 +107,6 @@ const parsedFieldLabels: Array<[ParsedFieldKey, string]> = [
   ["observations", "Observações"],
 ];
 
-const parsedFieldLabelMap = new Map(
-  parsedFieldLabels.map(([key, label]) => [normalizeHeading(label), key]),
-);
-
 function normalizeHeading(value: string) {
   return value
     .normalize("NFD")
@@ -124,65 +120,17 @@ function normalizeSearchText(value: string) {
   return normalizeHeading(value).replace(/[^\p{L}\p{N}%]+/gu, " ").trim();
 }
 
-function compact(value: string) {
-  return value.replace(/\r\n/g, "\n").replace(/[ \t]+$/gm, "").trim();
-}
-
 export function parseInvest2030TaskNotes(notes: string | null | undefined): Invest2030NewsletterParsedRequest {
   const originalNotes = notes ?? "";
-  const fields = Object.fromEntries(
+  const emptyFields = Object.fromEntries(
     parsedFieldLabels.map(([key]) => [key, ""]),
   ) as Record<ParsedFieldKey, string>;
-  const seen = new Set<ParsedFieldKey>();
-  const unrecognizedHeadings: string[] = [];
-  let currentKey: ParsedFieldKey | null = null;
-
-  for (const rawLine of originalNotes.replace(/\r\n/g, "\n").split("\n")) {
-    const colonIndex = rawLine.indexOf(":");
-    const possibleHeading = colonIndex >= 0 ? rawLine.slice(0, colonIndex).trim() : "";
-    const matchedKey = possibleHeading ? parsedFieldLabelMap.get(normalizeHeading(possibleHeading)) : undefined;
-
-    if (matchedKey) {
-      currentKey = matchedKey;
-      seen.add(matchedKey);
-      const inlineValue = rawLine.slice(colonIndex + 1);
-      fields[currentKey] = fields[currentKey] ? `${fields[currentKey]}\n${inlineValue}` : inlineValue;
-      continue;
-    }
-
-    if (
-      possibleHeading &&
-      rawLine.trim().endsWith(":") &&
-      !rawLine.trim().startsWith("http")
-    ) {
-      unrecognizedHeadings.push(possibleHeading);
-    }
-
-    if (currentKey) {
-      fields[currentKey] = fields[currentKey] ? `${fields[currentKey]}\n${rawLine}` : rawLine;
-    }
-  }
-
-  const missingFields = parsedFieldLabels
-    .filter(([key]) => !seen.has(key))
-    .map(([, label]) => label);
 
   return {
-    campaignName: compact(fields.campaignName),
-    actionTypes: compact(fields.actionTypes),
-    requestedBy: compact(fields.requestedBy),
-    period: compact(fields.period),
-    mainObjective: compact(fields.mainObjective),
-    targetAudience: compact(fields.targetAudience),
-    primaryButtonText: compact(fields.primaryButtonText),
-    primaryButtonUrl: compact(fields.primaryButtonUrl),
-    mainMessage: compact(fields.mainMessage),
-    mandatoryInformation: compact(fields.mandatoryInformation),
-    informationStatus: compact(fields.informationStatus),
-    observations: compact(fields.observations),
+    ...emptyFields,
     originalNotes,
-    missingFields,
-    unrecognizedHeadings: Array.from(new Set(unrecognizedHeadings)),
+    missingFields: [],
+    unrecognizedHeadings: [],
   };
 }
 
@@ -196,11 +144,7 @@ export function isInvest2030NewsletterTask(
     Boolean(options.invest2030ClientId && task.client_id === options.invest2030ClientId);
 
   if (!isInvestClient) return false;
-  const parsed = parseInvest2030TaskNotes(task.notes);
-  return normalizeHeading(parsed.actionTypes)
-    .split(/[,;/|]+|\be\b/)
-    .map((item) => item.trim())
-    .some((item) => item === "newsletter");
+  return normalizeSearchText(task.notes ?? "").split(" ").includes("newsletter");
 }
 
 export function safeInvest2030CtaUrl(rawUrl: string | null | undefined) {
@@ -235,30 +179,30 @@ export function normalizeCtaUrlInput(rawUrl: string | null | undefined) {
 export function initialInvest2030NewsletterContent(
   parsed: Invest2030NewsletterParsedRequest,
 ): Invest2030NewsletterContent {
-  const cta = safeInvest2030CtaUrl(parsed.primaryButtonUrl);
+  void parsed;
   return {
-    subject: parsed.campaignName,
-    preheader: parsed.mainObjective,
+    subject: "",
+    preheader: "",
     eyebrow: "Invest2030",
-    hero_title: parsed.mainMessage || parsed.campaignName,
-    hero_subtitle: parsed.mainObjective,
+    hero_title: "",
+    hero_subtitle: "",
     stats: [
       { label: "Apoio", value: "" },
-      { label: "Prazo", value: parsed.period },
+      { label: "Prazo", value: "" },
       { label: "Destino", value: "" },
       { label: "Condição", value: "" },
     ],
-    intro_paragraphs: [parsed.mandatoryInformation || parsed.mainMessage].filter(Boolean),
+    intro_paragraphs: [],
     benefits_title: "O que pode representar para a sua empresa",
     benefits: [],
     audience_section_title: "Enquadramento",
     audience_title: "A quem se destina",
-    audience_body: parsed.targetAudience,
+    audience_body: "",
     exclusions: "",
-    closing_paragraphs: [parsed.observations].filter(Boolean),
-    primary_cta_label: parsed.primaryButtonText || "Pedir informação",
+    closing_paragraphs: [],
+    primary_cta_label: "Pedir informação",
     secondary_cta_label: "Falar com a Invest2030",
-    cta_url: cta.url,
+    cta_url: INVEST2030_DEFAULT_CTA_URL,
   };
 }
 
@@ -739,65 +683,14 @@ function validUrl(value: string) {
   }
 }
 
-function allContentText(content: Invest2030NewsletterContent) {
-  return normalizeSearchText(
-    [
-      content.subject,
-      content.preheader,
-      content.eyebrow,
-      content.hero_title,
-      content.hero_subtitle,
-      ...content.stats.flatMap((stat) => [stat.label, stat.value]),
-      ...content.intro_paragraphs,
-      content.benefits_title,
-      ...content.benefits,
-      content.audience_section_title,
-      content.audience_title,
-      content.audience_body,
-      content.exclusions,
-      ...content.closing_paragraphs,
-      content.primary_cta_label,
-      content.secondary_cta_label,
-    ].join(" "),
-  );
-}
-
-function normalizedIncludes(haystack: string, needle: string) {
-  const normalizedNeedle = normalizeSearchText(needle);
-  return Boolean(normalizedNeedle && haystack.includes(normalizedNeedle));
-}
-
-function extractMatches(value: string, regex: RegExp) {
-  return Array.from(value.matchAll(regex), (match) => match[0]).filter(Boolean);
-}
-
-function factualRequestText(parsed: Invest2030NewsletterParsedRequest) {
-  return [
-    parsed.mandatoryInformation,
-    parsed.targetAudience,
-    parsed.mainMessage,
-  ].join(" ");
-}
-
-function observationsIndicateExclusions(value: string) {
-  const normalized = normalizeSearchText(value);
-  return (
-    normalized.includes("exclu") ||
-    normalized.includes("fica de fora") ||
-    normalized.includes("ficam de fora") ||
-    normalized.includes("nao abrang") ||
-    normalized.includes("nao eleg")
-  );
-}
-
 export function validateInvest2030Newsletter(
   content: Invest2030NewsletterContent,
-  parsed: Invest2030NewsletterParsedRequest,
+  _parsed: Invest2030NewsletterParsedRequest,
 ) {
+  void _parsed;
   const blockers: string[] = [];
   const warnings: string[] = [];
   const html = generateInvest2030NewsletterHtml(content);
-  const text = allContentText(content);
 
   if (!content.subject.trim()) blockers.push("Assunto vazio.");
   if (!content.preheader.trim()) blockers.push("Preheader vazio.");
@@ -811,65 +704,22 @@ export function validateInvest2030Newsletter(
   if (!html.includes("[COMPANY_FULL_ADDRESS]") || !html.includes("[UNSUBSCRIBE_URL]")) blockers.push("Tags MagicSpider obrigatórias em falta.");
   if (html.includes("Ver no navegador") || html.includes('href=""')) blockers.push("Footer contém elementos proibidos.");
 
-  const requestText = factualRequestText(parsed);
-
-  for (const date of extractMatches(requestText, /\b\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?\b|\b\d{4}-\d{2}-\d{2}\b/g)) {
-    if (!normalizedIncludes(text, date)) warnings.push(`Data aparentemente ausente no conteúdo: ${date}.`);
-  }
-
-  for (const percentage of extractMatches(requestText, /\b\d+(?:[,.]\d+)?\s?%/g)) {
-    if (!normalizedIncludes(text, percentage)) warnings.push(`Percentagem aparentemente ausente no conteúdo: ${percentage}.`);
-  }
-
-  const mandatoryTokens = normalizeSearchText(parsed.mandatoryInformation)
-    .split(" ")
-    .filter((token) => token.length >= 5)
-    .slice(0, 8);
-  if (mandatoryTokens.length && mandatoryTokens.filter((token) => text.includes(token)).length < Math.min(2, mandatoryTokens.length)) {
-    warnings.push("Informação obrigatória aparentemente ausente.");
-  }
-
-  if (observationsIndicateExclusions(parsed.observations) && !normalizeSearchText(content.exclusions)) {
-    warnings.push("Exclusões nas observações aparentemente ausentes.");
-  }
-
-  if (normalizeHeading(parsed.informationStatus) !== "informacao completa") {
-    warnings.push(`Estado da informação no pedido: ${parsed.informationStatus || "não definido"}.`);
-  }
-
   return { blockers: Array.from(new Set(blockers)), warnings: Array.from(new Set(warnings)) };
 }
 
 export function buildInvest2030GptBriefing(parsed: Invest2030NewsletterParsedRequest) {
-  const cta = safeInvest2030CtaUrl(parsed.primaryButtonUrl);
-  return `Tarefa: preparar conteúdo para uma newsletter Invest2030.
+  return `Usa o GPT dedicado Invest2030 para transformar o briefing original abaixo numa newsletter pronta a validar no BlendByteOS.
 
-Usa português europeu, tom claro, comercial e rigoroso. Não inventes informação.
-Preserva exatamente datas, percentagens, localidades, CAEs, prazos e condições.
-Inclui toda a informação obrigatória. Distingue condições elegíveis de exclusões.
-Objetivo comercial: ${parsed.mainObjective || "gerar contactos qualificados para a Invest2030"}.
+Mantém o sentido integral do briefing original. Não omitas, reordenes nem substituas partes do briefing por interpretação própria sem necessidade.
+Devolve apenas JSON válido, sem markdown, sem HTML, sem texto antes ou depois.
 
-Pedido recebido:
-- Nome da campanha: ${parsed.campaignName}
-- Tipo de ação: ${parsed.actionTypes}
-- Quem está a pedir: ${parsed.requestedBy}
-- Período: ${parsed.period}
-- Objetivo principal: ${parsed.mainObjective}
-- Público-alvo / segmentação: ${parsed.targetAudience}
-- Texto do botão principal: ${parsed.primaryButtonText}
-- Link final dos botões: ${cta.url}${cta.usedDefault ? " (link de contacto aplicado automaticamente)" : ""}
-- Tema / mensagem principal: ${parsed.mainMessage}
-- Informação obrigatória a mencionar: ${parsed.mandatoryInformation}
-- Estado da informação: ${parsed.informationStatus}
-- Observações: ${parsed.observations}
+Briefing original integral:
+${parsed.originalNotes || "Sem briefing original."}
 
 Regras:
-- Não uses HTML.
-- Não uses markdown.
-- Devolve apenas JSON válido, sem texto antes ou depois.
 - O array "stats" tem obrigatoriamente quatro elementos.
 - cta_url deve conter apenas o URL bruto, sem markdown, parênteses ou texto adicional.
-- Se uma informação não estiver no pedido, deixa o campo neutro e factual.
+- Se o briefing não trouxer um URL válido, usa exatamente ${INVEST2030_DEFAULT_CTA_URL}.
 
 Schema obrigatório:
 {
