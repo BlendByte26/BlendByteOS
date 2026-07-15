@@ -184,8 +184,14 @@ async function assertMobileVisual(page: PageLike, html: string) {
 
 function assertWorkspaceResponsiveSource() {
   const workspace = readFileSync(path.join(process.cwd(), "src/components/invest2030-newsletter-workspace.tsx"), "utf8");
-  assert(workspace.includes("2xl:grid-cols"), "Workspace deve reservar três colunas só em monitores grandes.");
-  assert(workspace.includes("xl:col-span-2 2xl:col-span-1"), "Preview deve ocupar a segunda linha no viewport de portátil.");
+  assert(workspace.includes('const [activeTab, setActiveTab] = useState<TabKey>("summary")'), "Workspace deve abrir no separador Resumo.");
+  assert(workspace.includes('aria-label="Separadores da newsletter"'), "Workspace deve ter separadores acessíveis.");
+  assert(workspace.includes("Gerar/importar conteúdo"), "Importação JSON deve estar disponível no resumo.");
+  assert(workspace.includes('role="dialog"'), "Importação e texto original devem abrir em modal acessível.");
+  assert(workspace.includes("max-h-[620px] overflow-auto"), "Preview deve ter scroll interno compacto.");
+  assert(workspace.includes('aria-expanded={open}'), "Accordions devem expor estado para tecnologias assistivas.");
+  assert(!workspace.includes("<h2 className=\"mb-3 text-sm font-extrabold text-[var(--bb-charcoal)]\">Preparação para GPT</h2>"), "Preparação GPT não deve ocupar espaço permanente na página.");
+  assert(!workspace.includes("<h2 className=\"mb-3 text-sm font-extrabold text-[var(--bb-charcoal)]\">Colar resposta do GPT</h2>"), "Importação JSON não deve ocupar espaço permanente na página.");
   assert(!workspace.includes("xl:grid-cols-[minmax(260px,0.9fr)_minmax(360px,1.25fr)_minmax(320px,1fr)]"), "Workspace ainda usa a grelha antiga de três colunas em 13 polegadas.");
 }
 
