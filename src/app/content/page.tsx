@@ -19,7 +19,7 @@ import { formatContentMonthLabel, publishMonth } from "@/lib/content-month";
 import { getClients, getContentItems, getTeamMembers, uniqueValues } from "@/lib/data";
 import { contentStatusLabels } from "@/lib/labels";
 import { requireCurrentOperationalProfile } from "@/lib/auth";
-import { parseContentStatusParam } from "@/lib/smart-links";
+import { parseContentStatusParams } from "@/lib/smart-links";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import type { ContentItem } from "@/lib/types";
 import { contentStatuses } from "@/lib/types";
@@ -73,8 +73,10 @@ function hrefForView(params: Record<string, string | string[] | undefined>, view
   const nextParams = new URLSearchParams();
 
   Object.entries(params).forEach(([key, rawValue]) => {
-    const value = Array.isArray(rawValue) ? rawValue[0] : rawValue;
-    if (value) nextParams.set(key, value);
+    const values = Array.isArray(rawValue) ? rawValue : [rawValue];
+    values.forEach((value) => {
+      if (value) nextParams.append(key, value);
+    });
   });
 
   if (view === "table") {
@@ -93,7 +95,7 @@ export default async function ContentPage({ searchParams }: Props) {
   const currentView = parseView(valueOf(params, "view"));
   const attention = isAttentionParam(valueOf(params, "attention"));
   const bulkOpen = valueOf(params, "bulk") === "1";
-  const status = parseContentStatusParam(valueOf(params, "status"));
+  const status = parseContentStatusParams(params.status);
   const filters = {
     assignee: valueOf(params, "assignee") ?? valueOf(params, "owner") ?? "",
     client: valueOf(params, "client") ?? "",
@@ -147,7 +149,6 @@ export default async function ContentPage({ searchParams }: Props) {
             })}
           </div>
           <ContentFiltersBar
-            key={JSON.stringify(filters)}
             filters={filters}
             clientOptions={[
               { value: "", label: "Todos os clientes" },

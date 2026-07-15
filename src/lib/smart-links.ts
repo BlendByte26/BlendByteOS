@@ -61,6 +61,15 @@ export function parseContentStatusParam(value: string | null | undefined) {
   return "";
 }
 
+export function parseContentStatusParams(value: string | string[] | null | undefined): ContentStatus[] {
+  const values = Array.isArray(value) ? value : [value];
+  const statuses = values
+    .map((item) => parseContentStatusParam(item))
+    .filter(Boolean) as ContentStatus[];
+
+  return Array.from(new Set(statuses));
+}
+
 export function parseTaskStatusParam(value: string | null | undefined): TaskStatus | "open" | "" {
   if (!value) return "";
   if (value === "open") return "open";

@@ -4,14 +4,14 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { SlidersHorizontal, RotateCcw } from "lucide-react";
 import { useCallback, useMemo, useState, useTransition } from "react";
 import { DatePicker } from "@/components/date-picker";
-import { SelectField, type SelectOption } from "@/components/select-field";
+import { MultiSelectField, SelectField, type SelectOption } from "@/components/select-field";
 
 type ContentFilterValues = {
   assignee: string;
   client: string;
   month: string;
   publishUntil: string;
-  status: string;
+  status: string[];
   platform: string;
 };
 
@@ -52,7 +52,15 @@ type DashboardControlsProps = {
 const labelClass =
   "grid gap-1 text-xs font-extrabold uppercase text-[var(--bb-muted)]";
 
-function useLiveQueryFilters<T extends Record<string, string>>(initialFilters: T, keys: Array<keyof T>) {
+type FilterValue = string | string[];
+type FilterValues = Record<string, FilterValue>;
+
+function hasFilterValue(value: FilterValue) {
+  if (Array.isArray(value)) return value.length > 0;
+  return Boolean(value);
+}
+
+function useLiveQueryFilters<T extends FilterValues>(initialFilters: T, keys: Array<keyof T>) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -65,17 +73,19 @@ function useLiveQueryFilters<T extends Record<string, string>>(initialFilters: T
 
     keys.forEach((key) => {
       const value = nextFilters[key];
-      if (value) {
+      nextParams.delete(String(key));
+
+      if (Array.isArray(value)) {
+        value.filter(Boolean).forEach((item) => nextParams.append(String(key), item));
+      } else if (value) {
         nextParams.set(String(key), value);
-      } else {
-        nextParams.delete(String(key));
       }
     });
 
     if (keys.some((key) => String(key) === "assignee")) nextParams.delete("owner");
     if (keys.some((key) => String(key) === "publishUntil")) nextParams.delete("until");
     if (keys.some((key) => String(key) === "due")) nextParams.delete("until");
-    if (keys.some((key) => String(key) === "status") && keys.every((key) => !nextFilters[key])) {
+    if (keys.some((key) => String(key) === "status") && keys.every((key) => !hasFilterValue(nextFilters[key]))) {
       nextParams.delete("attention");
     }
 
@@ -85,19 +95,21 @@ function useLiveQueryFilters<T extends Record<string, string>>(initialFilters: T
     });
   }, [keys, pathname, router, searchSnapshot]);
 
-  const updateFilter = useCallback((key: keyof T, value: string, mode: "immediate" | "debounced" = "immediate") => {
+  const updateFilter = useCallback((key: keyof T, value: T[keyof T], mode: "immediate" | "debounced" = "immediate") => {
     const nextFilters = { ...filters, [key]: value };
     setFilters(nextFilters);
     if (mode === "immediate") replaceWith(nextFilters);
   }, [filters, replaceWith]);
 
   const clearFilters = useCallback(() => {
-    const emptyFilters = Object.fromEntries(keys.map((key) => [key, ""])) as T;
+    const emptyFilters = Object.fromEntries(
+      keys.map((key) => [key, Array.isArray(initialFilters[key]) ? [] : ""]),
+    ) as T;
     setFilters(emptyFilters);
     replaceWith(emptyFilters);
-  }, [keys, replaceWith]);
+  }, [initialFilters, keys, replaceWith]);
 
-  const hasActiveFilters = keys.some((key) => Boolean(filters[key]));
+  const hasActiveFilters = keys.some((key) => hasFilterValue(filters[key]));
 
   return { filters, hasActiveFilters, isPending, updateFilter, replaceWith, clearFilters };
 }
@@ -190,11 +202,12 @@ export function ContentFiltersBar({
       </label>
       <label className={`${labelClass} min-w-[170px] flex-1`}>
         Estado
-        <SelectField
+        <MultiSelectField
           name="status"
           value={filters.status}
           onValueChange={(value) => updateFilter("status", value)}
           options={statusOptions}
+          allLabel="Todos os estados"
         />
       </label>
       <label className={`${labelClass} min-w-[140px] flex-1`}>
