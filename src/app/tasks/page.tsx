@@ -13,7 +13,7 @@ import { getClients, getTasks, getTeamMembers, uniqueValues } from "@/lib/data";
 import { taskPriorityLabels, taskStatusLabels } from "@/lib/labels";
 import { parseTaskPriorityParam, parseTaskStatusParam } from "@/lib/smart-links";
 import { isSupabaseConfigured } from "@/lib/supabase";
-import { taskStatuses, type Task } from "@/lib/types";
+import { taskStatuses } from "@/lib/types";
 import { Panel } from "@/components/ui";
 import { requireCurrentOperationalProfile } from "@/lib/auth";
 
@@ -82,12 +82,6 @@ function taskInView(task: Awaited<ReturnType<typeof getTasks>>[number], view: Ta
   return true;
 }
 
-function taskMatchesRequestedStatus(task: Task, status: string) {
-  if (!status) return true;
-  if (status === "open") return !["done", "archived"].includes(task.status);
-  return task.status === status;
-}
-
 function hrefForView(params: Record<string, string | string[] | undefined>, view: TasksView) {
   const nextParams = new URLSearchParams();
 
@@ -117,20 +111,14 @@ export default async function TasksPage({ searchParams }: Props) {
     status: requestedStatus,
     due: valueOf(params, "due") ?? valueOf(params, "until") ?? "",
   };
-  const dataFilters = {
-    ...filters,
-    status: requestedStatus === "open" ? "" : requestedStatus,
-  };
   const [profile, clients, teamMembers, tasksForOptions, filteredTasks] = await Promise.all([
     requireCurrentOperationalProfile(),
     getClients(),
     getTeamMembers(),
     getTasks(),
-    getTasks(dataFilters),
+    getTasks(filters),
   ]);
-  const tasks = filteredTasks.filter(
-    (task) => taskInView(task, currentView) && taskMatchesRequestedStatus(task, requestedStatus),
-  );
+  const tasks = filteredTasks.filter((task) => taskInView(task, currentView));
   const assignees = uniqueValues(tasksForOptions, (task) => task.assignee_name);
   const tableKey = [
     currentView,
@@ -181,7 +169,6 @@ export default async function TasksPage({ searchParams }: Props) {
             ]}
             statusOptions={[
               { value: "", label: "Todos os estados" },
-              { value: "open", label: "Abertas" },
               ...taskStatuses.map((status) => ({ value: status, label: taskStatusLabels[status] })),
             ]}
           />

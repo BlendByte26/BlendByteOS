@@ -128,10 +128,10 @@ export default async function ClientDetailPage({ params }: Props) {
           <OperationalShortcut href={buildContentUrl({ client: client.id, attention: true })}>
             Atenções
           </OperationalShortcut>
-          <OperationalShortcut href={buildTasksUrl({ client: client.id, status: "open" })}>
-            Tarefas abertas
+          <OperationalShortcut href={buildTasksUrl({ client: client.id })}>
+            Tarefas ativas
           </OperationalShortcut>
-          <OperationalShortcut href={buildTasksUrl({ client: client.id, priority: "urgent", status: "open" })}>
+          <OperationalShortcut href={buildTasksUrl({ client: client.id, priority: "urgent" })}>
             Tarefas urgentes
           </OperationalShortcut>
         </div>
@@ -148,7 +148,7 @@ export default async function ClientDetailPage({ params }: Props) {
 
       <Panel>
         <div className="flex flex-col gap-3 border-b border-[var(--bb-border)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <PanelHeader title="Tarefas abertas" />
+          <PanelHeader title="Tarefas ativas" />
           <SecondaryLink href={newTaskHref}>Nova tarefa</SecondaryLink>
         </div>
         {openTasks.length ? (
@@ -204,7 +204,7 @@ export default async function ClientDetailPage({ params }: Props) {
             </table>
           </TableWrap>
         ) : (
-          <EmptyState title="Sem tarefas abertas para este cliente." />
+          <EmptyState title="Sem tarefas ativas para este cliente." />
         )}
       </Panel>
 

@@ -294,10 +294,10 @@ function sortDashboardItems(a: DashboardItem, b: DashboardItem) {
 function taskDashboardItem(task: Task, chip: DashboardItem["chip"] = "Tarefa"): DashboardItem {
   const href =
     task.priority === "urgent"
-      ? buildTasksUrl({ client: task.client_id, priority: "urgent", status: "open" })
+      ? buildTasksUrl({ client: task.client_id, priority: "urgent" })
       : isThisWeek(task.due_date)
-        ? buildTasksUrl({ view: "week", client: task.client_id, status: "open" })
-        : buildTasksUrl({ client: task.client_id, status: "open" });
+        ? buildTasksUrl({ view: "week", client: task.client_id })
+        : buildTasksUrl({ client: task.client_id });
 
   return {
     key: `task-${task.id}`,
@@ -412,7 +412,7 @@ export default async function DashboardPage({ searchParams }: Props) {
     {
       label: "Tarefas urgentes",
       value: activeTasks.filter((task) => task.priority === "urgent").length,
-      href: buildTasksUrl({ priority: "urgent", status: "open" }),
+      href: buildTasksUrl({ priority: "urgent" }),
       tone: activeTasks.some((task) => task.priority === "urgent") ? "warning" : "default",
     },
     {
@@ -616,8 +616,8 @@ function MarketingManagementView({
     urgentTasks.length
       ? {
           title: "Tarefas urgentes",
-          detail: `${urgentTasks.length} abertas`,
-          href: buildTasksUrl({ priority: "urgent", status: "open" }),
+          detail: `${urgentTasks.length} ativas`,
+          href: buildTasksUrl({ priority: "urgent" }),
         }
       : null,
     attentionContent.length
@@ -646,7 +646,7 @@ function MarketingManagementView({
         )}
       </DashboardBlock>
 
-      <DashboardBlock title="Fila de ação" action={<SmallLink href={actionQueue.some((item) => item.source === "task") ? buildTasksUrl({ status: "open" }) : buildContentUrl()}>Ver todos</SmallLink>}>
+      <DashboardBlock title="Fila de ação" action={<SmallLink href={actionQueue.some((item) => item.source === "task") ? buildTasksUrl() : buildContentUrl()}>Ver todos</SmallLink>}>
         {actionQueue.length ? (
           <div className="grid gap-1.5">
             {actionQueue.map((item) => (
@@ -660,7 +660,7 @@ function MarketingManagementView({
 
       <DashboardBlock
         title="Pedidos Invest2030"
-        action={<SmallLink href={buildTasksUrl({ client: investClientId, status: "open" })}>Ver tarefas</SmallLink>}
+        action={<SmallLink href={buildTasksUrl({ client: investClientId })}>Ver tarefas</SmallLink>}
       >
         {hasInvestData ? (
           <div className="grid gap-2">
@@ -668,7 +668,7 @@ function MarketingManagementView({
               <MiniStat label="Pedidos" value={openInvestRequests.length} tone={openInvestRequests.some((request) => request.tasks?.is_blocked || request.information_status !== "Informação completa") ? "warning" : "default"} />
               <MiniStat label="Conteúdos" value={investContent.length} href={buildContentUrl({ client: investClientId })} />
               <MiniStat label="Atenções" value={investAttention.length} href={buildContentUrl({ client: investClientId, attention: true })} tone={investAttention.length ? "warning" : "default"} />
-              <MiniStat label="Tarefas" value={investTasks.length} href={buildTasksUrl({ client: investClientId, status: "open" })} />
+              <MiniStat label="Tarefas" value={investTasks.length} href={buildTasksUrl({ client: investClientId })} />
             </div>
             {openInvestRequests.length ? (
               <div className="grid gap-1.5">

@@ -1,7 +1,7 @@
 import type { ContentStatus, TaskPriority, TaskStatus } from "@/lib/types";
 
 export type ContentStatusSlug = "idea" | "production" | "design" | "ready" | "scheduled" | "archived";
-export type TaskStatusSlug = "pending" | "doing" | "done" | "archived" | "open";
+export type TaskStatusSlug = "pending" | "doing" | "done" | "archived";
 
 const contentStatusBySlug: Record<ContentStatusSlug, ContentStatus> = {
   idea: "idea",
@@ -21,14 +21,14 @@ const contentSlugByStatus: Record<ContentStatus, ContentStatusSlug> = {
   archived: "archived",
 };
 
-const taskStatusBySlug: Record<Exclude<TaskStatusSlug, "open">, TaskStatus> = {
+const taskStatusBySlug: Record<TaskStatusSlug, TaskStatus> = {
   pending: "pending",
   doing: "in_progress",
   done: "done",
   archived: "archived",
 };
 
-const taskSlugByStatus: Record<TaskStatus, Exclude<TaskStatusSlug, "open">> = {
+const taskSlugByStatus: Record<TaskStatus, TaskStatusSlug> = {
   pending: "pending",
   in_progress: "doing",
   done: "done",
@@ -70,10 +70,9 @@ export function parseContentStatusParams(value: string | string[] | null | undef
   return Array.from(new Set(statuses));
 }
 
-export function parseTaskStatusParam(value: string | null | undefined): TaskStatus | "open" | "" {
+export function parseTaskStatusParam(value: string | null | undefined): TaskStatus | "" {
   if (!value) return "";
-  if (value === "open") return "open";
-  if (value in taskStatusBySlug) return taskStatusBySlug[value as Exclude<TaskStatusSlug, "open">];
+  if (value in taskStatusBySlug) return taskStatusBySlug[value as TaskStatusSlug];
   if (Object.values(taskStatusBySlug).includes(value as TaskStatus)) return value as TaskStatus;
   return "";
 }
@@ -135,7 +134,7 @@ export function buildTasksUrl({
   until?: string | null;
 } = {}) {
   const statusValue =
-    status && status !== "open" && Object.values(taskStatusBySlug).includes(status as TaskStatus)
+    status && Object.values(taskStatusBySlug).includes(status as TaskStatus)
       ? taskStatusToSlug(status as TaskStatus)
       : status;
 
