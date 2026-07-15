@@ -742,7 +742,7 @@ export function TaskForm({
         </label>
         <label className={labelClass}>
           Estado
-          <SelectField name="status" defaultValue={task?.status ?? "todo"} options={optionList(taskStatuses, taskStatusLabels)} />
+          <SelectField name="status" defaultValue={task?.status ?? "pending"} options={optionList(taskStatuses, taskStatusLabels)} />
         </label>
         <label className={labelClass}>
           Prioridade

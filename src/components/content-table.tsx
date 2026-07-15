@@ -6,7 +6,7 @@ import { Archive, Copy, Pencil, Trash2 } from "lucide-react";
 import { ClientBadge } from "@/components/client-badge";
 import { ContentEditModal, type ContentEditingState } from "@/components/content-edit-modal";
 import { ContentStatusControl } from "@/components/content-status-control";
-import { EmptyState, ExternalLink, Panel, TableWrap } from "@/components/ui";
+import { EmptyState, Panel, TableWrap } from "@/components/ui";
 import { displayContentPlatform } from "@/lib/content-platform";
 import { getClientVisualToken } from "@/lib/client-visuals";
 import { cleanPrefixedTitle } from "@/lib/title-display";
@@ -101,7 +101,7 @@ function PreviewCell({
   }
 
   return (
-    <div className="flex max-w-[180px] items-start gap-1.5">
+    <div className="flex max-w-[240px] items-start gap-1.5">
       <button
         type="button"
         onClick={onOpen}
@@ -247,32 +247,22 @@ export function ContentTable({
         ) : null}
         {localItems.length ? (
           <TableWrap>
-            <table className="bb-sticky-actions-table w-full min-w-[1260px] table-auto text-left text-sm">
+            <table className="bb-sticky-actions-table w-full min-w-[1040px] table-auto text-left text-sm">
               <thead className="bg-[rgba(246,248,250,0.9)] text-xs uppercase text-[var(--bb-muted)]">
                 <tr>
-                  <th className="px-4 py-4 font-extrabold">Pub.</th>
-                  <th className="px-4 py-4 font-extrabold">Cliente</th>
-                  <th className="px-4 py-4 font-extrabold">Plataforma</th>
-                  <th className="px-4 py-4 font-extrabold">Formato</th>
-                  <th className="min-w-[220px] px-4 py-4 font-extrabold">Título</th>
-                  <th className="px-4 py-4 font-extrabold">Brief</th>
-                  <th className="px-4 py-4 font-extrabold">Copy</th>
-                  <th className="px-4 py-4 font-extrabold">Descrição</th>
+                  <th className="w-[92px] px-4 py-4 font-extrabold">Pub.</th>
+                  <th className="min-w-[170px] px-4 py-4 font-extrabold">Cliente</th>
+                  <th className="w-[140px] px-4 py-4 font-extrabold">Plataforma</th>
+                  <th className="w-[140px] px-4 py-4 font-extrabold">Formato</th>
+                  <th className="min-w-[280px] px-4 py-4 font-extrabold">Título</th>
+                  <th className="min-w-[210px] px-4 py-4 font-extrabold">Copy</th>
+                  <th className="min-w-[210px] px-4 py-4 font-extrabold">Descrição</th>
                   <th className="min-w-[190px] px-4 py-4 font-extrabold">Estado</th>
-                  <th className="px-4 py-4 font-extrabold">Owner</th>
-                  <th className="px-4 py-4 font-extrabold">Links</th>
                   <th className="bb-actions-col sticky right-0 px-2 py-4 font-extrabold">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--bb-border)]">
                 {localItems.map((item) => {
-                  const links = [
-                    { href: item.brief_url, label: "Briefing" },
-                    { href: item.media_folder_url, label: "Media" },
-                    { href: item.figma_url, label: "Figma" },
-                    { href: item.export_url, label: "Export" },
-                    { href: item.published_url, label: "Publicação" },
-                  ].filter((link): link is { href: string; label: string } => Boolean(link.href));
                   const clientToken = getClientVisualToken({
                     clientCode: item.clients?.client_code,
                     clientName: item.clients?.name,
@@ -283,7 +273,7 @@ export function ContentTable({
                   return (
                     <tr key={item.id} className={item.is_blocked ? "bg-[var(--bb-red-soft)]" : "odd:bg-white/18"}>
                       <td className={`border-l-4 px-4 py-4 font-medium whitespace-nowrap text-[var(--bb-muted)] ${clientToken.borderStrong}`}>{formatPublishDateTime(item)}</td>
-                      <td className="max-w-56 px-4 py-4">
+                      <td className="max-w-[210px] px-4 py-4">
                         {item.clients ? (
                           <ClientBadge
                             clientId={item.clients.id}
@@ -299,7 +289,7 @@ export function ContentTable({
                       </td>
                       <td className="px-4 py-4 font-medium text-[var(--bb-muted)]">{displayContentPlatform(item.platform)}</td>
                       <td className="px-4 py-4 font-medium text-[var(--bb-muted)]">{item.format ?? "-"}</td>
-                      <td className="max-w-[260px] px-4 py-4 font-bold text-[var(--bb-charcoal)]">
+                      <td className="max-w-[340px] px-4 py-4 font-bold text-[var(--bb-charcoal)]">
                         <button
                           type="button"
                           onClick={() => setEditing({ item, section: "general" })}
@@ -317,9 +307,6 @@ export function ContentTable({
                         ) : null}
                       </td>
                       <td className="px-4 py-4">
-                        <PreviewCell text={item.creative_brief} label="Brief" copyLabel="brief" onOpen={() => setEditing({ item, section: "brief" })} />
-                      </td>
-                      <td className="px-4 py-4">
                         <PreviewCell text={item.copy_text} label="Copy" copyLabel="copy" onOpen={() => setEditing({ item, section: "copy" })} />
                       </td>
                       <td className="px-4 py-4">
@@ -333,12 +320,6 @@ export function ContentTable({
                           updateStatusAction={updateStatusAction}
                           className="w-52"
                         />
-                      </td>
-                      <td className="px-4 py-4 font-medium text-[var(--bb-muted)]">{item.assignee_name ?? "-"}</td>
-                      <td className="px-4 py-4">
-                        <div className="flex max-w-56 flex-wrap gap-1.5">
-                          {links.length ? links.map((link) => <ExternalLink key={`${item.id}-${link.label}`} href={link.href} label={link.label} />) : <span className="text-xs font-bold text-[var(--bb-muted)]">—</span>}
-                        </div>
                       </td>
                       <td className="bb-actions-col sticky right-0 px-2 py-4">
                         <div className="bb-actions-row">

@@ -31,7 +31,7 @@ export const contentStatusLabels: Record<ContentStatus, string> = {
 };
 
 export const taskStatusLabels: Record<TaskStatus, string> = {
-  todo: "A fazer",
+  pending: "Pendente",
   in_progress: "Em curso",
   done: "Feito",
   archived: "Arquivado",
@@ -55,6 +55,7 @@ export const taskPriorityLabels: Record<TaskPriority, string> = {
 export const statusTone: Record<string, string> = {
   idea: "bg-[var(--bb-primary-soft)] text-[var(--bb-black)] ring-[rgba(83,183,223,0.28)]",
   todo: "bg-[rgba(0,0,0,0.05)] text-[var(--bb-black)] ring-[rgba(0,0,0,0.08)]",
+  pending: "bg-[rgba(0,0,0,0.05)] text-[var(--bb-black)] ring-[rgba(0,0,0,0.08)]",
   in_progress: "bg-[var(--bb-secondary-soft)] text-[var(--bb-black)] ring-[rgba(140,101,199,0.24)]",
   review: "bg-[var(--bb-secondary-soft)] text-[var(--bb-black)] ring-[rgba(140,101,199,0.24)]",
   approved: "bg-[var(--bb-yellow-soft)] text-[var(--bb-black)] ring-[rgba(236,254,84,0.5)]",

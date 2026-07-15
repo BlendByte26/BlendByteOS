@@ -45,7 +45,7 @@ exception when duplicate_object then null;
 end $$;
 
 do $$ begin
-  create type task_status as enum ('todo', 'in_progress', 'done', 'archived');
+  create type task_status as enum ('pending', 'in_progress', 'done', 'archived');
 exception when duplicate_object then null;
 end $$;
 
@@ -196,7 +196,7 @@ create table if not exists public.tasks (
   client_id uuid references public.clients(id) on delete set null,
   title text not null,
   type task_type not null default 'operations',
-  status task_status not null default 'todo',
+  status task_status not null default 'pending',
   priority task_priority not null default 'normal',
   assignee_name text,
   due_date date,
@@ -781,7 +781,7 @@ on conflict (client_id, month, title) do nothing;
 
 insert into public.tasks
   (client_id, title, type, status, priority, assignee_name, due_date, related_url, notes)
-select id, name || ': rever calendário de julho', 'operations', 'todo', 'normal', owner_name, date '2026-07-01', google_drive_url, null
+select id, name || ': rever calendário de julho', 'operations', 'pending', 'normal', owner_name, date '2026-07-01', google_drive_url, null
 from public.clients
 where client_code in ('00_BB', '01_GI', '02_I2030', '08_CAT')
 on conflict (client_id, title) do nothing;

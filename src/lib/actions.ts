@@ -400,7 +400,7 @@ export async function createClientAction(formData: FormData): Promise<CreateClie
             client_id: data.id,
             title,
             type: "operations" as TaskType,
-            status: "todo" as TaskStatus,
+            status: "pending" as TaskStatus,
             priority: initialTaskPriority(title),
             assignee_name: data.owner_name,
             due_date: null,
@@ -1104,7 +1104,7 @@ async function sendTaskToDesign(id: string, designerProfileKey?: string | null) 
     .from("tasks")
     .update({
       assignee_name: designer.name,
-      status: "todo" as TaskStatus,
+      status: "pending" as TaskStatus,
       priority: priority as TaskPriority,
       notes: appendDesignHandoffNote(task.notes, profile.name, designer.name, new Date()),
     })
@@ -1730,7 +1730,7 @@ export async function createInvest2030RequestAction(
         client_id: clientId,
         title: `[Invest2030] ${actionType} — ${campaignName}`,
         type: "operations" as TaskType,
-        status: "todo" as TaskStatus,
+        status: "pending" as TaskStatus,
         priority: needsAttention ? ("urgent" as TaskPriority) : ("normal" as TaskPriority),
         assignee_name: assigneeName,
         due_date: period.dueDate,

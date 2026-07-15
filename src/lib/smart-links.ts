@@ -1,7 +1,7 @@
 import type { ContentStatus, TaskPriority, TaskStatus } from "@/lib/types";
 
 export type ContentStatusSlug = "idea" | "production" | "design" | "ready" | "scheduled" | "archived";
-export type TaskStatusSlug = "todo" | "doing" | "done" | "archived" | "open";
+export type TaskStatusSlug = "pending" | "doing" | "done" | "archived" | "open";
 
 const contentStatusBySlug: Record<ContentStatusSlug, ContentStatus> = {
   idea: "idea",
@@ -22,14 +22,14 @@ const contentSlugByStatus: Record<ContentStatus, ContentStatusSlug> = {
 };
 
 const taskStatusBySlug: Record<Exclude<TaskStatusSlug, "open">, TaskStatus> = {
-  todo: "todo",
+  pending: "pending",
   doing: "in_progress",
   done: "done",
   archived: "archived",
 };
 
 const taskSlugByStatus: Record<TaskStatus, Exclude<TaskStatusSlug, "open">> = {
-  todo: "todo",
+  pending: "pending",
   in_progress: "doing",
   done: "done",
   archived: "archived",

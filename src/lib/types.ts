@@ -35,7 +35,7 @@ export const contentStatuses = [
   "published",
   "archived",
 ] as const;
-export const taskStatuses = ["todo", "in_progress", "done", "archived"] as const;
+export const taskStatuses = ["pending", "in_progress", "done", "archived"] as const;
 export const taskTypes = [
   "design",
   "copy",

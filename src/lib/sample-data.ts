@@ -151,7 +151,7 @@ export const sampleTasks: Task[] = sampleClients.slice(1, 7).map(
     type: ["design", "copy", "publishing", "reporting", "operations", "other"][
       index
     ] as Task["type"],
-    status: ["todo", "in_progress", "done", "archived", "todo", "in_progress"][
+    status: ["pending", "in_progress", "done", "archived", "pending", "in_progress"][
       index
     ] as Task["status"],
     priority: ["normal", "urgent", "normal", "normal", "urgent", "normal"][

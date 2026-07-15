@@ -54,7 +54,7 @@ type DashboardItem = {
 };
 
 const activeContentStatuses = ["idea", "todo", "in_progress", "ready_to_publish"];
-const activeTaskStatuses = ["todo", "in_progress"];
+const activeTaskStatuses = ["pending", "in_progress"];
 const prepareContentStatuses = ["todo", "in_progress"];
 const priorityOrder = { urgent: 0, normal: 1, low: 2 };
 const QUEUE_LIMIT = 5;
