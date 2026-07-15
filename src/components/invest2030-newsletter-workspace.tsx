@@ -6,7 +6,6 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowUp,
-  Calendar,
   CheckCircle2,
   Clipboard,
   Download,
@@ -14,10 +13,8 @@ import {
   Eye,
   FileText,
   Monitor,
-  MoreHorizontal,
   Pencil,
   Save,
-  Send,
   Smartphone,
   Trash2,
   Upload,
@@ -43,7 +40,7 @@ type SaveAction = (
   formData: FormData,
 ) => Promise<NewsletterMutationResult>;
 type FormAction = (formData: FormData) => void | Promise<void>;
-type TabKey = "summary" | "edit" | "request" | "import" | "schedule";
+type TabKey = "summary" | "edit" | "request" | "import";
 type AccordionKey = "hero" | "stats" | "intro" | "benefits" | "audience" | "closing";
 
 type Props = {
@@ -79,7 +76,6 @@ const tabs: Array<{ key: TabKey; label: string; icon: React.ReactNode }> = [
   { key: "edit", label: "Editar conteúdo", icon: <Pencil className="size-4" aria-hidden="true" /> },
   { key: "request", label: "Pedido original", icon: <FileText className="size-4" aria-hidden="true" /> },
   { key: "import", label: "Gerar/importar conteúdo", icon: <Upload className="size-4" aria-hidden="true" /> },
-  { key: "schedule", label: "Agendamento", icon: <Calendar className="size-4" aria-hidden="true" /> },
 ];
 
 function ButtonShell({
@@ -161,9 +157,7 @@ export function Invest2030NewsletterWorkspace({
   newsletter,
   gptUrl,
   saveAction,
-  markScheduledAction,
   markExportedAction,
-  markSentAction,
 }: Props) {
   const initialContent = newsletter?.content_json ?? initialInvest2030NewsletterContent(parsedRequest);
   const [content, setContent] = useState<Invest2030NewsletterContent>(initialContent);
@@ -262,16 +256,6 @@ export function Invest2030NewsletterWorkspace({
     saveFormRef.current?.requestSubmit();
   }
 
-  function resetDraft() {
-    setContent(initialInvest2030NewsletterContent(parsedRequest));
-    setHasImported(false);
-    setJsonInput("");
-    setJsonError(null);
-    setNotice("Novo rascunho iniciado. Guarde para persistir.");
-    setActiveTab("import");
-    setOpenAccordion("hero");
-  }
-
   async function copyBriefing() {
     await navigator.clipboard.writeText(buildInvest2030GptBriefing(parsedRequest));
     setNotice("Briefing copiado para o GPT.");
@@ -353,27 +337,6 @@ export function Invest2030NewsletterWorkspace({
               <ArrowLeft className="size-4" aria-hidden="true" />
               Voltar à tarefa
             </Link>
-            <ButtonShell onClick={submitSave} tone="primary" disabled={saving || !hasImported}>
-              <Save className="size-4" aria-hidden="true" />
-              Guardar rascunho
-            </ButtonShell>
-            <details className="relative">
-              <summary
-                aria-label="Menu secundário"
-                className="grid min-h-10 cursor-pointer list-none place-items-center rounded-full border border-[var(--bb-border)] bg-white/75 px-3 text-[var(--bb-charcoal)] transition hover:bg-[var(--bb-primary-soft)] [&::-webkit-details-marker]:hidden"
-              >
-                <MoreHorizontal className="size-5" aria-hidden="true" />
-              </summary>
-              <div className="absolute right-0 top-12 z-40 w-48 rounded-[16px] border border-[var(--bb-border)] bg-white p-2 shadow-[0_18px_48px_rgba(0,0,0,0.16)]">
-                <button
-                  type="button"
-                  onClick={resetDraft}
-                  className="w-full rounded-xl px-3 py-2 text-left text-sm font-extrabold text-[var(--bb-charcoal)] transition hover:bg-[var(--bb-primary-soft)]"
-                >
-                  Novo rascunho
-                </button>
-              </div>
-            </details>
           </div>
         </div>
         {saveState.message || notice ? (
@@ -443,7 +406,6 @@ export function Invest2030NewsletterWorkspace({
           onEdit={() => setActiveTab("edit")}
           onCopyHtml={copyHtml}
           onDownloadHtml={downloadHtml}
-          onSchedule={() => setActiveTab("schedule")}
         />
       ) : null}
 
@@ -472,17 +434,9 @@ export function Invest2030NewsletterWorkspace({
         />
       ) : null}
 
-      {activeTab === "schedule" && hasImported ? (
-        <ScheduleTab
-          newsletter={newsletter}
-          markScheduledAction={markScheduledAction}
-          markSentAction={markSentAction}
-        />
-      ) : null}
-
       {activeTab === "summary" && hasImported ? (
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--bb-border)] bg-[rgba(247,245,239,0.96)] p-3 shadow-[0_-12px_30px_rgba(0,0,0,0.1)] backdrop-blur md:hidden">
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <ButtonShell onClick={() => setImportModalOpen(true)} className="px-2 text-xs">
               <Upload className="size-4" aria-hidden="true" />
               Importar
@@ -490,10 +444,6 @@ export function Invest2030NewsletterWorkspace({
             <ButtonShell onClick={copyHtml} tone="primary" disabled={validation.blockers.length > 0} className="px-2 text-xs">
               <Clipboard className="size-4" aria-hidden="true" />
               Copiar
-            </ButtonShell>
-            <ButtonShell onClick={() => setActiveTab("schedule")} className="px-2 text-xs">
-              <Calendar className="size-4" aria-hidden="true" />
-              Agendar
             </ButtonShell>
           </div>
         </div>
@@ -542,7 +492,6 @@ function SummaryTab({
   onEdit,
   onCopyHtml,
   onDownloadHtml,
-  onSchedule,
 }: {
   content: Invest2030NewsletterContent;
   linkStatus: string;
@@ -561,7 +510,6 @@ function SummaryTab({
   onEdit: () => void;
   onCopyHtml: () => void;
   onDownloadHtml: () => void;
-  onSchedule: () => void;
 }) {
   return (
     <div className="grid gap-4">
@@ -667,10 +615,6 @@ function SummaryTab({
               <ButtonShell onClick={onDownloadHtml} disabled={validation.blockers.length > 0}>
                 <Download className="size-4" aria-hidden="true" />
                 Descarregar HTML
-              </ButtonShell>
-              <ButtonShell onClick={onSchedule}>
-                <Calendar className="size-4" aria-hidden="true" />
-                Ir para agendamento
               </ButtonShell>
             </div>
           </section>
@@ -1007,61 +951,6 @@ function TaskMetric({ label, value }: { label: string; value: string }) {
       <div className="text-[11px] font-extrabold uppercase text-[var(--bb-muted)]">{label}</div>
       <div className="mt-1 break-words text-sm font-bold leading-5 text-[var(--bb-charcoal)]">{value || "-"}</div>
     </div>
-  );
-}
-
-function ScheduleTab({
-  newsletter,
-  markScheduledAction,
-  markSentAction,
-}: {
-  newsletter: Invest2030Newsletter | null;
-  markScheduledAction: FormAction;
-  markSentAction: () => void | Promise<void>;
-}) {
-  return (
-    <section className={`${panelClass} max-w-3xl`}>
-      <h2 className="mb-3 text-base font-extrabold text-[var(--bb-charcoal)]">Agendamento</h2>
-      {newsletter?.scheduled_at ? (
-        <div className="mb-4 rounded-[16px] bg-[var(--bb-green-soft)] px-3 py-2 text-sm font-bold text-[var(--bb-charcoal)]">
-          Campanha agendada para: {new Date(newsletter.scheduled_at).toLocaleString("pt-PT")}
-          {newsletter.scheduled_by ? (
-            <span className="mt-1 block text-xs text-[var(--bb-muted)]">
-              Registado por {newsletter.scheduled_by}
-              {newsletter.scheduled_recorded_at ? ` em ${new Date(newsletter.scheduled_recorded_at).toLocaleString("pt-PT")}` : ""}
-            </span>
-          ) : null}
-        </div>
-      ) : (
-        <div className="mb-4 rounded-[16px] bg-white/70 px-3 py-2 text-sm font-bold text-[var(--bb-muted)]">
-          Ainda sem agendamento registado.
-        </div>
-      )}
-      <form action={markScheduledAction} className="grid gap-3">
-        <div className="grid gap-2 md:grid-cols-2">
-          <label className={labelClass}>
-            Data
-            <input name="scheduled_date" type="date" required className={inputClass} />
-          </label>
-          <label className={labelClass}>
-            Hora
-            <input name="scheduled_time" type="time" required className={inputClass} />
-          </label>
-        </div>
-        <label className={labelClass}>
-          Observação
-          <textarea name="scheduled_note" className={`${textareaClass} min-h-20`} placeholder="Observação opcional" />
-        </label>
-        <ButtonShell type="submit" tone="primary" disabled={!newsletter}>
-          <Send className="size-4" aria-hidden="true" />
-          Marcar como agendada
-        </ButtonShell>
-        {!newsletter ? <div className="text-xs font-bold text-[var(--bb-muted)]">Guarde o rascunho antes de agendar.</div> : null}
-      </form>
-      <form action={markSentAction} className="mt-3">
-        <ButtonShell type="submit" disabled={!newsletter || newsletter.status === "sent"}>Marcar como enviada</ButtonShell>
-      </form>
-    </section>
   );
 }
 
