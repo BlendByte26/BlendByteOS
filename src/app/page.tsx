@@ -900,7 +900,7 @@ function Invest2030RequestMiniItem({ request }: { request: Invest2030Request }) 
           </div>
         </div>
         <div className="flex shrink-0 flex-wrap justify-end gap-1">
-          {request.tasks ? <Badge value={request.tasks.status} label={taskStatusLabels[request.tasks.status]} /> : null}
+          {request.tasks ? <Badge value={request.tasks.status} label={taskStatusLabels[request.tasks.status]} statusKind="task" /> : null}
           {needsAttention ? <Badge value="blocked" label="Atenção" /> : null}
         </div>
       </div>
@@ -1042,11 +1042,11 @@ function QueueItem({
   const statusBadge =
     item.source === "task" && item.task ? (
       <>
-        <Badge value={item.task.status} label={taskStatusLabels[item.task.status]} />
+        <Badge value={item.task.status} label={taskStatusLabels[item.task.status]} statusKind="task" />
         <Badge value={item.task.priority} label={taskPriorityLabels[item.task.priority]} />
       </>
     ) : item.content ? (
-      <Badge value={item.content.status} label={contentStatusLabels[item.content.status]} />
+      <Badge value={item.content.status} label={contentStatusLabels[item.content.status]} statusKind="content" />
     ) : null;
   const clientToken = getClientVisualToken({
     clientCode: client?.client_code,
@@ -1133,7 +1133,7 @@ function TaskCard({
           ) : null}
         </div>
         <div className="flex shrink-0 flex-wrap justify-end gap-1">
-          <Badge value={task.status} label={taskStatusLabels[task.status]} />
+          <Badge value={task.status} label={taskStatusLabels[task.status]} statusKind="task" />
           <Badge value={task.priority} label={taskPriorityLabels[task.priority]} />
         </div>
       </div>
@@ -1201,7 +1201,7 @@ function ContentCard({
           ) : null}
           {note ? <div className="bb-line-clamp-2 mt-1 text-xs font-bold text-[var(--bb-muted)]">Atenção: {note}</div> : null}
         </div>
-        <Badge value={item.status} label={contentStatusLabels[item.status]} />
+        <Badge value={item.status} label={contentStatusLabels[item.status]} statusKind="content" />
       </div>
       <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-[var(--bb-muted)]">
         <span>Responsável: {item.assignee_name ?? "-"}</span>

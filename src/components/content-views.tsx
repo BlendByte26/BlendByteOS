@@ -12,6 +12,7 @@ import { Badge, EmptyState } from "@/components/ui";
 import { displayContentPlatform } from "@/lib/content-platform";
 import { getClientVisualToken } from "@/lib/client-visuals";
 import { contentStatusLabels } from "@/lib/labels";
+import { getContentStatusStyle } from "@/lib/status-styles";
 import { cleanPrefixedTitle } from "@/lib/title-display";
 import type { AuthenticatedOperationalProfile } from "@/lib/auth";
 import { contentStatuses, type Client, type ContentComment, type ContentItem, type ContentStatus, type TeamMember } from "@/lib/types";
@@ -483,7 +484,7 @@ function ContentMiniCard({
       </div>
 
       <div className="mt-2">
-        <Badge value={item.status} label={contentStatusLabels[item.status]} />
+        <Badge value={item.status} label={contentStatusLabels[item.status]} statusKind="content" />
       </div>
 
       <h3 className="mt-1.5 text-sm font-extrabold leading-5 text-[var(--bb-charcoal)]">
@@ -565,15 +566,17 @@ export function ContentPipelineView({
         <div className="grid min-w-[1680px] grid-cols-6 gap-3 px-1">
           {contentStatuses.map((status) => {
             const statusItems = items.filter((item) => item.status === status).sort(sortByPublishDate);
+            const statusStyle = getContentStatusStyle(status);
 
             return (
               <section
                 key={status}
                 className="min-w-0 rounded-lg border border-[var(--bb-border)] bg-white/48 p-3 shadow-[0_12px_34px_rgba(0,0,0,0.05)]"
               >
-                <div className="mb-2.5 flex items-center justify-between gap-3">
-                  <h2 className="bb-line-clamp-2 text-sm font-extrabold leading-5 text-[var(--bb-charcoal)]">
-                    {contentStatusLabels[status]}
+                <div className={`mb-2.5 flex items-center justify-between gap-3 rounded-md border px-2 py-1.5 ${statusStyle.subtleBackground} ${statusStyle.subtleBorder}`}>
+                  <h2 className="bb-line-clamp-2 flex min-w-0 items-center gap-2 text-sm font-extrabold leading-5 text-[var(--bb-charcoal)]">
+                    <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${statusStyle.dot}`} />
+                    <span className="min-w-0">{contentStatusLabels[status]}</span>
                   </h2>
                   <span className="rounded-full bg-white/78 px-2 py-0.5 text-xs font-extrabold text-[var(--bb-muted)] ring-1 ring-[var(--bb-border)]">
                     {statusItems.length}
@@ -623,6 +626,7 @@ function capitalize(value: string) {
 
 function MonthEvent({ item }: { item: ContentItem }) {
   const time = formatTime(item.publish_time);
+  const statusStyle = getContentStatusStyle(item.status);
   const clientToken = getClientVisualToken({
     clientCode: item.clients?.client_code,
     clientName: item.clients?.name,
@@ -642,7 +646,11 @@ function MonthEvent({ item }: { item: ContentItem }) {
         <span className="truncate">{contentTitle(item)}</span>
       </div>
       <div className="truncate pl-3 text-[10px] font-bold leading-3 text-[var(--bb-muted)]">
-        {clientLabel(item)} · {displayContentPlatform(item.platform)} · {contentStatusLabels[item.status]}
+        <span>{clientLabel(item)} · {displayContentPlatform(item.platform)} · </span>
+        <span className="inline-flex items-center gap-1">
+          <span aria-hidden="true" className={`size-1.5 rounded-full ${statusStyle.dot}`} />
+          {contentStatusLabels[item.status]}
+        </span>
       </div>
     </Link>
   );
@@ -669,7 +677,7 @@ function AgendaItem({ item, compact = false }: { item: ContentItem; compact?: bo
         >
           <span className="bb-line-clamp-2">{contentTitle(item)}</span>
         </Link>
-        <Badge value={item.status} label={contentStatusLabels[item.status]} />
+        <Badge value={item.status} label={contentStatusLabels[item.status]} statusKind="content" />
       </div>
       <div className="flex flex-wrap gap-x-2 gap-y-1 text-[11px] font-bold text-[var(--bb-muted)]">
         <span>{clientLabel(item)}</span>
@@ -690,6 +698,7 @@ function AgendaItem({ item, compact = false }: { item: ContentItem; compact?: bo
 }
 
 function UnscheduledItem({ item }: { item: ContentItem }) {
+  const statusStyle = getContentStatusStyle(item.status);
   const clientToken = getClientVisualToken({
     clientCode: item.clients?.client_code,
     clientName: item.clients?.name,
@@ -704,7 +713,11 @@ function UnscheduledItem({ item }: { item: ContentItem }) {
     >
       <div className="truncate text-xs font-extrabold text-[var(--bb-charcoal)]">{contentTitle(item)}</div>
       <div className="mt-0.5 truncate text-[11px] font-bold text-[var(--bb-muted)]">
-        {clientLabel(item)} · {displayContentPlatform(item.platform)} · {contentStatusLabels[item.status]}
+        <span>{clientLabel(item)} · {displayContentPlatform(item.platform)} · </span>
+        <span className="inline-flex items-center gap-1">
+          <span aria-hidden="true" className={`size-1.5 rounded-full ${statusStyle.dot}`} />
+          {contentStatusLabels[item.status]}
+        </span>
       </div>
     </Link>
   );

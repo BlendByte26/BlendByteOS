@@ -20,6 +20,7 @@ import { getClients, getContentItems, getTeamMembers, uniqueValues } from "@/lib
 import { contentStatusLabels } from "@/lib/labels";
 import { requireCurrentOperationalProfile } from "@/lib/auth";
 import { parseContentStatusParams } from "@/lib/smart-links";
+import { contentStatusTones } from "@/lib/status-styles";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import type { ContentItem } from "@/lib/types";
 import { contentStatuses } from "@/lib/types";
@@ -164,7 +165,11 @@ export default async function ContentPage({ searchParams }: Props) {
             ]}
             statusOptions={[
               { value: "", label: "Todos os estados" },
-              ...contentStatuses.map((status) => ({ value: status, label: contentStatusLabels[status] })),
+              ...contentStatuses.map((status) => ({
+                value: status,
+                label: contentStatusLabels[status],
+                tone: contentStatusTones[status],
+              })),
             ]}
             platformOptions={[
               { value: "", label: "Todas as plataformas" },

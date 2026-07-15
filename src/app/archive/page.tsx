@@ -37,7 +37,7 @@ export default async function ArchivePage() {
                         {cleanPrefixedTitle(item.title, item.clients)}
                       </td>
                       <td className="px-4 py-3">
-                        <Badge value={item.status} label={contentStatusLabels[item.status]} />
+                        <Badge value={item.status} label={contentStatusLabels[item.status]} statusKind="content" />
                       </td>
                       <td className="px-4 py-3">
                         {item.published_url ? (
@@ -82,7 +82,7 @@ export default async function ArchivePage() {
                       </td>
                       <td className="px-4 py-3 text-[var(--bb-muted)]">{task.assignee_name ?? "-"}</td>
                       <td className="px-4 py-3">
-                        <Badge value={task.status} label={taskStatusLabels[task.status]} />
+                        <Badge value={task.status} label={taskStatusLabels[task.status]} statusKind="task" />
                       </td>
                     </tr>
                   ))}

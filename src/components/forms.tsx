@@ -27,6 +27,7 @@ import {
   type Task,
   type TeamMember,
 } from "@/lib/types";
+import { contentStatusTones, taskStatusTones } from "@/lib/status-styles";
 
 type ContentActionResult = void | { ok: false; message: string };
 type FormAction = (formData: FormData) => void | Promise<void>;
@@ -69,6 +70,18 @@ function optionList<T extends readonly string[]>(
     label: labels[value],
   }));
 }
+
+const contentStatusOptions: SelectOption[] = contentStatuses.map((status) => ({
+  value: status,
+  label: contentStatusLabels[status],
+  tone: contentStatusTones[status],
+}));
+
+const taskStatusOptions: SelectOption[] = taskStatuses.map((status) => ({
+  value: status,
+  label: taskStatusLabels[status],
+  tone: taskStatusTones[status],
+}));
 
 function splitAssignees(value: string | null | undefined) {
   return value
@@ -585,7 +598,7 @@ export function ContentForm({
         </label>
         <label className={labelClass}>
           Estado
-          <SelectField name="status" defaultValue={item?.status ?? "idea"} options={optionList(contentStatuses, contentStatusLabels)} />
+          <SelectField name="status" defaultValue={item?.status ?? "idea"} options={contentStatusOptions} />
         </label>
       </div>
       <div className="grid gap-4 md:grid-cols-4">
@@ -742,7 +755,7 @@ export function TaskForm({
         </label>
         <label className={labelClass}>
           Estado
-          <SelectField name="status" defaultValue={task?.status ?? "pending"} options={optionList(taskStatuses, taskStatusLabels)} />
+          <SelectField name="status" defaultValue={task?.status ?? "pending"} options={taskStatusOptions} />
         </label>
         <label className={labelClass}>
           Prioridade

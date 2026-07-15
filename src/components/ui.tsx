@@ -2,7 +2,8 @@ import Link from "next/link";
 import { CheckCircle2, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { getClientInitials } from "@/lib/client-display";
 import { statusTone } from "@/lib/labels";
-import type { Client } from "@/lib/types";
+import { getContentStatusStyle, getTaskStatusStyle } from "@/lib/status-styles";
+import type { Client, ContentStatus, TaskStatus } from "@/lib/types";
 
 export function PageHeader({
   title,
@@ -53,13 +54,31 @@ export function SecondaryLink({ href, children }: { href: string; children: Reac
   );
 }
 
-export function Badge({ value, label }: { value: string; label: string }) {
+export function Badge({
+  value,
+  label,
+  statusKind,
+}: {
+  value: string;
+  label: string;
+  statusKind?: "task" | "content";
+}) {
+  const statusStyle =
+    statusKind === "task"
+      ? getTaskStatusStyle(value as TaskStatus)
+      : statusKind === "content"
+        ? getContentStatusStyle(value as ContentStatus)
+        : null;
+
   return (
     <span
-      className={`inline-flex min-h-7 items-center rounded-full px-2.5 text-xs font-bold ring-1 ring-inset ${
-        statusTone[value] ?? "bg-zinc-100 text-zinc-700 ring-zinc-200"
+      className={`inline-flex min-h-7 items-center gap-1.5 rounded-full px-2.5 text-xs font-bold ${
+        statusStyle
+          ? `border ${statusStyle.pill}`
+          : `ring-1 ring-inset ${statusTone[value] ?? "bg-zinc-100 text-zinc-700 ring-zinc-200"}`
       } whitespace-nowrap`}
     >
+      {statusStyle ? <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${statusStyle.dot}`} /> : null}
       {label}
     </span>
   );

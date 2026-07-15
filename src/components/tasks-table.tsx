@@ -14,6 +14,7 @@ import { getClientVisualToken } from "@/lib/client-visuals";
 import { taskPriorityLabels, taskStatusLabels } from "@/lib/labels";
 import { parseLinksFormData } from "@/lib/links";
 import { isInvest2030NewsletterTask } from "@/lib/invest2030-newsletter";
+import { taskStatusTones } from "@/lib/status-styles";
 import {
   designProfiles,
   isDesignAssigneeName,
@@ -219,6 +220,7 @@ function TaskStatusControl({
         options={taskStatuses.map((option) => ({
           value: option,
           label: taskStatusLabels[option],
+          tone: taskStatusTones[option],
         }))}
       />
       {message ? (

@@ -177,7 +177,7 @@ export default async function ClientDetailPage({ params }: Props) {
                       ) : null}
                     </td>
                     <td className="px-4 py-4">
-                      <Badge value={task.status} label={taskStatusLabels[task.status]} />
+                      <Badge value={task.status} label={taskStatusLabels[task.status]} statusKind="task" />
                     </td>
                     <td className="px-4 py-4">
                       <Badge value={task.priority} label={taskPriorityLabels[task.priority]} />
@@ -242,7 +242,7 @@ export default async function ClientDetailPage({ params }: Props) {
                       ) : null}
                     </td>
                     <td className="px-4 py-4">
-                      <Badge value={item.status} label={contentStatusLabels[item.status]} />
+                      <Badge value={item.status} label={contentStatusLabels[item.status]} statusKind="content" />
                     </td>
                     <td className="px-4 py-4 font-medium text-[var(--bb-muted)]">{item.assignee_name ?? "-"}</td>
                     <td className="bb-actions-col sticky right-0 px-2 py-4">

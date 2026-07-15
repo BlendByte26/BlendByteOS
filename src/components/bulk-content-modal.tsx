@@ -7,6 +7,7 @@ import { DatePicker, MonthPicker } from "@/components/date-picker";
 import { SelectField, type SelectOption } from "@/components/select-field";
 import { getClientLabel } from "@/lib/client-display";
 import { contentStatusLabels } from "@/lib/labels";
+import { contentStatusTones } from "@/lib/status-styles";
 import {
   contentStatuses,
   type Client,
@@ -91,6 +92,7 @@ function statusOptions() {
   return contentStatuses.map((status) => ({
     value: status,
     label: contentStatusLabels[status],
+    tone: contentStatusTones[status],
   }));
 }
 

@@ -3,10 +3,12 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown } from "lucide-react";
+import { getStatusStyle, type StatusTone } from "@/lib/status-styles";
 
 export type SelectOption = {
   value: string;
   label: string;
+  tone?: StatusTone;
 };
 
 type SelectFieldProps = {
@@ -56,6 +58,7 @@ export function SelectField({
     () => options.find((option) => option.value === selectedValue) ?? options[0],
     [options, selectedValue],
   );
+  const selectedStyle = selectedOption?.tone ? getStatusStyle(selectedOption.tone) : null;
 
   useEffect(() => {
     if (!open) return;
@@ -157,11 +160,16 @@ export function SelectField({
         aria-controls={id}
         onClick={() => setOpen((current) => !current)}
         onKeyDown={handleKeyDown}
-        className={`group flex w-full items-center justify-between gap-2 rounded-2xl border border-[var(--bb-border)] bg-white/75 text-left font-semibold text-[var(--bb-charcoal)] shadow-[0_12px_28px_rgba(0,0,0,0.05)] outline-none transition duration-200 hover:border-[rgba(83,183,223,0.45)] hover:bg-white focus:border-[rgba(83,183,223,0.72)] focus:shadow-[0_0_0_4px_var(--bb-primary-soft)] ${
+        className={`group flex w-full items-center justify-between gap-2 rounded-2xl border text-left font-semibold shadow-[0_12px_28px_rgba(0,0,0,0.05)] outline-none transition duration-200 hover:border-[rgba(83,183,223,0.45)] hover:bg-white focus:border-[rgba(83,183,223,0.72)] focus:shadow-[0_0_0_4px_var(--bb-primary-soft)] ${
+          selectedStyle ? selectedStyle.pill : "border-[var(--bb-border)] bg-white/75 text-[var(--bb-charcoal)]"
+        } ${
           compact ? "min-h-9 px-3 text-xs" : "min-h-11 px-3.5 text-sm"
         }`}
       >
-        <span className="min-w-0 truncate">{selectedOption?.label ?? "Selecionar"}</span>
+        <span className="flex min-w-0 items-center gap-2">
+          {selectedStyle ? <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${selectedStyle.dot}`} /> : null}
+          <span className="min-w-0 truncate">{selectedOption?.label ?? "Selecionar"}</span>
+        </span>
         <ChevronDown
           className={`size-4 shrink-0 text-[var(--bb-muted)] transition duration-200 ${
             open ? "rotate-180 text-[var(--bb-charcoal)]" : "group-hover:text-[var(--bb-charcoal)]"
@@ -187,6 +195,7 @@ export function SelectField({
         >
           {options.map((option) => {
             const selected = option.value === selectedOption?.value;
+            const optionStyle = option.tone ? getStatusStyle(option.tone) : null;
 
             return (
               <button
@@ -201,7 +210,10 @@ export function SelectField({
                     : "text-[var(--bb-charcoal)] hover:bg-[var(--bb-primary-hover)]"
                 }`}
               >
-                <span className="min-w-0 truncate">{option.label}</span>
+                <span className="flex min-w-0 items-center gap-2">
+                  {optionStyle ? <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${optionStyle.dot}`} /> : null}
+                  <span className="min-w-0 truncate">{option.label}</span>
+                </span>
                 {selected ? <Check className="size-4 shrink-0" aria-hidden="true" /> : null}
               </button>
             );
@@ -233,6 +245,12 @@ export function MultiSelectField({
   const selectedSet = useMemo(() => new Set(selectedValues), [selectedValues]);
   const itemOptions = useMemo(() => options.filter((option) => option.value), [options]);
   const allOption = options.find((option) => !option.value);
+  const singleSelectedOption = selectedValues.length === 1
+    ? itemOptions.find((option) => option.value === selectedValues[0])
+    : undefined;
+  const singleSelectedStyle = singleSelectedOption?.tone
+    ? getStatusStyle(singleSelectedOption.tone)
+    : null;
   const triggerLabel = useMemo(() => {
     if (selectedValues.length === 0) return allOption?.label ?? allLabel;
     if (selectedValues.length === 1) {
@@ -347,7 +365,10 @@ export function MultiSelectField({
           compact ? "min-h-9 px-3 text-xs" : "min-h-11 px-3.5 text-sm"
         }`}
       >
-        <span className="min-w-0 truncate">{triggerLabel}</span>
+        <span className="flex min-w-0 items-center gap-2">
+          {singleSelectedStyle ? <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${singleSelectedStyle.dot}`} /> : null}
+          <span className="min-w-0 truncate">{triggerLabel}</span>
+        </span>
         <ChevronDown
           className={`size-4 shrink-0 text-[var(--bb-muted)] transition duration-200 ${
             open ? "rotate-180 text-[var(--bb-charcoal)]" : "group-hover:text-[var(--bb-charcoal)]"
@@ -400,6 +421,7 @@ export function MultiSelectField({
 
           {itemOptions.map((option) => {
             const selected = selectedSet.has(option.value);
+            const optionStyle = option.tone ? getStatusStyle(option.tone) : null;
 
             return (
               <button
@@ -424,7 +446,10 @@ export function MultiSelectField({
                 >
                   {selected ? <Check className="size-3" /> : null}
                 </span>
-                <span className="min-w-0 truncate">{option.label}</span>
+                <span className="flex min-w-0 items-center gap-2">
+                  {optionStyle ? <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${optionStyle.dot}`} /> : null}
+                  <span className="min-w-0 truncate">{option.label}</span>
+                </span>
               </button>
             );
           })}

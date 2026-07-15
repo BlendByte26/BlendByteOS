@@ -5,6 +5,7 @@ import { flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
 import { SelectField } from "@/components/select-field";
 import { contentStatusLabels } from "@/lib/labels";
+import { contentStatusTones } from "@/lib/status-styles";
 import { contentStatuses, type ContentStatus } from "@/lib/types";
 
 type ContentStatusAction = (id: string, formData: FormData) => void | Promise<void>;
@@ -77,6 +78,7 @@ export function ContentStatusControl({
         options={contentStatuses.map((option) => ({
           value: option,
           label: contentStatusLabels[option],
+          tone: contentStatusTones[option],
         }))}
       />
       {message ? (

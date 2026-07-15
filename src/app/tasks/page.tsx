@@ -12,6 +12,7 @@ import { getClientLabel } from "@/lib/client-display";
 import { getClients, getTasks, getTeamMembers, uniqueValues } from "@/lib/data";
 import { taskPriorityLabels, taskStatusLabels } from "@/lib/labels";
 import { parseTaskPriorityParam, parseTaskStatusParam } from "@/lib/smart-links";
+import { taskStatusTones } from "@/lib/status-styles";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { taskStatuses } from "@/lib/types";
 import { Panel } from "@/components/ui";
@@ -169,7 +170,11 @@ export default async function TasksPage({ searchParams }: Props) {
             ]}
             statusOptions={[
               { value: "", label: "Todos os estados" },
-              ...taskStatuses.map((status) => ({ value: status, label: taskStatusLabels[status] })),
+              ...taskStatuses.map((status) => ({
+                value: status,
+                label: taskStatusLabels[status],
+                tone: taskStatusTones[status],
+              })),
             ]}
           />
         </div>
