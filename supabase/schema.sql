@@ -324,6 +324,7 @@ alter table public.content_items add column if not exists is_blocked boolean not
 alter table public.content_items add column if not exists blocker_reason text;
 alter table public.content_items add column if not exists recording_date date;
 alter table public.content_items add column if not exists notes text;
+alter table public.content_items add column if not exists source_task_id uuid references public.tasks(id) on delete set null;
 
 alter table public.tasks add column if not exists related_url text;
 alter table public.tasks add column if not exists links jsonb not null default '[]'::jsonb;
@@ -344,6 +345,7 @@ create index if not exists team_members_active_idx on public.team_members(active
 create index if not exists team_members_display_order_idx on public.team_members(display_order);
 create unique index if not exists clients_name_unique_idx on public.clients(name);
 create index if not exists content_items_client_id_idx on public.content_items(client_id);
+create index if not exists content_items_source_task_id_idx on public.content_items(source_task_id);
 create index if not exists content_items_month_idx on public.content_items(month);
 create index if not exists content_items_publish_date_idx on public.content_items(publish_date);
 create index if not exists content_items_status_idx on public.content_items(status);

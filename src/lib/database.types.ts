@@ -12,7 +12,7 @@ import type {
   UserProfile,
 } from "./types";
 
-type Insertable<T> = Omit<T, "id" | "created_at" | "updated_at" | "clients">;
+type Insertable<T> = Omit<T, "id" | "created_at" | "updated_at" | "clients" | "source_task">;
 type Updatable<T> = Partial<Insertable<T>>;
 
 export type Database = {
@@ -36,6 +36,13 @@ export type Database = {
             columns: ["client_id"];
             isOneToOne: false;
             referencedRelation: "clients";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "content_items_source_task_id_fkey";
+            columns: ["source_task_id"];
+            isOneToOne: false;
+            referencedRelation: "tasks";
             referencedColumns: ["id"];
           },
         ];

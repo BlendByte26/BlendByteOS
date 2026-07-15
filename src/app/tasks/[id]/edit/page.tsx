@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Mail } from "lucide-react";
-import { deleteTaskAction, sendTaskToDesignAction, updateTaskAction } from "@/lib/actions";
+import { ClipboardList, Mail } from "lucide-react";
+import { createContentFromTaskAction, deleteTaskAction, sendTaskToDesignAction, updateTaskAction } from "@/lib/actions";
 import { getClients, getInvest2030NewsletterByTaskId, getTask, getTeamMembers } from "@/lib/data";
 import { DesignHandoffForm } from "@/components/design-handoff-form";
 import { ConfirmSubmitForm } from "@/components/confirm-submit-form";
@@ -25,12 +25,14 @@ export default async function EditTaskPage({ params }: Props) {
     getTask(id),
     getInvest2030NewsletterByTaskId(id),
   ]);
-  const showDesignHandoff = task ? task.status !== "archived" && !isDesignAssigneeName(task.assignee_name) : false;
 
   if (!task) notFound();
   const invest2030ClientId = clients.find((client) => client.client_code === "02_I2030")?.id ?? null;
+  const isInvestNewsletter = isInvest2030NewsletterTask(task, { invest2030ClientId });
   const showNewsletterPreparation =
-    task.status !== "archived" && isInvest2030NewsletterTask(task, { invest2030ClientId });
+    task.status !== "archived" && isInvestNewsletter;
+  const showDesignHandoff =
+    !isInvestNewsletter && task.status !== "archived" && !isDesignAssigneeName(task.assignee_name);
 
   return (
     <>
@@ -58,6 +60,16 @@ export default async function EditTaskPage({ params }: Props) {
                     <Mail className="size-4" aria-hidden="true" />
                     Preparar newsletter
                   </Link>
+                ) : null}
+                {isInvestNewsletter ? (
+                  <button
+                    type="submit"
+                    formAction={createContentFromTaskAction.bind(null, task.id)}
+                    className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--bb-border)] bg-white/70 px-5 text-sm font-bold text-[var(--bb-charcoal)] transition hover:border-[rgba(83,183,223,0.42)] hover:bg-[var(--bb-primary-soft)]"
+                  >
+                    <ClipboardList className="size-4" aria-hidden="true" />
+                    Criar conteúdo
+                  </button>
                 ) : null}
                 {showDesignHandoff ? (
                   <DesignHandoffForm action={sendTaskToDesignAction.bind(null, task.id)} />

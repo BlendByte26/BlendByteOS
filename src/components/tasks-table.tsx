@@ -328,6 +328,39 @@ export function TasksTable({
     }
   }
 
+  async function createContentFromNewsletterTask(
+    task: Task,
+    event: React.MouseEvent<HTMLButtonElement>,
+  ) {
+    const form = event.currentTarget.form;
+    if (!form) return;
+
+    if (!canPersist) {
+      setSaveMessage("Modo demo: configure o Supabase para gravar alterações antes de criar conteúdo.");
+      return;
+    }
+
+    const formData = new FormData(form);
+    const taskToSave = taskFromFormData(task, formData);
+    if (!isInvest2030NewsletterTask(taskToSave, { invest2030ClientId })) {
+      setSaveMessage("Esta tarefa não cumpre os critérios para criar conteúdo a partir de newsletter Invest2030.");
+      return;
+    }
+
+    setSaveMessage("A guardar alterações antes de criar conteúdo...");
+    try {
+      await updateTaskAction(task.id, formData);
+      setLocalTasks((current) =>
+        current.map((item) => (item.id === task.id ? taskToSave : item)),
+      );
+      router.refresh();
+      router.push(`/content/new?sourceTaskId=${encodeURIComponent(task.id)}`);
+    } catch (error) {
+      console.error("Erro ao guardar tarefa antes de criar conteúdo", error);
+      setSaveMessage(error instanceof Error ? error.message : "Não foi possível guardar antes de criar conteúdo.");
+    }
+  }
+
   async function archiveTask(id: string) {
     if (!canPersist) {
       setTableError("Modo demo: configure o Supabase para arquivar tarefas.");
@@ -546,49 +579,66 @@ export function TasksTable({
           subtitle={editing.clients ? getClientLabel(editing.clients) : "Sem cliente"}
           onClose={() => setEditing(null)}
         >
-          {saveMessage ? (
-            <div className="mb-4 rounded-[16px] border border-[var(--bb-border)] bg-white/55 px-4 py-3 text-sm font-bold text-[var(--bb-muted)]">
-              {saveMessage}
-            </div>
-          ) : null}
-          <TaskForm
-            action={saveTask}
-            clients={clients}
-            teamMembers={teamMembers}
-            task={editing}
-            submitLabel="Guardar alterações"
-            onCancel={() => setEditing(null)}
-            footerAction={
-              isInvest2030NewsletterTask(editing, { invest2030ClientId }) ||
-              canSendToDesign(editing) ? (
-                <>
-                  {isInvest2030NewsletterTask(editing, { invest2030ClientId }) ? (
-                    <button
-                      type="button"
-                      onClick={(event) => prepareNewsletterFromModal(editing, event)}
-                      className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--bb-border)] bg-white/70 px-5 text-sm font-bold text-[var(--bb-charcoal)] transition hover:border-[rgba(83,183,223,0.42)] hover:bg-[var(--bb-primary-soft)]"
-                    >
-                      <Mail className="size-4" aria-hidden="true" />
-                      Preparar newsletter
-                    </button>
-                  ) : null}
-                  {canSendToDesign(editing) ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setHandoffDesignerKey("carlota");
-                        setHandoffTask(editing);
-                      }}
-                      className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--bb-border)] bg-white/70 px-5 text-sm font-bold text-[var(--bb-charcoal)] transition hover:border-[rgba(83,183,223,0.42)] hover:bg-[var(--bb-primary-soft)]"
-                    >
-                      <Send className="size-4" aria-hidden="true" />
-                      Enviar para Design
-                    </button>
-                  ) : null}
-                </>
-              ) : null
-            }
-          />
+          {(() => {
+            const isInvestNewsletter = isInvest2030NewsletterTask(editing, { invest2030ClientId });
+
+            return (
+              <>
+                {saveMessage ? (
+                  <div className="mb-4 rounded-[16px] border border-[var(--bb-border)] bg-white/55 px-4 py-3 text-sm font-bold text-[var(--bb-muted)]">
+                    {saveMessage}
+                  </div>
+                ) : null}
+                <TaskForm
+                  action={saveTask}
+                  clients={clients}
+                  teamMembers={teamMembers}
+                  task={editing}
+                  submitLabel="Guardar alterações"
+                  onCancel={() => setEditing(null)}
+                  footerAction={
+                    isInvestNewsletter ||
+                    canSendToDesign(editing) ? (
+                      <>
+                        {isInvestNewsletter ? (
+                          <button
+                            type="button"
+                            onClick={(event) => prepareNewsletterFromModal(editing, event)}
+                            className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--bb-border)] bg-white/70 px-5 text-sm font-bold text-[var(--bb-charcoal)] transition hover:border-[rgba(83,183,223,0.42)] hover:bg-[var(--bb-primary-soft)]"
+                          >
+                            <Mail className="size-4" aria-hidden="true" />
+                            Preparar newsletter
+                          </button>
+                        ) : null}
+                        {isInvestNewsletter ? (
+                          <button
+                            type="button"
+                            onClick={(event) => createContentFromNewsletterTask(editing, event)}
+                            className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--bb-border)] bg-white/70 px-5 text-sm font-bold text-[var(--bb-charcoal)] transition hover:border-[rgba(83,183,223,0.42)] hover:bg-[var(--bb-primary-soft)]"
+                          >
+                            <ClipboardList className="size-4" aria-hidden="true" />
+                            Criar conteúdo
+                          </button>
+                        ) : canSendToDesign(editing) ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setHandoffDesignerKey("carlota");
+                              setHandoffTask(editing);
+                            }}
+                            className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--bb-border)] bg-white/70 px-5 text-sm font-bold text-[var(--bb-charcoal)] transition hover:border-[rgba(83,183,223,0.42)] hover:bg-[var(--bb-primary-soft)]"
+                          >
+                            <Send className="size-4" aria-hidden="true" />
+                            Enviar para Design
+                          </button>
+                        ) : null}
+                      </>
+                    ) : null
+                  }
+                />
+              </>
+            );
+          })()}
         </TaskModal>
       ) : null}
 

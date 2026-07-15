@@ -595,6 +595,7 @@ function contentPayload(formData: FormData) {
   const publishDate = text(formData, "publish_date");
   const payload = {
     client_id: requiredText(formData, "client_id"),
+    source_task_id: text(formData, "source_task_id"),
     month: contentMonthValue(formData, publishDate),
     publish_date: publishDate,
     publish_time: text(formData, "publish_time"),
@@ -637,18 +638,23 @@ function contentPayload(formData: FormData) {
 }
 
 type ContentPayload = ReturnType<typeof contentPayload>;
-type ContentInsertPayload = Omit<ContentItem, "id" | "created_at" | "updated_at" | "clients">;
+type ContentInsertPayload = Omit<ContentItem, "id" | "created_at" | "updated_at" | "clients" | "source_task">;
+
+function contentPayloadWithoutUnsupportedColumn<T extends ContentPayload | ContentInsertPayload>(
+  payload: T,
+  column: "publish_time" | "source_task_id",
+) {
+  const fallbackPayload: Partial<T> = { ...payload };
+  delete fallbackPayload[column];
+  return fallbackPayload as T;
+}
 
 function contentPayloadWithoutPublishTime(payload: ContentPayload) {
-  const fallbackPayload: Partial<ContentPayload> = { ...payload };
-  delete fallbackPayload.publish_time;
-  return fallbackPayload as ContentPayload;
+  return contentPayloadWithoutUnsupportedColumn(payload, "publish_time");
 }
 
 function contentInsertPayloadWithoutPublishTime(payload: ContentInsertPayload) {
-  const fallbackPayload: Partial<ContentInsertPayload> = { ...payload };
-  delete fallbackPayload.publish_time;
-  return fallbackPayload as ContentInsertPayload;
+  return contentPayloadWithoutUnsupportedColumn(payload, "publish_time");
 }
 
 function isMissingPublishTimeColumnError(error: { message?: string; code?: string } | null) {
@@ -656,6 +662,14 @@ function isMissingPublishTimeColumnError(error: { message?: string; code?: strin
     error &&
       error.code === "PGRST204" &&
       error.message?.includes("'publish_time' column"),
+  );
+}
+
+function isMissingSourceTaskColumnError(error: { message?: string; code?: string } | null) {
+  return Boolean(
+    error &&
+      error.code === "PGRST204" &&
+      error.message?.includes("'source_task_id' column"),
   );
 }
 
@@ -667,6 +681,11 @@ export async function createContentAction(formData: FormData): Promise<ContentMu
 
   if (isMissingPublishTimeColumnError(error)) {
     const fallback = await supabase.from("content_items").insert(contentPayloadWithoutPublishTime(payload));
+    if (fallback.error) return contentMutationFailure(fallback.error);
+  } else if (isMissingSourceTaskColumnError(error)) {
+    const fallback = await supabase
+      .from("content_items")
+      .insert(contentPayloadWithoutUnsupportedColumn(payload, "source_task_id"));
     if (fallback.error) return contentMutationFailure(fallback.error);
   } else if (error) {
     return contentMutationFailure(error);
@@ -741,6 +760,7 @@ export async function bulkCreateContentAction(formData: FormData): Promise<BulkC
       needs_design: true,
       needs_copy: true,
       needs_client_approval: false,
+      source_task_id: null,
       platform: platform || defaultPlatform,
       format: format || defaultFormat,
       title,
@@ -776,6 +796,11 @@ export async function bulkCreateContentAction(formData: FormData): Promise<BulkC
     const fallback = await supabase
       .from("content_items")
       .insert(payloads.map(contentInsertPayloadWithoutPublishTime));
+    if (fallback.error) return { ok: false, message: contentMutationErrorMessage(fallback.error) };
+  } else if (isMissingSourceTaskColumnError(error)) {
+    const fallback = await supabase
+      .from("content_items")
+      .insert(payloads.map((payload) => contentPayloadWithoutUnsupportedColumn(payload, "source_task_id")));
     if (fallback.error) return { ok: false, message: contentMutationErrorMessage(fallback.error) };
   } else if (error) {
     return { ok: false, message: contentMutationErrorMessage(error) };
@@ -890,6 +915,12 @@ async function updateContent(id: string, formData: FormData): Promise<ContentMut
       .update(contentPayloadWithoutPublishTime(payload))
       .eq("id", id);
     if (fallback.error) return contentMutationFailure(fallback.error);
+  } else if (isMissingSourceTaskColumnError(error)) {
+    const fallback = await supabase
+      .from("content_items")
+      .update(contentPayloadWithoutUnsupportedColumn(payload, "source_task_id"))
+      .eq("id", id);
+    if (fallback.error) return contentMutationFailure(fallback.error);
   } else if (error) {
     return contentMutationFailure(error);
   }
@@ -913,6 +944,12 @@ export async function updateContentAction(id: string, formData: FormData): Promi
     const fallback = await supabase
       .from("content_items")
       .update(contentPayloadWithoutPublishTime(payload))
+      .eq("id", id);
+    if (fallback.error) return contentMutationFailure(fallback.error);
+  } else if (isMissingSourceTaskColumnError(error)) {
+    const fallback = await supabase
+      .from("content_items")
+      .update(contentPayloadWithoutUnsupportedColumn(payload, "source_task_id"))
       .eq("id", id);
     if (fallback.error) return contentMutationFailure(fallback.error);
   } else if (error) {
@@ -1101,6 +1138,16 @@ export async function updateTaskAction(id: string, formData: FormData) {
   if (error) throw new Error(error.message);
   refreshAll();
   redirect("/tasks");
+}
+
+export async function createContentFromTaskAction(id: string, formData: FormData) {
+  await requireRole(["admin", "marketing", "design"]);
+  const supabase = await supabaseOrRedirect("/tasks");
+  const { error } = await supabase.from("tasks").update(taskPayload(formData)).eq("id", id);
+
+  if (error) throw new Error(error.message);
+  refreshAll();
+  redirect(`/content/new?sourceTaskId=${encodeURIComponent(id)}`);
 }
 
 export async function sendTaskToDesignAction(id: string, formData?: FormData) {

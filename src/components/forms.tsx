@@ -482,6 +482,9 @@ export function ContentForm({
   clients,
   item,
   defaultClientId,
+  defaultTitle,
+  defaultCreativeBrief,
+  sourceTaskId,
   submitLabel,
   teamMembers = [],
   onCancel,
@@ -490,6 +493,9 @@ export function ContentForm({
   clients: Client[];
   item?: ContentItem;
   defaultClientId?: string;
+  defaultTitle?: string;
+  defaultCreativeBrief?: string;
+  sourceTaskId?: string;
   submitLabel: string;
   teamMembers?: TeamMember[];
   onCancel?: () => void;
@@ -526,6 +532,7 @@ export function ContentForm({
       <input type="hidden" name="media_url" value={item?.media_url ?? ""} />
       <input type="hidden" name="delivery_url" value={item?.delivery_url ?? ""} />
       <input type="hidden" name="client_feedback" value={item?.client_feedback ?? ""} />
+      <input type="hidden" name="source_task_id" value={item?.source_task_id ?? sourceTaskId ?? ""} />
       {state.error ? (
         <div
           role="alert"
@@ -615,12 +622,12 @@ export function ContentForm({
       </div>
       <label data-content-section="general-title" className={labelClass}>
         Título
-        <input name="title" required defaultValue={item?.title ?? ""} className={inputClass} />
+        <input name="title" required defaultValue={item?.title ?? defaultTitle ?? ""} className={inputClass} />
       </label>
       <div className="grid gap-4 lg:grid-cols-3">
         <label data-content-section="brief" className={labelClass}>
           Brief criativo
-          <textarea name="creative_brief" defaultValue={item?.creative_brief ?? ""} className={textAreaClass} />
+          <textarea name="creative_brief" defaultValue={item?.creative_brief ?? defaultCreativeBrief ?? ""} className={textAreaClass} />
         </label>
         <label data-content-section="copy" className={labelClass}>
           Copy

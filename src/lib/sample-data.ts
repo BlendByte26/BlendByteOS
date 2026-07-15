@@ -89,6 +89,7 @@ export const sampleContent: ContentItem[] = sampleClients.slice(0, 6).map(
   (client, index) => ({
     id: `sample-content-${index + 1}`,
     client_id: client.id,
+    source_task_id: null,
     month: "2026-06",
     publish_date: `2026-06-${String(29 + (index % 2)).padStart(2, "0")}`,
     publish_time: index % 3 === 0 ? "09:30" : index % 3 === 1 ? "14:30" : null,
@@ -138,6 +139,7 @@ export const sampleContent: ContentItem[] = sampleClients.slice(0, 6).map(
       logo_url: client.logo_url,
       color_key: client.color_key,
     },
+    source_task: null,
   }),
 );
 

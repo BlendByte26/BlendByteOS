@@ -1,5 +1,5 @@
 import { createContentAction } from "@/lib/actions";
-import { getClients, getTeamMembers } from "@/lib/data";
+import { getClients, getTask, getTeamMembers } from "@/lib/data";
 import { ContentForm, FormFrame } from "@/components/forms";
 import { PageHeader } from "@/components/ui";
 import { requireRole } from "@/lib/auth";
@@ -16,8 +16,13 @@ function valueOf(params: Record<string, string | string[] | undefined>, key: str
 export default async function NewContentPage({ searchParams }: Props) {
   await requireRole(["admin", "marketing", "design"]);
   const params = (await searchParams) ?? {};
-  const [clients, teamMembers] = await Promise.all([getClients(), getTeamMembers()]);
-  const defaultClientId = valueOf(params, "client");
+  const sourceTaskId = valueOf(params, "sourceTaskId");
+  const [clients, teamMembers, sourceTask] = await Promise.all([
+    getClients(),
+    getTeamMembers(),
+    sourceTaskId ? getTask(sourceTaskId) : Promise.resolve(null),
+  ]);
+  const defaultClientId = sourceTask?.client_id ?? valueOf(params, "client");
 
   return (
     <>
@@ -28,6 +33,9 @@ export default async function NewContentPage({ searchParams }: Props) {
           clients={clients}
           teamMembers={teamMembers}
           defaultClientId={defaultClientId}
+          defaultTitle={sourceTask?.title}
+          defaultCreativeBrief={sourceTask?.notes ?? undefined}
+          sourceTaskId={sourceTask?.id}
           submitLabel="Criar conteúdo"
         />
       </FormFrame>

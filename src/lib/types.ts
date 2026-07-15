@@ -214,6 +214,7 @@ export type QuickNote = {
 export type ContentItem = {
   id: string;
   client_id: string;
+  source_task_id: string | null;
   month: string;
   publish_date: string | null;
   publish_time: string | null;
@@ -253,6 +254,7 @@ export type ContentItem = {
   created_at: string;
   updated_at: string;
   clients?: Pick<Client, "id" | "name" | "client_code" | "short_name" | "display_order" | "logo_url" | "color_key"> | null;
+  source_task?: Pick<Task, "id" | "title" | "status"> | null;
 };
 
 export type ContentComment = {
