@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { SlidersHorizontal, RotateCcw } from "lucide-react";
-import { useCallback, useMemo, useState, useTransition, type ReactNode } from "react";
+import { useCallback, useMemo, useState, useTransition } from "react";
 import { DatePicker } from "@/components/date-picker";
 import { MultiSelectField, SelectField, type SelectOption } from "@/components/select-field";
 
@@ -13,6 +13,7 @@ type ContentFilterValues = {
   publishUntil: string;
   status: string[];
   platform: string;
+  year: string;
 };
 
 type TaskFilterValues = {
@@ -34,7 +35,8 @@ type ContentFiltersBarProps = {
   ownerOptions: SelectOption[];
   statusOptions: SelectOption[];
   platformOptions: SelectOption[];
-  trailingAction?: ReactNode;
+  yearOptions: SelectOption[];
+  defaultYear: string;
 };
 
 type TasksFiltersBarProps = {
@@ -52,6 +54,7 @@ type DashboardControlsProps = {
 
 const labelClass =
   "grid gap-1 text-xs font-extrabold uppercase text-[var(--bb-muted)]";
+const contentFilterLabelClass = `${labelClass} min-w-0`;
 
 type FilterValue = string | string[];
 type FilterValues = Record<string, FilterValue>;
@@ -61,7 +64,11 @@ function hasFilterValue(value: FilterValue) {
   return Boolean(value);
 }
 
-function useLiveQueryFilters<T extends FilterValues>(initialFilters: T, keys: Array<keyof T>) {
+function useLiveQueryFilters<T extends FilterValues>(
+  initialFilters: T,
+  keys: Array<keyof T>,
+  clearValues?: Partial<T>,
+) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -104,11 +111,18 @@ function useLiveQueryFilters<T extends FilterValues>(initialFilters: T, keys: Ar
 
   const clearFilters = useCallback(() => {
     const emptyFilters = Object.fromEntries(
-      keys.map((key) => [key, Array.isArray(initialFilters[key]) ? [] : ""]),
+      keys.map((key) => [
+        key,
+        clearValues && key in clearValues
+          ? clearValues[key]
+          : Array.isArray(initialFilters[key])
+            ? []
+            : "",
+      ]),
     ) as T;
     setFilters(emptyFilters);
     replaceWith(emptyFilters);
-  }, [initialFilters, keys, replaceWith]);
+  }, [clearValues, initialFilters, keys, replaceWith]);
 
   const hasActiveFilters = keys.some((key) => hasFilterValue(filters[key]));
 
@@ -181,91 +195,119 @@ export function ContentFiltersBar({
   ownerOptions,
   statusOptions,
   platformOptions,
-  trailingAction,
+  yearOptions,
+  defaultYear,
 }: ContentFiltersBarProps) {
   const keys = useMemo<Array<keyof ContentFilterValues>>(
-    () => ["assignee", "client", "month", "publishUntil", "status", "platform"],
+    () => ["assignee", "client", "month", "publishUntil", "status", "platform", "year"],
     [],
   );
-  const { filters, hasActiveFilters, isPending, updateFilter, clearFilters } = useLiveQueryFilters(initialFilters, keys);
-  const secondaryActiveCount = [filters.assignee, filters.platform, filters.publishUntil].filter(Boolean).length;
+  const clearValues = useMemo<Partial<ContentFilterValues>>(() => ({ year: defaultYear }), [defaultYear]);
+  const { filters, isPending, updateFilter, clearFilters } = useLiveQueryFilters(
+    initialFilters,
+    keys,
+    clearValues,
+  );
+  const secondaryActiveCount = [
+    filters.year !== defaultYear ? filters.year : "",
+    filters.platform,
+    filters.publishUntil,
+  ].filter(Boolean).length;
   const [moreFiltersOpen, setMoreFiltersOpen] = useState(false);
 
   return (
-    <div className="flex min-w-0 flex-1 basis-full flex-wrap items-end gap-2.5 lg:flex-none lg:basis-auto">
-      <label className={`${labelClass} min-w-[150px] flex-1 lg:w-[145px] lg:flex-none`}>
-        Cliente
-        <SelectField
-          name="client"
-          value={filters.client}
-          onValueChange={(value) => updateFilter("client", value)}
-          options={clientOptions}
-        />
-      </label>
-      <label className={`${labelClass} min-w-[140px] flex-1 lg:w-[135px] lg:flex-none`}>
-        Estado
-        <MultiSelectField
-          name="status"
-          value={filters.status}
-          onValueChange={(value) => updateFilter("status", value)}
-          options={statusOptions}
-          allLabel="Todos os estados"
-        />
-      </label>
-      <label className={`${labelClass} min-w-[125px] flex-1 lg:w-[125px] lg:flex-none`}>
-        Mês
-        <SelectField
-          name="month"
-          value={filters.month}
-          onValueChange={(value) => updateFilter("month", value)}
-          options={monthOptions}
-        />
-      </label>
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => setMoreFiltersOpen((current) => !current)}
-          aria-expanded={moreFiltersOpen}
-          className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-3.5 text-sm font-extrabold shadow-[0_10px_24px_rgba(0,0,0,0.05)] transition ${
-            secondaryActiveCount
-              ? "border-[rgba(83,183,223,0.42)] bg-[var(--bb-primary-soft)] text-[var(--bb-charcoal)]"
-              : "border-[var(--bb-border)] bg-white/65 text-[var(--bb-charcoal)] hover:bg-[var(--bb-primary-soft)]"
-          }`}
-        >
-          <SlidersHorizontal className="size-4" aria-hidden="true" />
-          Mais filtros{secondaryActiveCount ? ` · ${secondaryActiveCount}` : ""}
-        </button>
-        {moreFiltersOpen ? (
-          <div className="absolute left-0 z-[1000] mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-[20px] border border-[var(--bb-border)] bg-white/95 p-3 shadow-[0_24px_64px_rgba(0,0,0,0.14)] backdrop-blur-xl sm:left-auto sm:right-0">
-            <div className="grid gap-2.5">
-              <label className={labelClass}>
-                Responsável
-                <SelectField
-                  name="assignee"
-                  value={filters.assignee}
-                  onValueChange={(value) => updateFilter("assignee", value)}
-                  options={ownerOptions}
-                />
-              </label>
-              <label className={labelClass}>
-                Plataforma
-                <SelectField
-                  name="platform"
-                  value={filters.platform}
-                  onValueChange={(value) => updateFilter("platform", value)}
-                  options={platformOptions}
-                />
-              </label>
-              <label className={labelClass}>
-                Publicação até
-                <DatePicker
-                  name="publishUntil"
-                  value={filters.publishUntil}
-                  onValueChange={(value) => updateFilter("publishUntil", value)}
-                  ariaLabel="Publicação até"
-                />
-              </label>
-              {hasActiveFilters ? (
+    <div
+      data-content-filter-bottom
+      className="flex w-full min-w-0 flex-wrap items-end justify-between gap-3"
+    >
+      <div data-primary-filters className="flex min-w-0 flex-wrap items-end gap-2.5">
+        <label className={`${contentFilterLabelClass} w-full sm:w-[240px]`}>
+          Cliente
+          <SelectField
+            name="client"
+            value={filters.client}
+            onValueChange={(value) => updateFilter("client", value)}
+            options={clientOptions}
+          />
+        </label>
+        <label className={`${contentFilterLabelClass} w-full sm:w-[200px]`}>
+          Estado
+          <MultiSelectField
+            name="status"
+            value={filters.status}
+            onValueChange={(value) => updateFilter("status", value)}
+            options={statusOptions}
+            allLabel="Todos os estados"
+          />
+        </label>
+        <label className={`${contentFilterLabelClass} w-full sm:w-[170px]`}>
+          Mês
+          <SelectField
+            name="month"
+            value={filters.month}
+            onValueChange={(value) => updateFilter("month", value)}
+            options={monthOptions}
+          />
+        </label>
+        <label className={`${contentFilterLabelClass} w-full sm:w-[180px]`}>
+          Responsável
+          <SelectField
+            name="assignee"
+            value={filters.assignee}
+            onValueChange={(value) => updateFilter("assignee", value)}
+            options={ownerOptions}
+          />
+        </label>
+      </div>
+      <div className="ml-auto flex shrink-0 items-end gap-2">
+        <UpdatingState isPending={isPending} />
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setMoreFiltersOpen((current) => !current)}
+            aria-expanded={moreFiltersOpen}
+            className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-full border px-3.5 text-sm font-extrabold shadow-[0_10px_24px_rgba(0,0,0,0.05)] transition ${
+              secondaryActiveCount
+                ? "border-[rgba(83,183,223,0.42)] bg-[var(--bb-primary-soft)] text-[var(--bb-charcoal)]"
+                : "border-[var(--bb-border)] bg-white/65 text-[var(--bb-charcoal)] hover:bg-[var(--bb-primary-soft)]"
+            }`}
+          >
+            <SlidersHorizontal className="size-4" aria-hidden="true" />
+            Mais filtros{secondaryActiveCount ? ` · ${secondaryActiveCount}` : ""}
+          </button>
+          {moreFiltersOpen ? (
+            <div
+              data-more-filters-panel
+              className="absolute right-0 z-[1000] mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-[20px] border border-[var(--bb-border)] bg-white/95 p-3 shadow-[0_24px_64px_rgba(0,0,0,0.14)] backdrop-blur-xl"
+            >
+              <div className="grid gap-2.5">
+                <label className={labelClass}>
+                  Ano
+                  <SelectField
+                    name="year"
+                    value={filters.year}
+                    onValueChange={(value) => updateFilter("year", value)}
+                    options={yearOptions}
+                  />
+                </label>
+                <label className={labelClass}>
+                  Plataforma
+                  <SelectField
+                    name="platform"
+                    value={filters.platform}
+                    onValueChange={(value) => updateFilter("platform", value)}
+                    options={platformOptions}
+                  />
+                </label>
+                <label className={labelClass}>
+                  Publicação até
+                  <DatePicker
+                    name="publishUntil"
+                    value={filters.publishUntil}
+                    onValueChange={(value) => updateFilter("publishUntil", value)}
+                    ariaLabel="Publicação até"
+                  />
+                </label>
                 <button
                   type="button"
                   onClick={() => {
@@ -276,14 +318,10 @@ export function ContentFiltersBar({
                 >
                   Limpar filtros
                 </button>
-              ) : null}
+              </div>
             </div>
-          </div>
-        ) : null}
-      </div>
-      {trailingAction}
-      <div className="flex items-end gap-2">
-        <UpdatingState isPending={isPending} />
+          ) : null}
+        </div>
       </div>
     </div>
   );

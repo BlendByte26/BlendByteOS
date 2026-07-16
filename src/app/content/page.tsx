@@ -17,10 +17,10 @@ import {
 import { getClientLabel } from "@/lib/client-display";
 import { displayContentPlatform } from "@/lib/content-platform";
 import { defaultExportPreparer } from "@/lib/content-planning-export";
-import { formatContentMonthLabel, publishMonth } from "@/lib/content-month";
 import { getClients, getContentItems, getTeamMembers, uniqueValues } from "@/lib/data";
 import { contentStatusLabels } from "@/lib/labels";
 import { requireCurrentOperationalProfile } from "@/lib/auth";
+import { operationalProfiles } from "@/lib/operational-profiles";
 import { parseContentStatusParams } from "@/lib/smart-links";
 import { contentStatusTones } from "@/lib/status-styles";
 import { isSupabaseConfigured } from "@/lib/supabase";
@@ -44,6 +44,69 @@ const viewOptions: Array<{ value: ContentView; label: string }> = [
   { value: "table", label: "Tabela" },
   { value: "calendar", label: "Calendário" },
 ];
+
+const monthOptions = [
+  { value: "", label: "Todos os meses" },
+  { value: "01", label: "Janeiro" },
+  { value: "02", label: "Fevereiro" },
+  { value: "03", label: "Março" },
+  { value: "04", label: "Abril" },
+  { value: "05", label: "Maio" },
+  { value: "06", label: "Junho" },
+  { value: "07", label: "Julho" },
+  { value: "08", label: "Agosto" },
+  { value: "09", label: "Setembro" },
+  { value: "10", label: "Outubro" },
+  { value: "11", label: "Novembro" },
+  { value: "12", label: "Dezembro" },
+];
+
+const contentOwnerNames = [
+  operationalProfiles.guilherme.name,
+  operationalProfiles.carlota.name,
+  operationalProfiles.carolina.name,
+  operationalProfiles.sofia.name,
+];
+
+function currentYearValue() {
+  return String(new Date().getFullYear());
+}
+
+function currentMonthValue() {
+  return String(new Date().getMonth() + 1).padStart(2, "0");
+}
+
+function isMonthOnlyValue(value: string | undefined) {
+  return Boolean(value && /^(0[1-9]|1[0-2])$/.test(value));
+}
+
+function isYearValue(value: string | undefined) {
+  return Boolean(value && /^\d{4}$/.test(value));
+}
+
+function parseMonthYearParams(params: Record<string, string | string[] | undefined>) {
+  const currentYear = currentYearValue();
+  const rawMonth = valueOf(params, "month");
+  const rawYear = valueOf(params, "year");
+
+  if (rawMonth && /^\d{4}-(0[1-9]|1[0-2])$/.test(rawMonth)) {
+    return {
+      month: rawMonth.slice(5, 7),
+      year: rawMonth.slice(0, 4),
+      currentYear,
+    };
+  }
+
+  return {
+    month: isMonthOnlyValue(rawMonth) ? rawMonth! : "",
+    year: isYearValue(rawYear) ? rawYear! : currentYear,
+    currentYear,
+  };
+}
+
+function contentMonthFromParts(month: string, year: string) {
+  return isMonthOnlyValue(month) && isYearValue(year) ? `${year}-${month}` : "";
+}
 
 function parseView(value: string | undefined): ContentView {
   if (value === "pipeline") return value;
@@ -99,13 +162,21 @@ export default async function ContentPage({ searchParams }: Props) {
   const attention = isAttentionParam(valueOf(params, "attention"));
   const bulkOpen = valueOf(params, "bulk") === "1";
   const status = parseContentStatusParams(params.status);
-  const filters = {
+  const monthYear = parseMonthYearParams(params);
+  const selectedContentMonth = contentMonthFromParts(monthYear.month, monthYear.year);
+  const defaultContentMonth = selectedContentMonth || `${monthYear.year}-${currentMonthValue()}`;
+  const filtersForBar = {
     assignee: valueOf(params, "assignee") ?? valueOf(params, "owner") ?? "",
     client: valueOf(params, "client") ?? "",
-    month: valueOf(params, "month") ?? "",
+    month: monthYear.month,
     status,
     platform: valueOf(params, "platform") ?? "",
     publishUntil: valueOf(params, "publishUntil") ?? valueOf(params, "until") ?? "",
+    year: monthYear.year,
+  };
+  const filters = {
+    ...filtersForBar,
+    month: selectedContentMonth,
   };
   const [clients, teamMembers, itemsForOptions, filteredItems] = await Promise.all([
     getClients(),
@@ -120,9 +191,14 @@ export default async function ContentPage({ searchParams }: Props) {
   const items = attention ? platformFilteredItems.filter(contentNeedsAttention) : platformFilteredItems;
   const platforms = uniqueValues(itemsForOptions, (item) => displayContentPlatform(item.platform));
   const defaultPreparer = defaultExportPreparer(activeProfile.name, teamMembers);
-  const months = Array.from(
-    new Set([filters.month, ...itemsForOptions.map(publishMonth)].filter(Boolean)),
-  ).sort();
+  const yearOptions = [monthYear.currentYear, String(Number(monthYear.currentYear) + 1)].map((year) => ({
+    value: year,
+    label: year,
+  }));
+  const ownerOptions = [
+    { value: "", label: "Todos" },
+    ...contentOwnerNames.map((name) => ({ value: name, label: name })),
+  ];
   const tableKey = [
     JSON.stringify(filters),
     attention ? "attention" : "",
@@ -132,40 +208,47 @@ export default async function ContentPage({ searchParams }: Props) {
   return (
     <>
       <Panel className="relative z-40 mb-5 p-3.5">
-        <div className="flex min-w-0 flex-wrap items-end gap-2.5">
-          <div className="flex shrink-0 flex-wrap gap-1.5 rounded-[18px] border border-[var(--bb-border)] bg-white/45 p-1 shadow-[0_12px_28px_rgba(0,0,0,0.05)]">
-            {viewOptions.map((option) => {
-              const active = option.value === currentView;
+        <div data-content-filter-card className="grid min-w-0 gap-3">
+          <div
+            data-content-filter-top
+            className="flex min-w-0 flex-wrap items-center justify-between gap-2.5"
+          >
+            <div className="flex shrink-0 flex-wrap gap-1.5 rounded-[18px] border border-[var(--bb-border)] bg-white/45 p-1 shadow-[0_12px_28px_rgba(0,0,0,0.05)]">
+              {viewOptions.map((option) => {
+                const active = option.value === currentView;
 
-              return (
-                <Link
-                  key={option.value}
-                  href={hrefForView(params, option.value)}
-                  className={`inline-flex min-h-9 items-center rounded-2xl px-3.5 text-sm font-extrabold transition ${
-                    active
-                      ? "bg-[var(--bb-primary)] text-[var(--bb-black)] shadow-[0_10px_24px_rgba(83,183,223,0.25)]"
-                      : "text-[var(--bb-muted)] hover:bg-[var(--bb-primary-hover)] hover:text-[var(--bb-black)]"
-                  }`}
-                >
-                  {option.label}
-                </Link>
-              );
-            })}
+                return (
+                  <Link
+                    key={option.value}
+                    href={hrefForView(params, option.value)}
+                    className={`inline-flex min-h-9 items-center rounded-2xl px-3.5 text-sm font-extrabold transition ${
+                      active
+                        ? "bg-[var(--bb-primary)] text-[var(--bb-black)] shadow-[0_10px_24px_rgba(83,183,223,0.25)]"
+                        : "text-[var(--bb-muted)] hover:bg-[var(--bb-primary-hover)] hover:text-[var(--bb-black)]"
+                    }`}
+                  >
+                    {option.label}
+                  </Link>
+                );
+              })}
+            </div>
+            <ContentPlanningExportModal
+              clients={clients}
+              items={itemsForOptions}
+              defaultClientId={filters.client}
+              defaultMonth={defaultContentMonth}
+              defaultPreparedByName={defaultPreparer.name}
+              defaultPreparedByEmail={defaultPreparer.email}
+            />
           </div>
           <ContentFiltersBar
-            filters={filters}
+            filters={filtersForBar}
             clientOptions={[
               { value: "", label: "Todos os clientes" },
               ...clients.map((client) => ({ value: client.id, label: getClientLabel(client) })),
             ]}
-            monthOptions={[
-              { value: "", label: "Todos os meses" },
-              ...months.map((month) => ({ value: month, label: formatContentMonthLabel(month) })),
-            ]}
-            ownerOptions={[
-              { value: "", label: "Todos" },
-              ...teamMembers.map((member) => ({ value: member.name, label: member.name })),
-            ]}
+            monthOptions={monthOptions}
+            ownerOptions={ownerOptions}
             statusOptions={[
               { value: "", label: "Todos os estados" },
               ...contentStatuses.map((status) => ({
@@ -178,16 +261,8 @@ export default async function ContentPage({ searchParams }: Props) {
               { value: "", label: "Todas as plataformas" },
               ...platforms.map((platform) => ({ value: platform, label: platform })),
             ]}
-            trailingAction={
-              <ContentPlanningExportModal
-                clients={clients}
-                items={itemsForOptions}
-                defaultClientId={filters.client}
-                defaultMonth={filters.month}
-                defaultPreparedByName={defaultPreparer.name}
-                defaultPreparedByEmail={defaultPreparer.email}
-              />
-            }
+            yearOptions={yearOptions}
+            defaultYear={monthYear.currentYear}
           />
         </div>
       </Panel>
@@ -208,7 +283,7 @@ export default async function ContentPage({ searchParams }: Props) {
       ) : null}
 
       {currentView === "calendar" ? (
-        <ContentCalendarView items={items} month={filters.month} />
+        <ContentCalendarView items={items} month={defaultContentMonth} />
       ) : null}
 
       {currentView === "table" ? (
@@ -235,7 +310,7 @@ export default async function ContentPage({ searchParams }: Props) {
         teamMembers={teamMembers}
         canPersist={isSupabaseConfigured()}
         defaultClientId={filters.client}
-        defaultMonth={filters.month}
+        defaultMonth={defaultContentMonth}
         initialOpen={bulkOpen}
       />
     </>

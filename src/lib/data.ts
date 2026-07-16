@@ -32,6 +32,7 @@ export type ContentFilters = {
   assignee?: string;
   client?: string;
   month?: string;
+  year?: string;
   status?: string | string[];
   platform?: string;
   publishUntil?: string;
@@ -334,6 +335,7 @@ export async function getQuickNotes(view: QuickTodoView, profileKey: Operational
 export async function getContentItems(filters: ContentFilters = {}) {
   const supabase = await getSupabase();
   const filteredMonth = isValidContentMonth(filters.month) ? filters.month : "";
+  const filteredYear = !filteredMonth && filters.year && /^\d{4}$/.test(filters.year) ? filters.year : "";
   const filteredStatuses = (Array.isArray(filters.status) ? filters.status : [filters.status])
     .filter(Boolean) as ContentStatus[];
 
@@ -344,6 +346,7 @@ export async function getContentItems(filters: ContentFilters = {}) {
         (!filters.assignee ||
           item.assignee_name?.toLowerCase().includes(filters.assignee.toLowerCase())) &&
         (!filteredMonth || isPublishDateInMonth(item.publish_date, filteredMonth)) &&
+        (!filteredYear || item.publish_date?.startsWith(`${filteredYear}-`)) &&
         (!filteredStatuses.length || filteredStatuses.includes(item.status)) &&
         (!filters.platform || item.platform === filters.platform) &&
         (!filters.publishUntil ||
@@ -363,6 +366,10 @@ export async function getContentItems(filters: ContentFilters = {}) {
   if (filteredMonth) {
     const range = contentMonthRange(filteredMonth);
     query = query.gte("publish_date", range.start).lt("publish_date", range.end);
+  } else if (filteredYear) {
+    query = query
+      .gte("publish_date", `${filteredYear}-01-01`)
+      .lt("publish_date", `${Number(filteredYear) + 1}-01-01`);
   }
   if (filteredStatuses.length) query = query.in("status", filteredStatuses);
   if (filters.platform) query = query.ilike("platform", filters.platform);
@@ -379,6 +386,7 @@ export async function getContentItems(filters: ContentFilters = {}) {
           (!filters.assignee ||
             item.assignee_name?.toLowerCase().includes(filters.assignee.toLowerCase())) &&
           (!filteredMonth || isPublishDateInMonth(item.publish_date, filteredMonth)) &&
+          (!filteredYear || item.publish_date?.startsWith(`${filteredYear}-`)) &&
           (!filteredStatuses.length || filteredStatuses.includes(item.status)) &&
           (!filters.platform || item.platform === filters.platform) &&
           (!filters.publishUntil ||
