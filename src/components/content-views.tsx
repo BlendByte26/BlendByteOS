@@ -48,7 +48,7 @@ type ContentPipelineViewProps = {
   deleteCommentAction: DeleteContentCommentAction;
 };
 
-const attentionStatuses: ContentStatus[] = ["todo", "in_progress", "ready_to_publish"];
+const attentionStatuses: ContentStatus[] = ["pending", "in_progress", "ready_to_publish"];
 const weekDays = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 const monthTitleFormatter = new Intl.DateTimeFormat("pt-PT", { month: "long", year: "numeric" });
 const mobileDayFormatter = new Intl.DateTimeFormat("pt-PT", {
@@ -563,7 +563,7 @@ export function ContentPipelineView({
   return (
     <>
       <div className="-mx-1 overflow-x-auto overscroll-x-contain pb-3 [scrollbar-gutter:stable]">
-        <div className="grid min-w-[1680px] grid-cols-6 gap-3 px-1">
+        <div className="grid min-w-[1400px] grid-cols-5 gap-3 px-1">
           {contentStatuses.map((status) => {
             const statusItems = items.filter((item) => item.status === status).sort(sortByPublishDate);
             const statusStyle = getContentStatusStyle(status);

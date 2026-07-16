@@ -53,9 +53,9 @@ type DashboardItem = {
   };
 };
 
-const activeContentStatuses = ["idea", "todo", "in_progress", "ready_to_publish"];
+const activeContentStatuses = ["pending", "in_progress", "ready_to_publish"];
 const activeTaskStatuses = ["pending", "in_progress"];
-const prepareContentStatuses = ["todo", "in_progress"];
+const prepareContentStatuses = ["pending", "in_progress"];
 const priorityOrder = { urgent: 0, normal: 1, low: 2 };
 const QUEUE_LIMIT = 5;
 
@@ -238,7 +238,7 @@ function contentMissingFields(item: ContentItem) {
   if (!item.platform?.trim()) missing.push("plataforma");
   if (!item.format?.trim()) missing.push("formato");
   if (!item.assignee_name?.trim()) missing.push("owner");
-  if (["todo", "in_progress", "ready_to_publish"].includes(item.status)) {
+  if (["pending", "in_progress", "ready_to_publish"].includes(item.status)) {
     if (!item.creative_brief?.trim() && !item.brief_url?.trim()) missing.push("briefing");
     if (!item.copy_text?.trim()) missing.push("copy");
   }
@@ -416,9 +416,9 @@ export default async function DashboardPage({ searchParams }: Props) {
       tone: activeTasks.some((task) => task.priority === "urgent") ? "warning" : "default",
     },
     {
-      label: "Em produção",
-      value: activeContent.filter((item) => item.status === "todo").length,
-      href: buildContentUrl({ status: "production" }),
+      label: "Pendentes",
+      value: activeContent.filter((item) => item.status === "pending").length,
+      href: buildContentUrl({ status: "pending" }),
     },
     {
       label: "Em design",

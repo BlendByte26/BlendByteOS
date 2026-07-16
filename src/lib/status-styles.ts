@@ -62,8 +62,7 @@ export const taskStatusTones: Record<TaskStatus, StatusTone> = {
 };
 
 export const contentStatusTones: Record<ContentStatus, StatusTone> = {
-  idea: "queued",
-  todo: "active",
+  pending: "queued",
   in_progress: "design",
   ready_to_publish: "ready",
   published: "completed",

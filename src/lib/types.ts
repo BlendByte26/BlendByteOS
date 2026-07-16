@@ -28,8 +28,7 @@ export const serviceTypes = [
   "Outro",
 ] as const;
 export const contentStatuses = [
-  "idea",
-  "todo",
+  "pending",
   "in_progress",
   "ready_to_publish",
   "published",

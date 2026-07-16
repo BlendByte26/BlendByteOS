@@ -598,7 +598,7 @@ export function ContentForm({
         </label>
         <label className={labelClass}>
           Estado
-          <SelectField name="status" defaultValue={item?.status ?? "idea"} options={contentStatusOptions} />
+          <SelectField name="status" defaultValue={item?.status ?? "pending"} options={contentStatusOptions} />
         </label>
       </div>
       <div className="grid gap-4 md:grid-cols-4">

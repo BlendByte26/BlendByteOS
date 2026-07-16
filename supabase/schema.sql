@@ -22,8 +22,7 @@ alter type client_status add value if not exists 'setup';
 
 do $$ begin
   create type content_status as enum (
-    'idea',
-    'todo',
+    'pending',
     'in_progress',
     'ready_to_publish',
     'published',
@@ -171,7 +170,7 @@ create table if not exists public.content_items (
   creative_brief text,
   copy_text text,
   description text,
-  status content_status not null default 'idea',
+  status content_status not null default 'pending',
   assignee_name text,
   media_url text,
   brief_url text,
@@ -762,7 +761,7 @@ where c.client_code = s.client_code or c.name = s.name;
 insert into public.content_items
   (client_id, month, publish_date, platform, format, title, creative_brief, status, assignee_name, brief_url, media_folder_url, is_blocked, blocker_reason, notes)
 select id, '2026-07', date '2026-07-01', 'Instagram', 'Carrossel', name || ': arranque do mês',
-  'Conteúdo de exemplo para planeamento mensal.', 'idea', owner_name,
+  'Conteúdo de exemplo para planeamento mensal.', 'pending', owner_name,
   'https://docs.google.com/document/d/sample-brief', 'https://drive.google.com/drive/folders/sample-media',
   name = 'Invest2030',
   case when name = 'Invest2030' then 'Aguardando imagens finais do cliente.' else null end,

@@ -163,7 +163,7 @@ function monthFrom(row: CsvRow, publishDate: string | null) {
 function mapStatus(row: CsvRow) {
   const status = normalize(row.status_suggested || row.status_original);
 
-  if (!status) return "idea";
+  if (!status) return "pending";
   if (status.includes("arquiv")) return "archived";
   if (
     status.includes("publicado") ||
@@ -193,11 +193,11 @@ function mapStatus(row: CsvRow) {
     status.includes("todo") ||
     status.includes("bloqueado")
   ) {
-    return "todo";
+    return "pending";
   }
-  if (status.includes("ideia") || status.includes("idea")) return "idea";
+  if (status.includes("ideia") || status.includes("idea")) return "pending";
 
-  return "todo";
+  return "pending";
 }
 
 function isUrl(value: string | null) {

@@ -22,11 +22,10 @@ export const clientStatusLabels: Record<ClientStatus, string> = {
 };
 
 export const contentStatusLabels: Record<ContentStatus, string> = {
-  idea: "Ideia",
-  todo: "Produção",
+  pending: "Pendente",
   in_progress: "Em Design",
   ready_to_publish: "Pronto para Agendar/Publicar",
-  published: "Agendado / Publicado",
+  published: "Agendado/Publicado",
   archived: "Arquivado",
 };
 
@@ -53,8 +52,6 @@ export const taskPriorityLabels: Record<TaskPriority, string> = {
 };
 
 export const statusTone: Record<string, string> = {
-  idea: "bg-[var(--bb-primary-soft)] text-[var(--bb-black)] ring-[rgba(83,183,223,0.28)]",
-  todo: "bg-[rgba(0,0,0,0.05)] text-[var(--bb-black)] ring-[rgba(0,0,0,0.08)]",
   pending: "bg-[rgba(0,0,0,0.05)] text-[var(--bb-black)] ring-[rgba(0,0,0,0.08)]",
   in_progress: "bg-[var(--bb-secondary-soft)] text-[var(--bb-black)] ring-[rgba(140,101,199,0.24)]",
   review: "bg-[var(--bb-secondary-soft)] text-[var(--bb-black)] ring-[rgba(140,101,199,0.24)]",

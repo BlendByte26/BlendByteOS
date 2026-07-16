@@ -593,6 +593,7 @@ export async function deleteClientAction(id: string) {
 
 function contentPayload(formData: FormData) {
   const publishDate = text(formData, "publish_date");
+  const status = (text(formData, "status") ?? "pending") as ContentStatus;
   const payload = {
     client_id: requiredText(formData, "client_id"),
     source_task_id: text(formData, "source_task_id"),
@@ -616,7 +617,7 @@ function contentPayload(formData: FormData) {
     creative_brief: text(formData, "creative_brief"),
     copy_text: text(formData, "copy_text"),
     description: text(formData, "description"),
-    status: requiredText(formData, "status") as ContentStatus,
+    status,
     assignee_name: textList(formData, "assignee_name"),
     media_url: text(formData, "media_url"),
     brief_url: text(formData, "brief_url"),
@@ -704,7 +705,7 @@ export async function bulkCreateContentAction(formData: FormData): Promise<BulkC
 
   const clientId = requiredText(formData, "client_id");
   const month = requiredText(formData, "month");
-  const status = requiredText(formData, "status") as ContentStatus;
+  const status = (text(formData, "status") ?? "pending") as ContentStatus;
   const defaultPlatform = text(formData, "default_platform") ?? fallbackContentPlatform;
   const defaultFormat = text(formData, "default_format");
   const publishDates = formData.getAll("row_publish_date");

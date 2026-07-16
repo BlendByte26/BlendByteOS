@@ -1,11 +1,13 @@
 import type { ContentStatus, TaskPriority, TaskStatus } from "@/lib/types";
 
-export type ContentStatusSlug = "idea" | "production" | "design" | "ready" | "scheduled" | "archived";
+export type ContentStatusSlug = "pending" | "design" | "ready" | "scheduled" | "archived";
+type LegacyContentStatusSlug = "idea" | "production";
 export type TaskStatusSlug = "pending" | "doing" | "done" | "archived";
 
-const contentStatusBySlug: Record<ContentStatusSlug, ContentStatus> = {
-  idea: "idea",
-  production: "todo",
+const contentStatusBySlug: Record<ContentStatusSlug | LegacyContentStatusSlug, ContentStatus> = {
+  pending: "pending",
+  idea: "pending",
+  production: "pending",
   design: "in_progress",
   ready: "ready_to_publish",
   scheduled: "published",
@@ -13,13 +15,20 @@ const contentStatusBySlug: Record<ContentStatusSlug, ContentStatus> = {
 };
 
 const contentSlugByStatus: Record<ContentStatus, ContentStatusSlug> = {
-  idea: "idea",
-  todo: "production",
+  pending: "pending",
   in_progress: "design",
   ready_to_publish: "ready",
   published: "scheduled",
   archived: "archived",
 };
+
+function isContentStatusSlug(value: string): value is ContentStatusSlug | LegacyContentStatusSlug {
+  return value in contentStatusBySlug;
+}
+
+function isContentStatus(value: string): value is ContentStatus {
+  return value in contentSlugByStatus;
+}
 
 const taskStatusBySlug: Record<TaskStatusSlug, TaskStatus> = {
   pending: "pending",
@@ -56,8 +65,9 @@ export function taskStatusToSlug(status: TaskStatus) {
 
 export function parseContentStatusParam(value: string | null | undefined) {
   if (!value) return "";
-  if (value in contentStatusBySlug) return contentStatusBySlug[value as ContentStatusSlug];
-  if (Object.values(contentStatusBySlug).includes(value as ContentStatus)) return value as ContentStatus;
+  if (isContentStatusSlug(value)) return contentStatusBySlug[value];
+  if (value === "todo") return "pending";
+  if (isContentStatus(value)) return value;
   return "";
 }
 
@@ -102,9 +112,11 @@ export function buildContentUrl({
   until?: string | null;
 } = {}) {
   const statusValue =
-    status && Object.values(contentStatusBySlug).includes(status as ContentStatus)
-      ? contentStatusToSlug(status as ContentStatus)
-      : status;
+    status && isContentStatusSlug(status)
+      ? contentStatusToSlug(contentStatusBySlug[status])
+      : status && isContentStatus(status)
+        ? contentStatusToSlug(status)
+        : status;
 
   return withQuery("/content", [
     ["view", view],

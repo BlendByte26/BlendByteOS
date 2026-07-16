@@ -446,7 +446,7 @@ export function BulkContentModal({
               Estado inicial
               <SelectField
                 name="status"
-                defaultValue={"idea" satisfies ContentStatus}
+                defaultValue={"pending" satisfies ContentStatus}
                 options={statusOptions()}
               />
             </label>

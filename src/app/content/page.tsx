@@ -59,7 +59,7 @@ function contentMissingFields(item: ContentItem) {
   if (!item.platform?.trim()) missing.push("plataforma");
   if (!item.format?.trim()) missing.push("formato");
   if (!item.assignee_name?.trim()) missing.push("owner");
-  if (["todo", "in_progress", "ready_to_publish"].includes(item.status)) {
+  if (["pending", "in_progress", "ready_to_publish"].includes(item.status)) {
     if (!item.creative_brief?.trim() && !item.brief_url?.trim()) missing.push("briefing");
     if (!item.copy_text?.trim()) missing.push("copy");
   }

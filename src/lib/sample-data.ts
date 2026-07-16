@@ -1,6 +1,13 @@
 import type { Client, ContentItem, Task } from "./types";
 
 const now = new Date().toISOString();
+const sampleContentStatusCycle: ContentItem["status"][] = [
+  "pending",
+  "in_progress",
+  "ready_to_publish",
+  "published",
+  "archived",
+];
 
 export const sampleClients: Client[] = [
   { name: "Blendbyte", code: "00_BB", short: "BB", order: 0, color: "slate" },
@@ -110,9 +117,7 @@ export const sampleContent: ContentItem[] = sampleClients.slice(0, 6).map(
     creative_brief: "Peça de exemplo para validar o calendário.",
     copy_text: null,
     description: null,
-    status: ["idea", "todo", "in_progress", "ready_to_publish", "published", "archived"][
-      index
-    ] as ContentItem["status"],
+    status: sampleContentStatusCycle[index % sampleContentStatusCycle.length],
     assignee_name: ["Carlota", "Carolina", "Sofia"][index % 3],
     media_url: null,
     brief_url: index < 2 ? `https://docs.google.com/document/d/sample-brief-${index + 1}` : null,
