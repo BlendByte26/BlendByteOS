@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BulkContentModal } from "@/components/bulk-content-modal";
+import { ContentPlanningExportModal } from "@/components/content-planning-export-modal";
 import { ContentTable } from "@/components/content-table";
 import { ContentCalendarView, ContentPipelineView } from "@/components/content-views";
 import { ContentFiltersBar } from "@/components/live-filters";
@@ -15,6 +16,7 @@ import {
 } from "@/lib/actions";
 import { getClientLabel } from "@/lib/client-display";
 import { displayContentPlatform } from "@/lib/content-platform";
+import { defaultExportPreparer } from "@/lib/content-planning-export";
 import { formatContentMonthLabel, publishMonth } from "@/lib/content-month";
 import { getClients, getContentItems, getTeamMembers, uniqueValues } from "@/lib/data";
 import { contentStatusLabels } from "@/lib/labels";
@@ -117,6 +119,7 @@ export default async function ContentPage({ searchParams }: Props) {
       : filteredItems;
   const items = attention ? platformFilteredItems.filter(contentNeedsAttention) : platformFilteredItems;
   const platforms = uniqueValues(itemsForOptions, (item) => displayContentPlatform(item.platform));
+  const defaultPreparer = defaultExportPreparer(activeProfile.name, teamMembers);
   const months = Array.from(
     new Set([filters.month, ...itemsForOptions.map(publishMonth)].filter(Boolean)),
   ).sort();
@@ -129,52 +132,62 @@ export default async function ContentPage({ searchParams }: Props) {
   return (
     <>
       <Panel className="relative z-40 mb-5 p-3.5">
-        <div className="flex flex-wrap items-end gap-2.5">
-          <div className="flex shrink-0 flex-wrap gap-1.5 rounded-[18px] border border-[var(--bb-border)] bg-white/45 p-1 shadow-[0_12px_28px_rgba(0,0,0,0.05)]">
-            {viewOptions.map((option) => {
-              const active = option.value === currentView;
+        <div className="flex flex-wrap items-end justify-between gap-2.5">
+          <div className="flex min-w-0 flex-wrap items-end gap-2.5">
+            <div className="flex shrink-0 flex-wrap gap-1.5 rounded-[18px] border border-[var(--bb-border)] bg-white/45 p-1 shadow-[0_12px_28px_rgba(0,0,0,0.05)]">
+              {viewOptions.map((option) => {
+                const active = option.value === currentView;
 
-              return (
-                <Link
-                  key={option.value}
-                  href={hrefForView(params, option.value)}
-                  className={`inline-flex min-h-9 items-center rounded-2xl px-3.5 text-sm font-extrabold transition ${
-                    active
-                      ? "bg-[var(--bb-primary)] text-[var(--bb-black)] shadow-[0_10px_24px_rgba(83,183,223,0.25)]"
-                      : "text-[var(--bb-muted)] hover:bg-[var(--bb-primary-hover)] hover:text-[var(--bb-black)]"
-                  }`}
-                >
-                  {option.label}
-                </Link>
-              );
-            })}
+                return (
+                  <Link
+                    key={option.value}
+                    href={hrefForView(params, option.value)}
+                    className={`inline-flex min-h-9 items-center rounded-2xl px-3.5 text-sm font-extrabold transition ${
+                      active
+                        ? "bg-[var(--bb-primary)] text-[var(--bb-black)] shadow-[0_10px_24px_rgba(83,183,223,0.25)]"
+                        : "text-[var(--bb-muted)] hover:bg-[var(--bb-primary-hover)] hover:text-[var(--bb-black)]"
+                    }`}
+                  >
+                    {option.label}
+                  </Link>
+                );
+              })}
+            </div>
+            <ContentFiltersBar
+              filters={filters}
+              clientOptions={[
+                { value: "", label: "Todos os clientes" },
+                ...clients.map((client) => ({ value: client.id, label: getClientLabel(client) })),
+              ]}
+              monthOptions={[
+                { value: "", label: "Todos os meses" },
+                ...months.map((month) => ({ value: month, label: formatContentMonthLabel(month) })),
+              ]}
+              ownerOptions={[
+                { value: "", label: "Todos" },
+                ...teamMembers.map((member) => ({ value: member.name, label: member.name })),
+              ]}
+              statusOptions={[
+                { value: "", label: "Todos os estados" },
+                ...contentStatuses.map((status) => ({
+                  value: status,
+                  label: contentStatusLabels[status],
+                  tone: contentStatusTones[status],
+                })),
+              ]}
+              platformOptions={[
+                { value: "", label: "Todas as plataformas" },
+                ...platforms.map((platform) => ({ value: platform, label: platform })),
+              ]}
+            />
           </div>
-          <ContentFiltersBar
-            filters={filters}
-            clientOptions={[
-              { value: "", label: "Todos os clientes" },
-              ...clients.map((client) => ({ value: client.id, label: getClientLabel(client) })),
-            ]}
-            monthOptions={[
-              { value: "", label: "Todos os meses" },
-              ...months.map((month) => ({ value: month, label: formatContentMonthLabel(month) })),
-            ]}
-            ownerOptions={[
-              { value: "", label: "Todos" },
-              ...teamMembers.map((member) => ({ value: member.name, label: member.name })),
-            ]}
-            statusOptions={[
-              { value: "", label: "Todos os estados" },
-              ...contentStatuses.map((status) => ({
-                value: status,
-                label: contentStatusLabels[status],
-                tone: contentStatusTones[status],
-              })),
-            ]}
-            platformOptions={[
-              { value: "", label: "Todas as plataformas" },
-              ...platforms.map((platform) => ({ value: platform, label: platform })),
-            ]}
+          <ContentPlanningExportModal
+            clients={clients}
+            items={itemsForOptions}
+            defaultClientId={filters.client}
+            defaultMonth={filters.month}
+            defaultPreparedByName={defaultPreparer.name}
+            defaultPreparedByEmail={defaultPreparer.email}
           />
         </div>
       </Panel>
