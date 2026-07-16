@@ -5,11 +5,16 @@ import { redirect } from "next/navigation";
 import { fallbackContentPlatform } from "./content-platform";
 import {
   INVEST2030_NEWSLETTER_TEMPLATE_VERSION,
+  INVEST2030_WEBINAR_TEMPLATE_VERSION,
+  generateInvest2030WebinarHtml,
   generateInvest2030NewsletterHtml,
   parseInvest2030NewsletterJson,
+  parseInvest2030WebinarJson,
   parseInvest2030TaskNotes,
   safeInvest2030CtaUrl,
+  validateInvest2030Webinar,
   validateInvest2030Newsletter,
+  type Invest2030CampaignVariant,
 } from "./invest2030-newsletter";
 import { buildInvest2030TaskSummary } from "./invest2030-notes";
 import { invest2030PublicHref, isInvest2030PublicAccessToken } from "./invest2030-public";
@@ -1183,6 +1188,7 @@ function refreshNewsletterTask(taskId: string) {
   refreshAll();
   revalidatePath(`/tasks/${taskId}/edit`);
   revalidatePath(`/tasks/${taskId}/newsletter`);
+  revalidatePath(`/tasks/${taskId}/webinar`);
 }
 
 async function readTaskForNewsletter(supabase: SupabaseClient, taskId: string) {
@@ -1202,6 +1208,23 @@ export async function saveInvest2030NewsletterDraftAction(
   _previousState: NewsletterMutationResult,
   formData: FormData,
 ): Promise<NewsletterMutationResult> {
+  return saveInvest2030CampaignDraftAction("newsletter", taskId, _previousState, formData);
+}
+
+export async function saveInvest2030WebinarDraftAction(
+  taskId: string,
+  _previousState: NewsletterMutationResult,
+  formData: FormData,
+): Promise<NewsletterMutationResult> {
+  return saveInvest2030CampaignDraftAction("webinar", taskId, _previousState, formData);
+}
+
+async function saveInvest2030CampaignDraftAction(
+  variant: Invest2030CampaignVariant,
+  taskId: string,
+  _previousState: NewsletterMutationResult,
+  formData: FormData,
+): Promise<NewsletterMutationResult> {
   await requireRole(["admin", "marketing", "design"]);
   const supabase = await supabaseOrError();
   const profile = await currentOperationalProfile();
@@ -1210,18 +1233,34 @@ export async function saveInvest2030NewsletterDraftAction(
   const rawContent = text(formData, "content_json");
 
   if (!rawContent) {
-    return { ok: false, message: "Conteúdo da newsletter em falta." };
+    return { ok: false, message: variant === "webinar" ? "Conteúdo do webinar em falta." : "Conteúdo da newsletter em falta." };
   }
 
-  const parsedContent = parseInvest2030NewsletterJson(rawContent);
+  const parsedContent = variant === "webinar" ? parseInvest2030WebinarJson(rawContent) : parseInvest2030NewsletterJson(rawContent);
   if (!parsedContent.content) {
     return { ok: false, message: parsedContent.errors.join(" ") };
   }
 
-  const finalCta = safeInvest2030CtaUrl(parsedContent.content.cta_url);
-  const content = { ...parsedContent.content, cta_url: finalCta.url };
-  const generatedHtml = generateInvest2030NewsletterHtml(content);
-  const validation = validateInvest2030Newsletter(content, parsed);
+  const { content, generatedHtml, validation } = (() => {
+    if (variant === "webinar") {
+      const content = parseInvest2030WebinarJson(rawContent).content;
+      if (!content) throw new Error("Conteúdo do webinar inválido.");
+      return {
+        content,
+        generatedHtml: generateInvest2030WebinarHtml(content, parsed),
+        validation: validateInvest2030Webinar(content, parsed),
+      };
+    }
+
+    const newsletterContent = parseInvest2030NewsletterJson(rawContent).content;
+    if (!newsletterContent) throw new Error("Conteúdo da newsletter inválido.");
+    const content = { ...newsletterContent, cta_url: safeInvest2030CtaUrl(newsletterContent.cta_url).url };
+    return {
+      content,
+      generatedHtml: generateInvest2030NewsletterHtml(content),
+      validation: validateInvest2030Newsletter(content, parsed),
+    };
+  })();
   const status: Invest2030NewsletterStatus = validation.blockers.length ? "draft" : "ready_to_export";
 
   const { data: existing, error: existingError } = await supabase
@@ -1234,7 +1273,7 @@ export async function saveInvest2030NewsletterDraftAction(
 
   const payload = {
     task_id: taskId,
-    template_version: INVEST2030_NEWSLETTER_TEMPLATE_VERSION,
+    template_version: variant === "webinar" ? INVEST2030_WEBINAR_TEMPLATE_VERSION : INVEST2030_NEWSLETTER_TEMPLATE_VERSION,
     parsed_request_json: parsed,
     content_json: content,
     generated_html: generatedHtml,
@@ -1250,9 +1289,10 @@ export async function saveInvest2030NewsletterDraftAction(
   if (error) return { ok: false, message: error.message };
 
   refreshNewsletterTask(taskId);
+  const label = variant === "webinar" ? "webinar" : "newsletter";
   return {
     ok: true,
-    message: status === "ready_to_export" ? "Rascunho guardado. A newsletter está pronta para exportar." : "Rascunho guardado.",
+    message: status === "ready_to_export" ? `Rascunho guardado. ${label === "webinar" ? "O webinar está pronto" : "A newsletter está pronta"} para exportar.` : "Rascunho guardado.",
   };
 }
 
@@ -1329,6 +1369,10 @@ export async function markInvest2030NewsletterSentAction(taskId: string) {
   if (error) throw new Error(error.message);
   refreshNewsletterTask(taskId);
 }
+
+export const markInvest2030WebinarScheduledAction = markInvest2030NewsletterScheduledAction;
+export const markInvest2030WebinarExportedAction = markInvest2030NewsletterExportedAction;
+export const markInvest2030WebinarSentAction = markInvest2030NewsletterSentAction;
 
 function requiredOption<T extends readonly string[]>(formData: FormData, key: string, options: T) {
   const value = requiredText(formData, key);

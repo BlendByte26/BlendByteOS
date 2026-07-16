@@ -2,6 +2,11 @@ import { getSupabase, isSupabaseConfigured, isSupabaseSchemaError } from "./supa
 import { compareClients } from "./client-display";
 import { contentMonthRange, isPublishDateInMonth, isValidContentMonth } from "./content-month";
 import { getClientMissingSetup } from "./onboarding";
+import {
+  INVEST2030_NEWSLETTER_TEMPLATE_VERSION,
+  INVEST2030_WEBINAR_TEMPLATE_VERSION,
+  type Invest2030CampaignVariant,
+} from "./invest2030-newsletter";
 import { sampleClients, sampleContent, sampleTasks } from "./sample-data";
 import type { OperationalProfileKey } from "./operational-profiles";
 import type {
@@ -502,6 +507,16 @@ export async function getInvest2030NewsletterByTaskId(taskId: string) {
   }
 
   return data as Invest2030Newsletter | null;
+}
+
+export async function getInvest2030CampaignByTaskId(taskId: string, variant: Invest2030CampaignVariant) {
+  const campaign = await getInvest2030NewsletterByTaskId(taskId);
+  if (!campaign) return null;
+
+  const expectedVersion =
+    variant === "webinar" ? INVEST2030_WEBINAR_TEMPLATE_VERSION : INVEST2030_NEWSLETTER_TEMPLATE_VERSION;
+
+  return campaign.template_version === expectedVersion ? campaign : null;
 }
 
 function invest2030RequestMatches(request: Invest2030Request, filters: Invest2030RequestFilters) {

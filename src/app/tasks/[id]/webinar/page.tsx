@@ -1,16 +1,16 @@
 import { notFound } from "next/navigation";
 import { Invest2030NewsletterWorkspace } from "@/components/invest2030-newsletter-workspace";
 import {
-  markInvest2030NewsletterExportedAction,
-  markInvest2030NewsletterScheduledAction,
-  markInvest2030NewsletterSentAction,
-  saveInvest2030NewsletterDraftAction,
+  markInvest2030WebinarExportedAction,
+  markInvest2030WebinarScheduledAction,
+  markInvest2030WebinarSentAction,
+  saveInvest2030WebinarDraftAction,
 } from "@/lib/actions";
 import { requireRole } from "@/lib/auth";
 import { getInvest2030CampaignByTaskId, getTask } from "@/lib/data";
 import {
-  initialInvest2030NewsletterContent,
-  isInvest2030NewsletterTask,
+  initialInvest2030WebinarContent,
+  isInvest2030WebinarTask,
   parseInvest2030TaskNotes,
   type Invest2030Newsletter,
 } from "@/lib/invest2030-newsletter";
@@ -25,16 +25,16 @@ function coerceNewsletter(value: Awaited<ReturnType<typeof getInvest2030Campaign
   return value as unknown as Invest2030Newsletter;
 }
 
-export default async function Invest2030NewsletterPage({ params }: Props) {
+export default async function Invest2030WebinarPage({ params }: Props) {
   const { id } = await params;
   await requireRole(["admin", "marketing", "design"]);
   const [task, storedNewsletter] = await Promise.all([
     getTask(id),
-    getInvest2030CampaignByTaskId(id, "newsletter"),
+    getInvest2030CampaignByTaskId(id, "webinar"),
   ]);
 
   if (!task) notFound();
-  if (!isInvest2030NewsletterTask(task)) notFound();
+  if (!isInvest2030WebinarTask(task)) notFound();
 
   const parsedRequest = parseInvest2030TaskNotes(task.notes);
   const newsletter = coerceNewsletter(storedNewsletter);
@@ -42,7 +42,7 @@ export default async function Invest2030NewsletterPage({ params }: Props) {
     ? {
         ...newsletter,
         content_json: {
-          ...initialInvest2030NewsletterContent(parsedRequest),
+          ...initialInvest2030WebinarContent(parsedRequest),
           ...newsletter.content_json,
         },
       }
@@ -63,12 +63,12 @@ export default async function Invest2030NewsletterPage({ params }: Props) {
       }}
       parsedRequest={parsedRequest}
       newsletter={normalizedNewsletter}
-      variant="newsletter"
-      gptUrl={process.env.NEXT_PUBLIC_INVEST2030_GPT_URL ?? null}
-      saveAction={saveInvest2030NewsletterDraftAction.bind(null, id)}
-      markScheduledAction={markInvest2030NewsletterScheduledAction.bind(null, id)}
-      markExportedAction={markInvest2030NewsletterExportedAction.bind(null, id)}
-      markSentAction={markInvest2030NewsletterSentAction.bind(null, id)}
+      variant="webinar"
+      gptUrl={process.env.NEXT_PUBLIC_INVEST2030_WEBINAR_GPT_URL ?? null}
+      saveAction={saveInvest2030WebinarDraftAction.bind(null, id)}
+      markScheduledAction={markInvest2030WebinarScheduledAction.bind(null, id)}
+      markExportedAction={markInvest2030WebinarExportedAction.bind(null, id)}
+      markSentAction={markInvest2030WebinarSentAction.bind(null, id)}
     />
   );
 }

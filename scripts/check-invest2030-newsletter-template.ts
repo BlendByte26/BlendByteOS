@@ -4,13 +4,22 @@ import { homedir } from "node:os";
 import path from "node:path";
 import {
   buildInvest2030GptBriefing,
+  generateInvest2030WebinarHtml,
   generateInvest2030NewsletterHtml,
   INVEST2030_DEFAULT_CTA_URL,
+  INVEST2030_WEBINAR_SECONDARY_URL,
+  isInvest2030NewsletterTask,
+  isInvest2030SocialContentTask,
+  isInvest2030WebinarTask,
   parseInvest2030TaskNotes,
   parseInvest2030NewsletterJson,
+  parseInvest2030WebinarJson,
   safeInvest2030CtaUrl,
+  safeInvest2030WebinarRegistrationUrl,
+  validateInvest2030Webinar,
   validateInvest2030Newsletter,
   type Invest2030NewsletterContent,
+  type Invest2030WebinarContent,
 } from "../src/lib/invest2030-newsletter.ts";
 
 type Box = { x: number; y: number; width: number; height: number };
@@ -75,6 +84,78 @@ const sourceContent: Invest2030NewsletterContent = {
   secondary_cta_label: "Avaliar enquadramento →",
   cta_url: "https://www.invest2030.pt/pt/incentivo/MTEy",
 };
+
+const webinarContent: Invest2030WebinarContent = {
+  subject: "Webinar Invest2030: Incentivos Base Territorial",
+  preheader: "Sessão gratuita para perceber apoios, prazos e próximos passos.",
+  eyebrow: "Webinar gratuito",
+  hero_title: "Incentivos Base Territorial",
+  hero_subtitle: "O que precisa de saber antes de avançar",
+  stats: [
+    { label: "Data", value: "24 de julho" },
+    { label: "Hora", value: "11h00" },
+    { label: "Apoio", value: "Até 60%" },
+    { label: "Prazo", value: "31 de julho" },
+  ],
+  intro_paragraphs: [
+    "Nesta sessão vamos clarificar o enquadramento dos apoios e os passos críticos para preparar uma candidatura.",
+  ],
+  session_section_title: "// O que vai ficar claro nesta sessão:",
+  session_topics: [
+    "Quem pode beneficiar dos incentivos",
+    "Que despesas podem ser elegíveis",
+    "Que informação deve estar preparada antes do prazo",
+  ],
+  speaker: {
+    name: "André Loureiro",
+    organisation: "Invest2030",
+    image_url: "",
+  },
+  closing_paragraphs: [
+    "Reserve o seu lugar e traga as suas dúvidas para a sessão.",
+  ],
+};
+
+const webinarBriefing = `Pedido recebido via Form Invest2030
+
+Nome da campanha:
+Webinar Incentivos Base Territorial
+
+Tipo de ação:
+Webinar, Redes Sociais
+
+Quem está a pedir:
+André Loureiro
+
+Período:
+Mês — Julho 2026 · Webinar — 24/07/2026 às 11:00
+
+Data/hora do webinar:
+24/07/2026 às 11:00
+
+Objetivo principal:
+Gerar inscrições no webinar
+
+Público-alvo / segmentação:
+PME
+
+Texto do botão principal:
+Inscrever-me
+
+Link do botão principal:
+https://www.invest2030.pt/pt/webinar/incentivos
+
+Tema / mensagem principal:
+Incentivos Base Territorial
+
+Informação obrigatória a mencionar:
+Data, hora, apoio e prazo
+
+Estado da informação:
+Informação validada
+
+Observações:
+Não omitir notas internas relevantes.`;
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -193,7 +274,7 @@ function assertWorkspaceResponsiveSource() {
   assert(workspace.includes('const [activeTab, setActiveTab] = useState<TabKey>(newsletter ? "summary" : "import")'), "Workspace deve aguardar importação antes de abrir o Resumo.");
   assert(workspace.includes("Aguardando conteúdo do GPT"), "Workspace deve explicitar o estado awaiting_import.");
   assert(workspace.includes("visibleTabs = hasImported"), "Workspace deve mudar separadores consoante a importação.");
-  assert(workspace.includes('aria-label="Separadores da newsletter"'), "Workspace deve ter separadores acessíveis.");
+  assert(workspace.includes("aria-label={tabAriaLabel}"), "Workspace deve ter separadores acessíveis.");
   assert(workspace.includes("Gerar/importar conteúdo"), "Importação JSON deve estar disponível no resumo.");
   assert(workspace.includes('role="dialog"'), "Importação e texto original devem abrir em modal acessível.");
   assert(workspace.includes("max-h-[620px] overflow-auto"), "Preview deve ter scroll interno compacto.");
@@ -252,6 +333,90 @@ function assertOriginalBriefingsStayOpaque() {
   }
 }
 
+function assertWebinarIdentificationAndBriefing() {
+  const investClient = {
+    id: "invest",
+    name: "Invest2030",
+    client_code: "02_I2030",
+    short_name: "I2030",
+    display_order: 2,
+    logo_url: null,
+    color_key: "green" as const,
+  };
+  const webinarOnly = webinarBriefing.replace("Webinar, Redes Sociais", "Webinar");
+  const socialFirst = webinarBriefing.replace("Webinar, Redes Sociais", "Redes Sociais, Webinar");
+  const socialAnd = webinarBriefing.replace("Webinar, Redes Sociais", "Webinar e Redes Sociais");
+  const newsletterOnly = webinarBriefing.replace("Webinar, Redes Sociais", "Newsletter");
+
+  assert(isInvest2030WebinarTask({ client_id: "invest", clients: investClient, notes: webinarOnly }), "Pedido Webinar deve mostrar Preparar webinar.");
+  assert(isInvest2030WebinarTask({ client_id: "invest", clients: investClient, notes: socialFirst }), "Pedido Redes Sociais, Webinar deve mostrar Preparar webinar.");
+  assert(isInvest2030WebinarTask({ client_id: "invest", clients: investClient, notes: socialAnd }), "Pedido Webinar e Redes Sociais deve mostrar Preparar webinar.");
+  assert(isInvest2030SocialContentTask({ client_id: "invest", clients: investClient, notes: socialAnd }), "Pedido Webinar e Redes Sociais deve manter Criar conteúdo.");
+  assert(!isInvest2030NewsletterTask({ client_id: "invest", clients: investClient, notes: webinarOnly }), "Pedido apenas Webinar não deve mostrar Preparar newsletter.");
+  assert(isInvest2030NewsletterTask({ client_id: "invest", clients: investClient, notes: newsletterOnly }), "Pedido Newsletter não deve regredir.");
+
+  const parsed = parseInvest2030TaskNotes(webinarBriefing);
+  const copied = buildInvest2030GptBriefing(parsed, "webinar");
+  assert(copied.startsWith("Gera o JSON desta campanha de webinar"), "Prompt de webinar deve usar o texto específico.");
+  assert(copied.includes(webinarBriefing), "Prompt de webinar deve copiar o briefing integral.");
+  assert(copied.includes("Data/hora do webinar"), "Prompt de webinar deve incluir Data/hora do webinar.");
+  assert(!copied.includes("Schema obrigatório"), "Prompt de webinar não deve repetir schema.");
+  assert(safeInvest2030WebinarRegistrationUrl(parsed).valid, "Link de inscrição estruturado deve ser válido.");
+}
+
+function assertWebinarJsonAndRendering() {
+  const parsed = parseInvest2030TaskNotes(webinarBriefing);
+  const accepted = parseInvest2030WebinarJson(JSON.stringify(webinarContent));
+  assert(accepted.content, "Schema de webinar válido deve ser aceite.");
+
+  const newsletterRejected = parseInvest2030WebinarJson(JSON.stringify(sourceContent));
+  assert(!newsletterRejected.content, "Schema da newsletter deve ser rejeitado na página webinar.");
+  assert(newsletterRejected.errors.some((error) => error.includes("Campo não previsto")), "Campos adicionais devem ser rejeitados.");
+
+  const extraField = parseInvest2030WebinarJson(JSON.stringify({ ...webinarContent, cta_url: "https://example.com" }));
+  assert(!extraField.content, "Campo adicional no webinar deve ser rejeitado.");
+
+  const wrongStats = parseInvest2030WebinarJson(JSON.stringify({
+    ...webinarContent,
+    stats: [
+      { label: "Hora", value: "11h00" },
+      { label: "Data", value: "24 de julho" },
+      { label: "Apoio", value: "Até 60%" },
+      { label: "Prazo", value: "31 de julho" },
+    ],
+  }));
+  assert(!wrongStats.content, "Stats fora de ordem devem ser rejeitados.");
+
+  const ricardo = parseInvest2030WebinarJson(JSON.stringify({
+    ...webinarContent,
+    speaker: { name: "Ricardo Carvalho", organisation: "Invest2030", image_url: "https://example.com/ricardo.jpg" },
+  }));
+  assert(ricardo.content?.speaker.name === "Ricardo Carvalho", "Orador Ricardo Carvalho deve ser aceite.");
+
+  const html = generateInvest2030WebinarHtml(webinarContent, parsed);
+  assert(html.includes("André Loureiro"), "Orador André Loureiro deve renderizar.");
+  assert(!html.includes("<img alt=\"André Loureiro\""), "Sem image_url não deve renderizar imagem partida.");
+  assert((html.match(/Garantir a minha vaga/g) ?? []).length === 2, "Template deve renderizar dois botões principais.");
+  assert((html.match(/Saber mais/g) ?? []).length === 2, "Template deve renderizar dois botões secundários.");
+  assert((html.match(/https:\/\/www\.invest2030\.pt\/pt\/webinar\/incentivos\/?/g) ?? []).length === 2, "Botões principais devem usar o link de inscrição.");
+  assert((html.match(new RegExp(INVEST2030_WEBINAR_SECONDARY_URL.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")) ?? []).length === 2, "Botões Saber mais devem usar só o URL de contactos.");
+  assert(html.includes("[COMPANY_FULL_ADDRESS]") && html.includes("[UNSUBSCRIBE_URL]"), "Footer do webinar deve manter tags obrigatórias.");
+  assert(!html.includes("Ver no navegador"), "Webinar não deve reintroduzir Ver no navegador.");
+
+  const noSpeakerHtml = generateInvest2030WebinarHtml({
+    ...webinarContent,
+    speaker: { name: "", organisation: "", image_url: "" },
+  }, parsed);
+  assert(!noSpeakerHtml.includes("// Orador"), "Secção de orador deve ser ocultada sem nome e organização.");
+
+  const missingLinkParsed = parseInvest2030TaskNotes(webinarBriefing.replace("https://www.invest2030.pt/pt/webinar/incentivos", "Sem link definido"));
+  const missingLinkValidation = validateInvest2030Webinar(webinarContent, missingLinkParsed);
+  assert(missingLinkValidation.blockers.includes("Falta definir um link válido para a inscrição no webinar."), "Exportação deve bloquear sem link de inscrição.");
+
+  const validation = validateInvest2030Webinar(webinarContent, parsed);
+  assert(validation.blockers.length === 0, `Webinar válido não deve ter bloqueios: ${validation.blockers.join(", ")}`);
+}
+
 async function main() {
   const generatedHtml = generateInvest2030NewsletterHtml(sourceContent);
   assert(generatedHtml.startsWith("<!doctype html>"), "HTML gerado deve começar em <!doctype html>.");
@@ -265,6 +430,8 @@ async function main() {
   assertWorkspaceResponsiveSource();
   assertJsonImportStates();
   assertOriginalBriefingsStayOpaque();
+  assertWebinarIdentificationAndBriefing();
+  assertWebinarJsonAndRendering();
 
   const { chromium } = loadPlaywright();
   const browser = await chromium.launch({ headless: true });

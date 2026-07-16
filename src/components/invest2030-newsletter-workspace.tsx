@@ -23,16 +23,24 @@ import {
 import type { NewsletterMutationResult } from "@/lib/actions";
 import {
   buildInvest2030GptBriefing,
+  generateInvest2030WebinarHtml,
   generateInvest2030NewsletterHtml,
+  initialInvest2030WebinarContent,
   initialInvest2030NewsletterContent,
-  invest2030NewsletterFilename,
+  invest2030CampaignFilename,
   invest2030NewsletterStatusLabels,
   parseInvest2030NewsletterJson,
+  parseInvest2030WebinarJson,
   safeInvest2030CtaUrl,
+  safeInvest2030WebinarRegistrationUrl,
+  validateInvest2030Webinar,
   validateInvest2030Newsletter,
+  type Invest2030CampaignContent,
+  type Invest2030CampaignVariant,
   type Invest2030Newsletter,
   type Invest2030NewsletterContent,
   type Invest2030NewsletterParsedRequest,
+  type Invest2030WebinarContent,
 } from "@/lib/invest2030-newsletter";
 
 type SaveAction = (
@@ -41,7 +49,7 @@ type SaveAction = (
 ) => Promise<NewsletterMutationResult>;
 type FormAction = (formData: FormData) => void | Promise<void>;
 type TabKey = "summary" | "edit" | "request" | "import";
-type AccordionKey = "hero" | "stats" | "intro" | "benefits" | "audience" | "closing";
+type AccordionKey = "hero" | "stats" | "intro" | "benefits" | "audience" | "session" | "speaker" | "closing";
 
 type Props = {
   taskId: string;
@@ -55,8 +63,9 @@ type Props = {
     notes: string;
   };
   parsedRequest: Invest2030NewsletterParsedRequest;
-  newsletter: Invest2030Newsletter | null;
+  newsletter: (Omit<Invest2030Newsletter, "content_json"> & { content_json: Invest2030CampaignContent }) | null;
   gptUrl: string | null;
+  variant?: Invest2030CampaignVariant;
   saveAction: SaveAction;
   markScheduledAction: FormAction;
   markExportedAction: () => void | Promise<void>;
@@ -149,6 +158,14 @@ function completedStatsCount(stats: Invest2030NewsletterContent["stats"]) {
   return stats.filter((stat) => stat.label.trim() && stat.value.trim()).length;
 }
 
+function isWebinarContent(content: Invest2030CampaignContent): content is Invest2030WebinarContent {
+  return "session_topics" in content;
+}
+
+function isNewsletterContent(content: Invest2030CampaignContent): content is Invest2030NewsletterContent {
+  return "cta_url" in content;
+}
+
 export function Invest2030NewsletterWorkspace({
   taskId,
   campaignTitle,
@@ -156,11 +173,19 @@ export function Invest2030NewsletterWorkspace({
   parsedRequest,
   newsletter,
   gptUrl,
+  variant = "newsletter",
   saveAction,
   markExportedAction,
 }: Props) {
-  const initialContent = newsletter?.content_json ?? initialInvest2030NewsletterContent(parsedRequest);
-  const [content, setContent] = useState<Invest2030NewsletterContent>(initialContent);
+  const isWebinar = variant === "webinar";
+  const copyLabel = isWebinar ? "WEBINAR INVEST2030" : "Newsletter Invest2030";
+  const tabAriaLabel = isWebinar ? "Separadores do webinar" : "Separadores da newsletter";
+  const previewTitle = isWebinar ? "Preview do webinar" : "Preview da newsletter";
+  const iframeTitle = isWebinar ? "Preview do webinar Invest2030" : "Preview da newsletter Invest2030";
+  const gptButtonLabel = isWebinar ? "Abrir GPT Webinar Invest2030" : "Abrir GPT Invest2030";
+  const missingGptMessage = isWebinar ? "GPT Webinar Invest2030 ainda não configurado." : "GPT Invest2030 ainda não configurado.";
+  const initialContent = newsletter?.content_json ?? (isWebinar ? initialInvest2030WebinarContent(parsedRequest) : initialInvest2030NewsletterContent(parsedRequest));
+  const [content, setContent] = useState<Invest2030CampaignContent>(initialContent);
   const [hasImported, setHasImported] = useState(Boolean(newsletter));
   const [jsonInput, setJsonInput] = useState("");
   const [jsonError, setJsonError] = useState<string | null>(null);
@@ -177,17 +202,28 @@ export function Invest2030NewsletterWorkspace({
   const previewShellRef = useRef<HTMLDivElement>(null);
   const importCloseRef = useRef<HTMLButtonElement>(null);
   const originalCloseRef = useRef<HTMLButtonElement>(null);
-  const finalCta = hasImported ? safeInvest2030CtaUrl(content.cta_url) : { url: "", usedDefault: false };
+  const finalCta = hasImported && isNewsletterContent(content) ? safeInvest2030CtaUrl(content.cta_url) : { url: "", usedDefault: false };
+  const webinarRegistration = safeInvest2030WebinarRegistrationUrl(parsedRequest);
   const contentWithFinalLink = useMemo(
-    () => ({ ...content, cta_url: finalCta.url }),
+    () => isNewsletterContent(content) ? ({ ...content, cta_url: finalCta.url }) : content,
     [content, finalCta.url],
   );
   const html = useMemo(
-    () => hasImported ? generateInvest2030NewsletterHtml(contentWithFinalLink) : "",
-    [contentWithFinalLink, hasImported],
+    () => {
+      if (!hasImported) return "";
+      return isWebinarContent(contentWithFinalLink)
+        ? generateInvest2030WebinarHtml(contentWithFinalLink, parsedRequest)
+        : generateInvest2030NewsletterHtml(contentWithFinalLink);
+    },
+    [contentWithFinalLink, hasImported, parsedRequest],
   );
   const validation = useMemo(
-    () => hasImported ? validateInvest2030Newsletter(contentWithFinalLink, parsedRequest) : { blockers: [], warnings: [] },
+    () => {
+      if (!hasImported) return { blockers: [], warnings: [] };
+      return isWebinarContent(contentWithFinalLink)
+        ? validateInvest2030Webinar(contentWithFinalLink, parsedRequest)
+        : validateInvest2030Newsletter(contentWithFinalLink, parsedRequest);
+    },
     [contentWithFinalLink, hasImported, parsedRequest],
   );
   const iframeViewportWidth = previewMode === "desktop" ? 680 : 375;
@@ -213,7 +249,11 @@ export function Invest2030NewsletterWorkspace({
           : newsletter
             ? invest2030NewsletterStatusLabels[newsletter.status]
             : "Importado";
-  const linkStatus = hasImported ? (finalCta.usedDefault ? "Link de contacto aplicado automaticamente" : "Link do briefing") : "";
+  const linkStatus = hasImported
+    ? isWebinar
+      ? webinarRegistration.valid ? "Link de inscrição válido" : "Falta link de inscrição"
+      : finalCta.usedDefault ? "Link de contacto aplicado automaticamente" : "Link do briefing"
+    : "";
   const visibleTabs = hasImported
     ? tabs.filter((tab) => tab.key !== "import")
     : tabs.filter((tab) => tab.key === "request" || tab.key === "import");
@@ -248,7 +288,7 @@ export function Invest2030NewsletterWorkspace({
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, []);
 
-  function patchContent(patch: Partial<Invest2030NewsletterContent>) {
+  function patchContent(patch: Partial<Invest2030CampaignContent>) {
     setContent((current) => ({ ...current, ...patch }));
   }
 
@@ -257,12 +297,12 @@ export function Invest2030NewsletterWorkspace({
   }
 
   async function copyBriefing() {
-    await navigator.clipboard.writeText(buildInvest2030GptBriefing(parsedRequest));
+    await navigator.clipboard.writeText(buildInvest2030GptBriefing(parsedRequest, variant));
     setNotice("Briefing copiado para o GPT.");
   }
 
   function importJson() {
-    const parsed = parseInvest2030NewsletterJson(jsonInput);
+    const parsed = isWebinar ? parseInvest2030WebinarJson(jsonInput) : parseInvest2030NewsletterJson(jsonInput);
     if (!parsed.content) {
       setJsonError(parsed.errors.join(" "));
       return;
@@ -305,7 +345,7 @@ export function Invest2030NewsletterWorkspace({
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = invest2030NewsletterFilename(content.subject || campaignTitle);
+    link.download = invest2030CampaignFilename(variant, content.subject || campaignTitle);
     link.click();
     URL.revokeObjectURL(url);
     setNotice("HTML descarregado.");
@@ -314,7 +354,7 @@ export function Invest2030NewsletterWorkspace({
 
   return (
     <div className="grid gap-4 pb-20 md:pb-0">
-      <h1 className="sr-only">Newsletter Invest2030</h1>
+      <h1 className="sr-only">{copyLabel}</h1>
       <form ref={exportedFormRef} action={markExportedAction} className="hidden" />
       <form ref={saveFormRef} action={formAction} className="hidden">
         <input type="hidden" name="content_json" value={JSON.stringify(contentWithFinalLink)} />
@@ -323,7 +363,7 @@ export function Invest2030NewsletterWorkspace({
       <header className="sticky top-0 z-30 -mx-1 rounded-b-[22px] border border-[var(--bb-border)] bg-[rgba(247,245,239,0.94)] px-3 py-3 shadow-[0_14px_36px_rgba(0,0,0,0.08)] backdrop-blur md:px-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-[11px] font-extrabold uppercase text-[var(--bb-muted)]">Newsletter Invest2030</div>
+            <div className="text-[11px] font-extrabold uppercase text-[var(--bb-muted)]">{copyLabel}</div>
             <div className="truncate text-lg font-extrabold text-[var(--bb-charcoal)]">{campaignTitle}</div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -347,7 +387,7 @@ export function Invest2030NewsletterWorkspace({
       </header>
 
       <nav
-        aria-label="Separadores da newsletter"
+        aria-label={tabAriaLabel}
         className="sticky top-[116px] z-20 -mx-1 overflow-x-auto rounded-[18px] border border-[var(--bb-border)] bg-[rgba(255,255,255,0.9)] p-1 shadow-[0_10px_24px_rgba(0,0,0,0.05)] backdrop-blur"
       >
         <div className="flex min-w-max gap-1">
@@ -375,6 +415,8 @@ export function Invest2030NewsletterWorkspace({
         <AwaitingImportTab
           taskSummary={taskSummary}
           gptUrl={gptUrl}
+          gptButtonLabel={gptButtonLabel}
+          missingGptMessage={missingGptMessage}
           jsonInput={jsonInput}
           jsonError={jsonError}
           onCopyBriefing={copyBriefing}
@@ -390,6 +432,7 @@ export function Invest2030NewsletterWorkspace({
       {activeTab === "summary" && hasImported ? (
         <SummaryTab
           content={contentWithFinalLink}
+          variant={variant}
           linkStatus={linkStatus}
           usedDefaultCta={finalCta.usedDefault}
           statusLabel={statusLabel}
@@ -402,6 +445,8 @@ export function Invest2030NewsletterWorkspace({
           html={html}
           validation={validation}
           newsletter={newsletter}
+          previewTitle={previewTitle}
+          iframeTitle={iframeTitle}
           onOpenImport={() => setImportModalOpen(true)}
           onEdit={() => setActiveTab("edit")}
           onCopyHtml={copyHtml}
@@ -410,17 +455,31 @@ export function Invest2030NewsletterWorkspace({
       ) : null}
 
       {activeTab === "edit" && hasImported ? (
-        <EditTab
-          content={content}
-          finalCtaUrl={finalCta.url}
-          openAccordion={openAccordion}
-          setOpenAccordion={setOpenAccordion}
-          patchContent={patchContent}
-          onSave={submitSave}
-          saving={saving}
-          onPreview={() => setActiveTab("summary")}
-          onSummary={() => setActiveTab("summary")}
-        />
+        isWebinarContent(content) ? (
+          <WebinarEditTab
+            content={content}
+            registrationUrl={webinarRegistration.url}
+            openAccordion={openAccordion}
+            setOpenAccordion={setOpenAccordion}
+            patchContent={(patch) => setContent((current) => ({ ...current, ...patch }))}
+            onSave={submitSave}
+            saving={saving}
+            onPreview={() => setActiveTab("summary")}
+            onSummary={() => setActiveTab("summary")}
+          />
+        ) : (
+          <EditTab
+            content={content}
+            finalCtaUrl={finalCta.url}
+            openAccordion={openAccordion}
+            setOpenAccordion={setOpenAccordion}
+            patchContent={patchContent as (patch: Partial<Invest2030NewsletterContent>) => void}
+            onSave={submitSave}
+            saving={saving}
+            onPreview={() => setActiveTab("summary")}
+            onSummary={() => setActiveTab("summary")}
+          />
+        )
       ) : null}
 
       {activeTab === "request" ? (
@@ -453,6 +512,8 @@ export function Invest2030NewsletterWorkspace({
         <ImportModal
           closeRef={importCloseRef}
           gptUrl={gptUrl}
+          gptButtonLabel={gptButtonLabel}
+          missingGptMessage={missingGptMessage}
           jsonInput={jsonInput}
           jsonError={jsonError}
           usedDefaultCta={finalCta.usedDefault}
@@ -476,6 +537,7 @@ export function Invest2030NewsletterWorkspace({
 
 function SummaryTab({
   content,
+  variant,
   linkStatus,
   usedDefaultCta,
   statusLabel,
@@ -488,12 +550,15 @@ function SummaryTab({
   html,
   validation,
   newsletter,
+  previewTitle,
+  iframeTitle,
   onOpenImport,
   onEdit,
   onCopyHtml,
   onDownloadHtml,
 }: {
-  content: Invest2030NewsletterContent;
+  content: Invest2030CampaignContent;
+  variant: Invest2030CampaignVariant;
   linkStatus: string;
   usedDefaultCta: boolean;
   statusLabel: string;
@@ -505,7 +570,9 @@ function SummaryTab({
   iframeHeight: number;
   html: string;
   validation: { blockers: string[]; warnings: string[] };
-  newsletter: Invest2030Newsletter | null;
+  newsletter: Props["newsletter"];
+  previewTitle: string;
+  iframeTitle: string;
   onOpenImport: () => void;
   onEdit: () => void;
   onCopyHtml: () => void;
@@ -518,7 +585,7 @@ function SummaryTab({
           <SummaryMetric label="Assunto" value={content.subject || "Por importar"} />
           <SummaryMetric label="Preheader" value={content.preheader || "Por importar"} />
           <SummaryMetric label="Indicadores" value={`${completedStatsCount(content.stats)}/4`} />
-          <SummaryMetric label="CTA" value={content.cta_url} />
+          <SummaryMetric label={variant === "webinar" ? "Inscrição" : "CTA"} value={isNewsletterContent(content) ? content.cta_url : linkStatus} />
           <SummaryMetric label="Estado do link" value={linkStatus} />
         </div>
         {usedDefaultCta ? (
@@ -532,7 +599,7 @@ function SummaryTab({
         <section className={panelClass}>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h2 className="text-sm font-extrabold text-[var(--bb-charcoal)]">Preview da newsletter</h2>
+              <h2 className="text-sm font-extrabold text-[var(--bb-charcoal)]">{previewTitle}</h2>
               <div className="mt-1 text-xs font-bold text-[var(--bb-muted)]">Viewport interno: {iframeViewportWidth}px</div>
             </div>
             <div className="flex items-center gap-2">
@@ -579,7 +646,7 @@ function SummaryTab({
                 }}
               >
                 <iframe
-                  title="Preview da newsletter Invest2030"
+                  title={iframeTitle}
                   srcDoc={html}
                   sandbox=""
                   className="h-[920px] bg-white shadow-[0_20px_50px_rgba(0,0,0,0.16)]"
@@ -635,6 +702,8 @@ function SummaryTab({
 function AwaitingImportTab({
   taskSummary,
   gptUrl,
+  gptButtonLabel,
+  missingGptMessage,
   jsonInput,
   jsonError,
   onCopyBriefing,
@@ -644,6 +713,8 @@ function AwaitingImportTab({
 }: {
   taskSummary: Props["taskSummary"];
   gptUrl: string | null;
+  gptButtonLabel: string;
+  missingGptMessage: string;
   jsonInput: string;
   jsonError: string | null;
   onCopyBriefing: () => void;
@@ -693,11 +764,11 @@ function AwaitingImportTab({
                 className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[var(--bb-border)] bg-white/75 px-4 text-sm font-extrabold text-[var(--bb-charcoal)] transition hover:bg-[var(--bb-primary-soft)] ${gptUrl ? "" : "pointer-events-none opacity-45"}`}
               >
                 <ExternalLink className="size-4" aria-hidden="true" />
-                Abrir GPT Invest2030
+                {gptButtonLabel}
               </a>
               {!gptUrl ? (
                 <div className="rounded-[14px] bg-white/72 px-3 py-2 text-xs font-bold text-[var(--bb-muted)]">
-                  GPT Invest2030 ainda não configurado.
+                  {missingGptMessage}
                 </div>
               ) : null}
             </div>
@@ -871,6 +942,136 @@ function EditTab({
   );
 }
 
+function WebinarEditTab({
+  content,
+  registrationUrl,
+  openAccordion,
+  setOpenAccordion,
+  patchContent,
+  onSave,
+  saving,
+  onPreview,
+  onSummary,
+}: {
+  content: Invest2030WebinarContent;
+  registrationUrl: string;
+  openAccordion: AccordionKey;
+  setOpenAccordion: (key: AccordionKey) => void;
+  patchContent: (patch: Partial<Invest2030WebinarContent>) => void;
+  onSave: () => void;
+  saving: boolean;
+  onPreview: () => void;
+  onSummary: () => void;
+}) {
+  return (
+    <div className="grid gap-4">
+      <div className="sticky top-[178px] z-10 flex flex-wrap items-center justify-end gap-2 rounded-[18px] border border-[var(--bb-border)] bg-[rgba(255,255,255,0.92)] p-2 shadow-[0_10px_24px_rgba(0,0,0,0.06)] backdrop-blur">
+        <ButtonShell onClick={onSave} tone="primary" disabled={saving}>
+          <Save className="size-4" aria-hidden="true" />
+          Guardar alterações
+        </ButtonShell>
+        <ButtonShell onClick={onPreview}>
+          <Eye className="size-4" aria-hidden="true" />
+          Ver preview
+        </ButtonShell>
+        <ButtonShell onClick={onSummary}>Voltar ao resumo</ButtonShell>
+      </div>
+
+      <section className={panelClass}>
+        <AccordionSection
+          id="hero"
+          title="Assunto e abertura"
+          open={openAccordion === "hero"}
+          onToggle={() => setOpenAccordion(openAccordion === "hero" ? "stats" : "hero")}
+        >
+          <div className="grid gap-4">
+            <TextInput label="Assunto" value={content.subject} onChange={(value) => patchContent({ subject: value })} />
+            <TextInput label="Preheader" value={content.preheader} onChange={(value) => patchContent({ preheader: value })} />
+            <TextInput label="Eyebrow" value={content.eyebrow} onChange={(value) => patchContent({ eyebrow: value })} />
+            <TextInput label="Título principal" value={content.hero_title} onChange={(value) => patchContent({ hero_title: value })} multiline />
+            <TextInput label="Subtítulo" value={content.hero_subtitle} onChange={(value) => patchContent({ hero_subtitle: value })} multiline />
+          </div>
+        </AccordionSection>
+
+        <AccordionSection
+          id="stats"
+          title="Indicadores"
+          open={openAccordion === "stats"}
+          onToggle={() => setOpenAccordion(openAccordion === "stats" ? "hero" : "stats")}
+        >
+          <div className="grid gap-3">
+            {content.stats.slice(0, 4).map((stat, index) => (
+              <div key={stat.label || index} className="grid gap-2 rounded-[16px] border border-[var(--bb-border)] bg-white/60 p-3 md:grid-cols-[12rem_minmax(0,1fr)]">
+                <input value={stat.label} readOnly className={`${inputClass} bg-white/45 text-[var(--bb-muted)]`} aria-label={`Legenda do indicador ${index + 1}`} />
+                <input
+                  aria-label={`Valor do indicador ${index + 1}`}
+                  value={stat.value}
+                  onChange={(event) =>
+                    patchContent({
+                      stats: content.stats.map((item, currentIndex) => currentIndex === index ? { ...item, value: event.target.value } : item).slice(0, 4),
+                    })
+                  }
+                  className={inputClass}
+                  placeholder="Valor"
+                />
+              </div>
+            ))}
+          </div>
+        </AccordionSection>
+
+        <AccordionSection
+          id="intro"
+          title="Introdução"
+          open={openAccordion === "intro"}
+          onToggle={() => setOpenAccordion(openAccordion === "intro" ? "hero" : "intro")}
+        >
+          <ListEditor title="Parágrafos de introdução" items={content.intro_paragraphs} onChange={(items) => patchContent({ intro_paragraphs: items })} multiline allowMove />
+        </AccordionSection>
+
+        <AccordionSection
+          id="session"
+          title="Conteúdo da sessão"
+          open={openAccordion === "session"}
+          onToggle={() => setOpenAccordion(openAccordion === "session" ? "hero" : "session")}
+        >
+          <div className="grid gap-4">
+            <TextInput label="Título da secção" value={content.session_section_title} onChange={(value) => patchContent({ session_section_title: value })} />
+            <ListEditor title="Tópicos da sessão" items={content.session_topics} onChange={(items) => patchContent({ session_topics: items })} multiline allowMove />
+          </div>
+        </AccordionSection>
+
+        <AccordionSection
+          id="speaker"
+          title="Orador"
+          open={openAccordion === "speaker"}
+          onToggle={() => setOpenAccordion(openAccordion === "speaker" ? "hero" : "speaker")}
+        >
+          <div className="grid gap-4">
+            <TextInput label="Nome" value={content.speaker.name} onChange={(value) => patchContent({ speaker: { ...content.speaker, name: value } })} />
+            <TextInput label="Organização" value={content.speaker.organisation} onChange={(value) => patchContent({ speaker: { ...content.speaker, organisation: value } })} />
+            <TextInput label="Imagem" value={content.speaker.image_url} onChange={(value) => patchContent({ speaker: { ...content.speaker, image_url: value } })} />
+          </div>
+        </AccordionSection>
+
+        <AccordionSection
+          id="closing"
+          title="Fecho e botões"
+          open={openAccordion === "closing"}
+          onToggle={() => setOpenAccordion(openAccordion === "closing" ? "hero" : "closing")}
+        >
+          <div className="grid gap-4">
+            <ListEditor title="Parágrafos finais" items={content.closing_paragraphs} onChange={(items) => patchContent({ closing_paragraphs: items })} multiline allowMove />
+            <TextInput label="Botão principal" value="Garantir a minha vaga" onChange={() => undefined} />
+            <TextInput label="Link do botão principal" value={registrationUrl} onChange={() => undefined} />
+            <TextInput label="Botão secundário" value="Saber mais" onChange={() => undefined} />
+            <TextInput label="Link do botão secundário" value="https://www.invest2030.pt/pt/contactos/" onChange={() => undefined} />
+          </div>
+        </AccordionSection>
+      </section>
+    </div>
+  );
+}
+
 function AccordionSection({
   id,
   title,
@@ -957,6 +1158,8 @@ function TaskMetric({ label, value }: { label: string; value: string }) {
 function ImportModal({
   closeRef,
   gptUrl,
+  gptButtonLabel,
+  missingGptMessage,
   jsonInput,
   jsonError,
   usedDefaultCta,
@@ -967,6 +1170,8 @@ function ImportModal({
 }: {
   closeRef: React.RefObject<HTMLButtonElement | null>;
   gptUrl: string | null;
+  gptButtonLabel: string;
+  missingGptMessage: string;
   jsonInput: string;
   jsonError: string | null;
   usedDefaultCta: boolean;
@@ -1012,12 +1217,12 @@ function ImportModal({
               className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[var(--bb-border)] bg-white/75 px-4 text-sm font-extrabold text-[var(--bb-charcoal)] transition hover:bg-[var(--bb-primary-soft)] ${gptUrl ? "" : "pointer-events-none opacity-45"}`}
             >
               <ExternalLink className="size-4" aria-hidden="true" />
-              Abrir GPT Invest2030
+              {gptButtonLabel}
             </a>
           </div>
           {!gptUrl ? (
             <div className="rounded-[14px] bg-white/72 px-3 py-2 text-xs font-bold text-[var(--bb-muted)]">
-              GPT Invest2030 ainda não configurado.
+              {missingGptMessage}
             </div>
           ) : null}
           {usedDefaultCta ? (

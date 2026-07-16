@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Archive, ClipboardList, Mail, Pencil, Send, Trash2, X } from "lucide-react";
+import { Archive, ClipboardList, Mail, Pencil, Send, Trash2, Video, X } from "lucide-react";
 import { ClientBadge } from "@/components/client-badge";
 import { TaskForm } from "@/components/forms";
 import { LinksIndicator } from "@/components/links";
@@ -13,7 +13,11 @@ import { getClientLabel } from "@/lib/client-display";
 import { getClientVisualToken } from "@/lib/client-visuals";
 import { taskPriorityLabels, taskStatusLabels } from "@/lib/labels";
 import { parseLinksFormData } from "@/lib/links";
-import { isInvest2030NewsletterTask } from "@/lib/invest2030-newsletter";
+import {
+  isInvest2030NewsletterTask,
+  isInvest2030SocialContentTask,
+  isInvest2030WebinarTask,
+} from "@/lib/invest2030-newsletter";
 import { taskStatusTones } from "@/lib/status-styles";
 import {
   designProfiles,
@@ -330,6 +334,39 @@ export function TasksTable({
     }
   }
 
+  async function prepareWebinarFromModal(
+    task: Task,
+    event: React.MouseEvent<HTMLButtonElement>,
+  ) {
+    const form = event.currentTarget.form;
+    if (!form) return;
+
+    if (!canPersist) {
+      setSaveMessage("Modo demo: configure o Supabase para gravar alterações antes de preparar o webinar.");
+      return;
+    }
+
+    const formData = new FormData(form);
+    const taskToSave = taskFromFormData(task, formData);
+    if (!isInvest2030WebinarTask(taskToSave, { invest2030ClientId })) {
+      setSaveMessage("Esta tarefa não cumpre os critérios para preparar webinar Invest2030.");
+      return;
+    }
+
+    setSaveMessage("A guardar alterações antes de abrir o webinar...");
+    try {
+      await updateTaskAction(task.id, formData);
+      setLocalTasks((current) =>
+        current.map((item) => (item.id === task.id ? taskToSave : item)),
+      );
+      router.refresh();
+      router.push(`/tasks/${task.id}/webinar`);
+    } catch (error) {
+      console.error("Erro ao guardar tarefa antes de preparar webinar", error);
+      setSaveMessage(error instanceof Error ? error.message : "Não foi possível guardar antes de abrir o webinar.");
+    }
+  }
+
   async function createContentFromNewsletterTask(
     task: Task,
     event: React.MouseEvent<HTMLButtonElement>,
@@ -344,8 +381,8 @@ export function TasksTable({
 
     const formData = new FormData(form);
     const taskToSave = taskFromFormData(task, formData);
-    if (!isInvest2030NewsletterTask(taskToSave, { invest2030ClientId })) {
-      setSaveMessage("Esta tarefa não cumpre os critérios para criar conteúdo a partir de newsletter Invest2030.");
+    if (!isInvest2030SocialContentTask(taskToSave, { invest2030ClientId })) {
+      setSaveMessage("Esta tarefa não cumpre os critérios para criar conteúdo Invest2030.");
       return;
     }
 
@@ -583,6 +620,8 @@ export function TasksTable({
         >
           {(() => {
             const isInvestNewsletter = isInvest2030NewsletterTask(editing, { invest2030ClientId });
+            const isInvestWebinar = isInvest2030WebinarTask(editing, { invest2030ClientId });
+            const hasInvestContent = isInvest2030SocialContentTask(editing, { invest2030ClientId });
 
             return (
               <>
@@ -600,6 +639,8 @@ export function TasksTable({
                   onCancel={() => setEditing(null)}
                   footerAction={
                     isInvestNewsletter ||
+                    isInvestWebinar ||
+                    hasInvestContent ||
                     canSendToDesign(editing) ? (
                       <>
                         {isInvestNewsletter ? (
@@ -612,7 +653,17 @@ export function TasksTable({
                             Preparar newsletter
                           </button>
                         ) : null}
-                        {isInvestNewsletter ? (
+                        {isInvestWebinar ? (
+                          <button
+                            type="button"
+                            onClick={(event) => prepareWebinarFromModal(editing, event)}
+                            className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--bb-border)] bg-white/70 px-5 text-sm font-bold text-[var(--bb-charcoal)] transition hover:border-[rgba(83,183,223,0.42)] hover:bg-[var(--bb-primary-soft)]"
+                          >
+                            <Video className="size-4" aria-hidden="true" />
+                            Preparar webinar
+                          </button>
+                        ) : null}
+                        {hasInvestContent ? (
                           <button
                             type="button"
                             onClick={(event) => createContentFromNewsletterTask(editing, event)}
@@ -621,7 +672,8 @@ export function TasksTable({
                             <ClipboardList className="size-4" aria-hidden="true" />
                             Criar conteúdo
                           </button>
-                        ) : canSendToDesign(editing) ? (
+                        ) : null}
+                        {!isInvestNewsletter && !isInvestWebinar && !hasInvestContent && canSendToDesign(editing) ? (
                           <button
                             type="button"
                             onClick={() => {
