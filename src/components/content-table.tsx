@@ -257,7 +257,7 @@ export function ContentTable({
                   <th className="min-w-[280px] px-4 py-4 font-extrabold">Título</th>
                   <th className="min-w-[210px] px-4 py-4 font-extrabold">Copy</th>
                   <th className="min-w-[210px] px-4 py-4 font-extrabold">Descrição</th>
-                  <th className="min-w-[190px] px-4 py-4 font-extrabold">Estado</th>
+                  <th className="bb-status-col sticky px-4 py-4 font-extrabold">Estado</th>
                   <th className="bb-actions-col sticky right-0 px-2 py-4 font-extrabold">Ações</th>
                 </tr>
               </thead>
@@ -312,7 +312,7 @@ export function ContentTable({
                       <td className="px-4 py-4">
                         <PreviewCell text={item.description} label="Descrição" copyLabel="descrição" onOpen={() => setEditing({ item, section: "description" })} />
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="bb-status-col sticky px-4 py-4">
                         <ContentStatusControl
                           itemId={item.id}
                           status={item.status}

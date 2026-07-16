@@ -93,11 +93,16 @@ th {
   letter-spacing: 0;
 }
 
+.bb-sticky-actions-table {
+  --bb-actions-column-width: 6.5rem;
+  --bb-status-column-width: 15rem;
+}
+
 .bb-actions-col {
   box-sizing: border-box;
-  width: 6.5rem;
-  min-width: 6.5rem;
-  max-width: 6.5rem;
+  width: var(--bb-actions-column-width);
+  min-width: var(--bb-actions-column-width);
+  max-width: var(--bb-actions-column-width);
   background: var(--bb-surface-solid);
   border-left: 1px solid var(--bb-border);
   box-shadow: -8px 0 14px rgba(0, 0, 0, 0.035);
@@ -108,11 +113,33 @@ th {
   text-align: center;
 }
 
+.bb-status-col {
+  box-sizing: border-box;
+  width: var(--bb-status-column-width);
+  min-width: var(--bb-status-column-width);
+  max-width: var(--bb-status-column-width);
+  background: var(--bb-surface-solid);
+  border-left: 1px solid var(--bb-border);
+  box-shadow: -8px 0 14px rgba(0, 0, 0, 0.035);
+  min-height: 4.25rem;
+  overflow: visible;
+  position: sticky;
+  right: var(--bb-actions-column-width);
+}
+
 th.bb-actions-col {
   z-index: 40;
 }
 
 td.bb-actions-col {
+  z-index: 30;
+}
+
+th.bb-status-col {
+  z-index: 40;
+}
+
+td.bb-status-col {
   z-index: 30;
 }
 
@@ -133,6 +160,15 @@ table.bb-sticky-actions-table .bb-actions-col {
   background: var(--bb-surface-solid);
   background-clip: padding-box;
   box-shadow: -8px 0 14px rgba(0, 0, 0, 0.035);
+}
+
+table.bb-sticky-actions-table .bb-status-col {
+  background: var(--bb-surface-solid);
+  background-clip: padding-box;
+}
+
+table.bb-sticky-actions-table .bb-status-col + .bb-actions-col {
+  box-shadow: none;
 }
 
 .bb-line-clamp-2 {
