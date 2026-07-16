@@ -1363,6 +1363,18 @@ function formatPtDate(value: string) {
   }).format(date);
 }
 
+function parseTimeValue(value: string) {
+  const normalized = value.slice(0, 5);
+  const [hour, minute] = normalized.split(":").map(Number);
+  if (!Number.isInteger(hour) || !Number.isInteger(minute)) return null;
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function formatPtTime(value: string) {
+  return parseTimeValue(value) ?? value;
+}
+
 function formatPtMonth(value: string) {
   const [year, month] = value.split("-").map(Number);
   if (!year || !month || month < 1 || month > 12) return value;
@@ -1373,17 +1385,44 @@ function formatPtMonth(value: string) {
   }).format(new Date(Date.UTC(year, month - 1, 1, 12))).replace(/^\p{Ll}/u, (letter) => letter.toLocaleUpperCase("pt-PT"));
 }
 
-function invest2030PeriodPayload(formData: FormData) {
+function invest2030ActionIncludesWebinar(actionTypes: string[]) {
+  return actionTypes.includes("Webinar");
+}
+
+function invest2030WebinarPayload(values: Invest2030RequestFormValues) {
+  if (!invest2030ActionIncludesWebinar(values.action_type)) {
+    return {
+      webinarDate: null,
+      webinarTime: null,
+      webinarDateTimeLabel: null,
+    };
+  }
+
+  const webinarDate = values.period_type === "Dia específico" ? values.period_date : values.webinar_date;
+  const webinarTime = parseTimeValue(values.webinar_time);
+
+  return {
+    webinarDate,
+    webinarTime,
+    webinarDateTimeLabel: webinarDate && webinarTime ? `${formatPtDate(webinarDate)} às ${formatPtTime(webinarTime)}` : null,
+  };
+}
+
+function invest2030PeriodPayload(
+  formData: FormData,
+  webinar: ReturnType<typeof invest2030WebinarPayload>,
+) {
   const periodType = requiredOption(formData, "period_type", invest2030PeriodTypes);
 
   if (periodType === "Dia específico") {
     const date = requiredText(formData, "period_date");
     if (!parseIsoDateValue(date)) throw new Error("Data inválida.");
+    const webinarTimeLabel = webinar.webinarTime ? ` às ${formatPtTime(webinar.webinarTime)}` : "";
     return {
       periodType,
       periodStart: date,
       periodEnd: date,
-      periodLabel: `Dia específico — ${formatPtDate(date)}`,
+      periodLabel: `Dia específico — ${formatPtDate(date)}${webinarTimeLabel}`,
       dueDate: date,
     };
   }
@@ -1400,7 +1439,7 @@ function invest2030PeriodPayload(formData: FormData) {
       periodType,
       periodStart: start,
       periodEnd: end,
-      periodLabel: `Mês — ${formatPtMonth(month)}`,
+      periodLabel: `Mês — ${formatPtMonth(month)}${webinar.webinarDateTimeLabel ? ` · Webinar — ${webinar.webinarDateTimeLabel}` : ""}`,
       dueDate: start,
     };
   }
@@ -1416,7 +1455,7 @@ function invest2030PeriodPayload(formData: FormData) {
     periodType,
     periodStart: start,
     periodEnd: end,
-    periodLabel: `${periodType} — ${formatPtDate(start)} a ${formatPtDate(end)}`,
+    periodLabel: `${periodType} — ${formatPtDate(start)} a ${formatPtDate(end)}${webinar.webinarDateTimeLabel ? ` · Webinar — ${webinar.webinarDateTimeLabel}` : ""}`,
     dueDate: start,
   };
 }
@@ -1435,6 +1474,8 @@ function invest2030FormValues(formData: FormData): Invest2030RequestFormValues {
     period_start: text(formData, "period_start") ?? "",
     period_end: text(formData, "period_end") ?? "",
     period_month: text(formData, "period_month") ?? "",
+    webinar_date: text(formData, "webinar_date") ?? "",
+    webinar_time: text(formData, "webinar_time") ?? "",
     main_goal: text(formData, "main_goal") ?? "",
     target_audience: text(formData, "target_audience") ?? "",
     main_cta: text(formData, "main_cta") ?? "",
@@ -1463,6 +1504,7 @@ function invest2030ValidationError(
 
 function validateInvest2030FormValues(values: Invest2030RequestFormValues) {
   const fieldErrors: Partial<Record<Invest2030RequestFormField, string>> = {};
+  const hasWebinar = invest2030ActionIncludesWebinar(values.action_type);
 
   if (!values.campaign_name) fieldErrors.campaign_name = "Escreve o nome da campanha.";
   if (!values.action_type.length) {
@@ -1484,6 +1526,20 @@ function validateInvest2030FormValues(values: Invest2030RequestFormValues) {
   if (values.period_type === "Dia específico") {
     if (!values.period_date || !parseIsoDateValue(values.period_date)) {
       fieldErrors.period_date = "Escolhe uma data válida.";
+    }
+  }
+
+  if (hasWebinar) {
+    const webinarDate = values.period_type === "Dia específico" ? values.period_date : values.webinar_date;
+    if (!webinarDate || !parseIsoDateValue(webinarDate)) {
+      if (values.period_type === "Dia específico") {
+        fieldErrors.period_date = "Escolhe uma data válida.";
+      } else {
+        fieldErrors.webinar_date = "Escolhe a data do webinar.";
+      }
+    }
+    if (!values.webinar_time || !parseTimeValue(values.webinar_time)) {
+      fieldErrors.webinar_time = "Escolhe a hora do webinar.";
     }
   }
 
@@ -1637,6 +1693,7 @@ export async function createInvest2030RequestAction(
   let informationStatus: string;
   let notes: string | null;
   let period: ReturnType<typeof invest2030PeriodPayload>;
+  let webinar: ReturnType<typeof invest2030WebinarPayload>;
 
   try {
     campaignName = values.campaign_name;
@@ -1650,7 +1707,8 @@ export async function createInvest2030RequestAction(
     mandatoryInfo = values.mandatory_info;
     informationStatus = values.information_status;
     notes = values.notes || null;
-    period = invest2030PeriodPayload(formData);
+    webinar = invest2030WebinarPayload(values);
+    period = invest2030PeriodPayload(formData, webinar);
   } catch (error) {
     console.error("Erro ao validar formulário Invest2030", error);
     return invest2030ValidationError(values, {
@@ -1676,6 +1734,8 @@ export async function createInvest2030RequestAction(
     period_start: period.periodStart,
     period_end: period.periodEnd,
     period_label: period.periodLabel,
+    webinar_date: webinar.webinarDate,
+    webinar_time: webinar.webinarTime,
     main_goal: mainGoal,
     target_audience: targetAudience,
     main_cta: mainCta,
@@ -1743,6 +1803,7 @@ export async function createInvest2030RequestAction(
           actionType,
           requestedBy,
           periodLabel: period.periodLabel,
+          webinarDateTime: webinar.webinarDateTimeLabel,
           mainGoal,
           targetAudience,
           mainCta,

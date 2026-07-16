@@ -303,6 +303,8 @@ export type Invest2030Request = {
   period_start: string;
   period_end: string;
   period_label: string;
+  webinar_date: string | null;
+  webinar_time: string | null;
   main_goal: Invest2030MainGoal | string;
   target_audience: string;
   main_cta: string;
@@ -354,6 +356,8 @@ export type Invest2030RequestFormValues = {
   period_start: string;
   period_end: string;
   period_month: string;
+  webinar_date: string;
+  webinar_time: string;
   main_goal: string;
   target_audience: string;
   main_cta: string;

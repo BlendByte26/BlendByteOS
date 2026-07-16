@@ -219,6 +219,8 @@ create table if not exists public.invest2030_requests (
   period_start date not null,
   period_end date not null,
   period_label text not null,
+  webinar_date date,
+  webinar_time time,
   main_goal text not null,
   target_audience text not null,
   main_cta text not null,

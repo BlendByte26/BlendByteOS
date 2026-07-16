@@ -5,6 +5,7 @@ export type Invest2030TaskSummaryFields = {
   actionType: string;
   requestedBy: string;
   periodLabel: string;
+  webinarDateTime?: string | null;
   mainGoal: string;
   targetAudience: string;
   mainCta: string;
@@ -20,6 +21,7 @@ export function buildInvest2030TaskSummary({
   actionType,
   requestedBy,
   periodLabel,
+  webinarDateTime,
   mainGoal,
   targetAudience,
   mainCta,
@@ -43,7 +45,10 @@ ${requestedBy}
 Período:
 ${periodLabel}
 
-Objetivo principal:
+${webinarDateTime ? `Data/hora do webinar:
+${webinarDateTime}
+
+` : ""}Objetivo principal:
 ${mainGoal}
 
 Público-alvo / segmentação:
@@ -72,6 +77,21 @@ function normalizeNoteBlock(value: string) {
   return value.replace(/\r\n/g, "\n").trim();
 }
 
+function formatStoredDate(value: string) {
+  const [year, month, day] = value.split("-");
+  if (!year || !month || !day) return value;
+  return `${day}/${month}/${year}`;
+}
+
+function formatStoredTime(value: string) {
+  return value.slice(0, 5);
+}
+
+function formatStoredWebinarDateTime(request: Invest2030Request) {
+  if (!request.webinar_date || !request.webinar_time) return null;
+  return `${formatStoredDate(request.webinar_date)} às ${formatStoredTime(request.webinar_time)}`;
+}
+
 export function visibleInvest2030InternalNotes(request: Invest2030Request) {
   const taskNotes = normalizeNoteBlock(request.tasks?.notes ?? "");
   if (!taskNotes) return null;
@@ -82,6 +102,7 @@ export function visibleInvest2030InternalNotes(request: Invest2030Request) {
       actionType: request.action_type,
       requestedBy: request.requested_by,
       periodLabel: request.period_label,
+      webinarDateTime: formatStoredWebinarDateTime(request),
       mainGoal: request.main_goal,
       targetAudience: request.target_audience,
       mainCta: request.main_cta,

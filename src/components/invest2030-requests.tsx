@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { createPortal } from "react-dom";
 import { useFormStatus } from "react-dom";
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { ArrowUpRight, Check, Eye, History, X } from "lucide-react";
-import { DatePicker, MonthPicker } from "@/components/date-picker";
+import { DatePicker, MonthPicker, TimePicker } from "@/components/date-picker";
 import { SelectField } from "@/components/select-field";
 import { TableWrap } from "@/components/ui";
 import { visibleInvest2030InternalNotes } from "@/lib/invest2030-notes";
@@ -68,6 +68,19 @@ function formatDateTime(value: string | null | undefined) {
   }).format(new Date(value));
 }
 
+function formatTime(value: string | null | undefined) {
+  const trimmed = value?.trim();
+  if (!trimmed) return notIndicated;
+  return trimmed.slice(0, 5);
+}
+
+function formatWebinarDateTime(request: Invest2030Request) {
+  if (!request.webinar_date && !request.webinar_time) return notIndicated;
+  if (!request.webinar_date) return formatTime(request.webinar_time);
+  if (!request.webinar_time) return formatDate(request.webinar_date);
+  return `${formatDate(request.webinar_date)} às ${formatTime(request.webinar_time)}`;
+}
+
 function displayValue(value: string | null | undefined) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : notIndicated;
@@ -77,6 +90,10 @@ function requestStatusLabel(request: Invest2030Request) {
   if (request.tasks?.is_blocked) return "Bloqueado";
   if (!request.tasks?.status) return notIndicated;
   return taskStatusLabels[request.tasks.status] ?? request.tasks.status;
+}
+
+function requestHasWebinar(request: Invest2030Request) {
+  return request.action_type.split(",").map((value) => value.trim()).includes("Webinar");
 }
 
 function requestUrgencyLabel(request: Invest2030Request) {
@@ -174,6 +191,9 @@ function Invest2030RequestModal({
           <DetailField label="Quem fez o pedido">{displayValue(request.requested_by)}</DetailField>
           <DetailField label="Tipo de período">{displayValue(request.period_type)}</DetailField>
           <DetailField label="Data, semana ou intervalo aplicável">{displayValue(request.period_label)}</DetailField>
+          {requestHasWebinar(request) || request.webinar_date || request.webinar_time ? (
+            <DetailField label="Data/hora do webinar">{formatWebinarDateTime(request)}</DetailField>
+          ) : null}
           <DetailField label="Data de início">{formatDate(request.period_start)}</DetailField>
           <DetailField label="Data de fim">{formatDate(request.period_end)}</DetailField>
           <DetailField label="Objetivo principal">{displayValue(request.main_goal)}</DetailField>
@@ -206,26 +226,21 @@ function Invest2030RequestModal({
 }
 
 function ActionTypeMultiSelect({
-  defaultSelected,
+  selected,
+  onSelectedChange,
   error,
 }: {
-  defaultSelected?: string[];
+  selected: string[];
+  onSelectedChange: (selected: string[]) => void;
   error?: string;
 }) {
-  const initialSelected = useMemo(
-    () => (defaultSelected?.length ? defaultSelected : ["Webinar"]),
-    [defaultSelected],
-  );
-  const [selected, setSelected] = useState<string[]>(initialSelected);
-
   function toggle(value: string) {
-    setSelected((current) => {
-      if (current.includes(value)) {
-        return current.length === 1 ? current : current.filter((item) => item !== value);
-      }
+    if (selected.includes(value)) {
+      onSelectedChange(selected.length === 1 ? selected : selected.filter((item) => item !== value));
+      return;
+    }
 
-      return [...current, value];
-    });
+    onSelectedChange([...selected, value]);
   }
 
   return (
@@ -295,6 +310,10 @@ export function Invest2030RequestForm({
   const [periodType, setPeriodType] = useState<Invest2030PeriodType>(
     (values?.period_type as Invest2030PeriodType | undefined) ?? "Dia específico",
   );
+  const [selectedActionTypes, setSelectedActionTypes] = useState<string[]>(
+    () => (values?.action_type?.length ? values.action_type : ["Webinar"]),
+  );
+  const hasWebinar = selectedActionTypes.includes("Webinar");
 
   function inputState(field: Invest2030RequestFormField) {
     return fieldErrors[field] ? errorInputClass : "";
@@ -334,7 +353,7 @@ export function Invest2030RequestForm({
         <FieldError message={fieldErrors.campaign_name} />
       </label>
 
-      <ActionTypeMultiSelect defaultSelected={values?.action_type} error={fieldErrors.action_type} />
+      <ActionTypeMultiSelect selected={selectedActionTypes} onSelectedChange={setSelectedActionTypes} error={fieldErrors.action_type} />
 
       <div className="grid gap-4 md:grid-cols-2">
         <label className={labelClass}>
@@ -361,11 +380,20 @@ export function Invest2030RequestForm({
       </div>
 
       {periodType === "Dia específico" ? (
-        <label className={`${labelClass} max-w-sm`}>
-          Data
-          <DatePicker name="period_date" defaultValue={values?.period_date} required ariaLabel="Data do pedido" />
-          <FieldError message={fieldErrors.period_date} />
-        </label>
+        <div className={`grid gap-4 ${hasWebinar ? "md:max-w-2xl md:grid-cols-[minmax(0,1fr)_12rem]" : "max-w-sm"}`}>
+          <label className={labelClass}>
+            Data
+            <DatePicker name="period_date" defaultValue={values?.period_date} required ariaLabel="Data do pedido" />
+            <FieldError message={fieldErrors.period_date} />
+          </label>
+          {hasWebinar ? (
+            <label className={labelClass}>
+              Hora do webinar
+              <TimePicker name="webinar_time" defaultValue={values?.webinar_time} required ariaLabel="Hora do webinar" />
+              <FieldError message={fieldErrors.webinar_time} />
+            </label>
+          ) : null}
+        </div>
       ) : null}
 
       {periodType === "Semana" || periodType === "Período personalizado" ? (
@@ -389,6 +417,21 @@ export function Invest2030RequestForm({
           <MonthPicker name="period_month" defaultValue={values?.period_month} required ariaLabel="Mês do pedido" />
           <FieldError message={fieldErrors.period_month} />
         </label>
+      ) : null}
+
+      {hasWebinar && periodType !== "Dia específico" ? (
+        <div className="grid gap-4 md:max-w-2xl md:grid-cols-[minmax(0,1fr)_12rem]">
+          <label className={labelClass}>
+            Data do webinar
+            <DatePicker name="webinar_date" defaultValue={values?.webinar_date} required ariaLabel="Data do webinar" />
+            <FieldError message={fieldErrors.webinar_date} />
+          </label>
+          <label className={labelClass}>
+            Hora do webinar
+            <TimePicker name="webinar_time" defaultValue={values?.webinar_time} required ariaLabel="Hora do webinar" />
+            <FieldError message={fieldErrors.webinar_time} />
+          </label>
+        </div>
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-3">

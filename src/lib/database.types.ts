@@ -79,8 +79,8 @@ export type Database = {
       };
       invest2030_requests: {
         Row: Invest2030Request;
-        Insert: Partial<Pick<Invest2030Request, "id" | "created_at" | "updated_at" | "submission_key" | "task_id" | "notes">> &
-          Omit<Invest2030Request, "id" | "created_at" | "updated_at" | "submission_key" | "task_id" | "notes" | "tasks">;
+        Insert: Partial<Pick<Invest2030Request, "id" | "created_at" | "updated_at" | "submission_key" | "task_id" | "notes" | "webinar_date" | "webinar_time">> &
+          Omit<Invest2030Request, "id" | "created_at" | "updated_at" | "submission_key" | "task_id" | "notes" | "webinar_date" | "webinar_time" | "tasks">;
         Update: Updatable<Invest2030Request>;
         Relationships: [
           {

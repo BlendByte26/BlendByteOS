@@ -28,6 +28,7 @@ export type Invest2030NewsletterParsedRequest = {
   actionTypes: string;
   requestedBy: string;
   period: string;
+  webinarDateTime: string;
   mainObjective: string;
   targetAudience: string;
   primaryButtonText: string;
@@ -97,6 +98,7 @@ const parsedFieldLabels: Array<[ParsedFieldKey, string]> = [
   ["actionTypes", "Tipo de ação"],
   ["requestedBy", "Quem está a pedir"],
   ["period", "Período"],
+  ["webinarDateTime", "Data/hora do webinar"],
   ["mainObjective", "Objetivo principal"],
   ["targetAudience", "Público-alvo / segmentação"],
   ["primaryButtonText", "Texto do botão principal"],

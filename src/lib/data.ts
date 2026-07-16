@@ -512,6 +512,8 @@ function invest2030RequestMatches(request: Invest2030Request, filters: Invest203
     request.action_type,
     request.requested_by,
     request.period_label,
+    request.webinar_date,
+    request.webinar_time,
     request.main_goal,
     request.target_audience,
     request.main_cta,
