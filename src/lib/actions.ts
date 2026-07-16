@@ -26,7 +26,7 @@ import {
   isDesignAssigneeName,
 } from "./operational-profiles";
 import { requireCurrentOperationalProfile, requireRole } from "./auth";
-import { getSupabase, getSupabaseAdmin } from "./supabase";
+import { getSupabase, getSupabaseAdmin, isSupabaseSchemaError } from "./supabase";
 import {
   clientColorKeys,
   invest2030ActionTypes,
@@ -82,6 +82,9 @@ type ContentCommentsResult =
 
 type ContentCommentMutationResult =
   | { ok: true; comment?: ContentComment }
+  | { ok: false; message: string };
+
+export type UsefulLinkMutationResult =
   | { ok: false; message: string };
 
 export type NewsletterMutationResult =
@@ -2131,6 +2134,104 @@ function companyContactPayload(formData: FormData) {
     phone: text(formData, "phone"),
     links: parseLinksFormData(formData),
   };
+}
+
+function normalizeUsefulLinkUrl(value: string) {
+  const trimmed = value.trim();
+  const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+
+  if (/\s/.test(withProtocol)) {
+    throw new Error("Introduza um URL válido começado por http:// ou https://.");
+  }
+
+  try {
+    const parsed = new URL(withProtocol);
+    if (!["http:", "https:"].includes(parsed.protocol) || !parsed.hostname) {
+      throw new Error("Invalid protocol");
+    }
+    return parsed.toString();
+  } catch {
+    throw new Error("Introduza um URL válido começado por http:// ou https://.");
+  }
+}
+
+function usefulLinkPayload(formData: FormData) {
+  const name = requiredText(formData, "name");
+  const url = normalizeUsefulLinkUrl(requiredText(formData, "url"));
+
+  return { name, url };
+}
+
+function usefulLinkMutationMessage(error: { message?: string; code?: string }) {
+  if (isSupabaseSchemaError(error)) {
+    return "A tabela de links úteis ainda não está configurada neste ambiente.";
+  }
+
+  return error.message ?? "Não foi possível guardar o link útil.";
+}
+
+export async function createUsefulLinkAction(formData: FormData): Promise<UsefulLinkMutationResult | void> {
+  await requireGuilhermeOperationalProfile();
+  const supabase = await getSupabase();
+
+  if (!supabase) {
+    return { ok: false, message: "Modo demo: configure o Supabase para criar links úteis." };
+  }
+
+  let payload: ReturnType<typeof usefulLinkPayload>;
+  try {
+    payload = usefulLinkPayload(formData);
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Não foi possível validar o link útil.",
+    };
+  }
+
+  const { error } = await supabase.from("useful_links").insert(payload);
+
+  if (error) return { ok: false, message: usefulLinkMutationMessage(error) };
+  revalidatePath("/team");
+  redirect("/team");
+}
+
+export async function updateUsefulLinkAction(
+  id: string,
+  formData: FormData,
+): Promise<UsefulLinkMutationResult | void> {
+  await requireGuilhermeOperationalProfile();
+  const supabase = await getSupabase();
+
+  if (!supabase) {
+    return { ok: false, message: "Modo demo: configure o Supabase para editar links úteis." };
+  }
+
+  let payload: ReturnType<typeof usefulLinkPayload>;
+  try {
+    payload = usefulLinkPayload(formData);
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Não foi possível validar o link útil.",
+    };
+  }
+
+  const { error } = await supabase.from("useful_links").update(payload).eq("id", id);
+
+  if (error) return { ok: false, message: usefulLinkMutationMessage(error) };
+  revalidatePath("/team");
+  redirect("/team");
+}
+
+export async function deleteUsefulLinkAction(id: string, formData?: FormData) {
+  void formData;
+  await requireGuilhermeOperationalProfile();
+  const supabase = await supabaseOrRedirect("/team");
+  const { error } = await supabase.from("useful_links").delete().eq("id", id);
+
+  if (error) throw new Error(usefulLinkMutationMessage(error));
+  revalidatePath("/team");
+  redirect("/team");
 }
 
 export async function createCompanyContactAction(formData: FormData) {

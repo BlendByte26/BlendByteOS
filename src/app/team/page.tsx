@@ -1,5 +1,5 @@
 import { TeamDirectory } from "@/components/team-directory";
-import { getCompanyContacts, getTeamMembers } from "@/lib/data";
+import { getCompanyContacts, getTeamMembers, getUsefulLinks } from "@/lib/data";
 import { canManageTeam, requireCurrentOperationalProfile } from "@/lib/auth";
 
 type Props = {
@@ -16,9 +16,10 @@ export default async function TeamPage({ searchParams }: Props) {
   const currentProfile = await requireCurrentOperationalProfile();
   const canEdit = canManageTeam(currentProfile);
   const createOpen = canEdit && valueOf(params, "new") === "1";
-  const [teamMembers, companyContacts] = await Promise.all([
+  const [teamMembers, companyContacts, usefulLinks] = await Promise.all([
     getTeamMembers(),
     getCompanyContacts(),
+    getUsefulLinks(),
   ]);
 
   return (
@@ -26,6 +27,7 @@ export default async function TeamPage({ searchParams }: Props) {
       key={createOpen ? "create-open" : "default"}
       teamMembers={teamMembers}
       companyContacts={companyContacts}
+      usefulLinks={usefulLinks}
       createOpen={createOpen}
       canEdit={canEdit}
     />

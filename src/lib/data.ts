@@ -25,6 +25,7 @@ import type {
   TaskPriority,
   TaskStatus,
   TeamMember,
+  UsefulLink,
 } from "./types";
 
 export type ContentFilters = {
@@ -142,6 +143,7 @@ const sampleQuickTodos: QuickTodo[] = [
 const sampleQuickNotes: QuickNote[] = [];
 const sampleContentComments: ContentComment[] = [];
 const sampleCompanyContacts: CompanyContact[] = [];
+const sampleUsefulLinks: UsefulLink[] = [];
 const sampleInvest2030Requests: Invest2030Request[] = [];
 const sampleInvest2030Newsletters: Invest2030Newsletter[] = [];
 
@@ -240,6 +242,26 @@ export async function getCompanyContacts() {
   }
 
   return data as CompanyContact[];
+}
+
+export async function getUsefulLinks() {
+  const supabase = await getSupabase();
+
+  if (!supabase) {
+    return sampleUsefulLinks;
+  }
+
+  const { data, error } = await supabase
+    .from("useful_links")
+    .select("*")
+    .order("sort_order", { ascending: true })
+    .order("name", { ascending: true });
+
+  if (error) {
+    return handleSupabaseReadError(error, sampleUsefulLinks, "links úteis");
+  }
+
+  return data as UsefulLink[];
 }
 
 export async function getTeamMember(id: string) {

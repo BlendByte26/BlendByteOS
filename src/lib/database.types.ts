@@ -9,6 +9,7 @@ import type {
   QuickTodo,
   Task,
   TeamMember,
+  UsefulLink,
   UserProfile,
 } from "./types";
 
@@ -167,6 +168,13 @@ export type Database = {
         Insert: Partial<Pick<CompanyContact, "id" | "created_at" | "updated_at" | "phone" | "links">> &
           Pick<CompanyContact, "label" | "email">;
         Update: Updatable<CompanyContact>;
+        Relationships: [];
+      };
+      useful_links: {
+        Row: UsefulLink;
+        Insert: Partial<Pick<UsefulLink, "id" | "sort_order" | "created_at" | "updated_at">> &
+          Pick<UsefulLink, "name" | "url">;
+        Update: Updatable<UsefulLink>;
         Relationships: [];
       };
       user_profiles: {
