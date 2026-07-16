@@ -8,6 +8,10 @@ import {
   buildContentPlanningExportData,
   contentItemsForPlanningPeriod,
   contentPlanningFilename,
+  defaultApprovalInstructions,
+  documentTitleDefaults,
+  type ContentPlanningExportItemInput,
+  type ContentPlanningLanguage,
 } from "@/lib/content-planning-export";
 import { isValidContentMonth } from "@/lib/content-month";
 import { requireCurrentOperationalProfile } from "@/lib/auth";
@@ -18,7 +22,17 @@ export const runtime = "nodejs";
 type ExportPayload = {
   clientId?: unknown;
   month?: unknown;
-  itemIds?: unknown;
+  language?: unknown;
+  documentTitle?: unknown;
+  monthlyObjective?: unknown;
+  monthlyThemes?: unknown;
+  website?: unknown;
+  clientContactName?: unknown;
+  approvalDeadline?: unknown;
+  approvalInstructions?: unknown;
+  emailSubject?: unknown;
+  emailBody?: unknown;
+  items?: unknown;
   preparedByName?: unknown;
   preparedByEmail?: unknown;
 };
@@ -31,9 +45,38 @@ function stringValue(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function selectedIds(value: unknown) {
+function exportItemInputs(value: unknown): ContentPlanningExportItemInput[] {
   if (!Array.isArray(value)) return [];
-  return Array.from(new Set(value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)));
+  const seen = new Set<string>();
+
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const candidate = item as Record<string, unknown>;
+    const id = stringValue(candidate.id);
+    if (!id || seen.has(id)) return [];
+    seen.add(id);
+
+    return [{
+      id,
+      title: stringValue(candidate.title),
+      publishDate: nullableString(candidate.publishDate),
+      publishTime: nullableString(candidate.publishTime),
+      format: nullableString(candidate.format),
+      platform: nullableString(candidate.platform),
+      objective: nullableString(candidate.objective),
+      copy: nullableString(candidate.copy),
+      caption: nullableString(candidate.caption),
+    }];
+  });
+}
+
+function nullableString(value: unknown) {
+  const cleanValue = stringValue(value);
+  return cleanValue || null;
+}
+
+function planningLanguage(value: unknown): ContentPlanningLanguage {
+  return value === "en" ? "en" : "pt";
 }
 
 function contentDispositionFilename(filename: string) {
@@ -93,15 +136,26 @@ export async function POST(request: Request) {
 
   const clientId = stringValue(payload.clientId);
   const month = stringValue(payload.month);
-  const itemIds = selectedIds(payload.itemIds);
+  const language = planningLanguage(payload.language);
+  const exportItems = exportItemInputs(payload.items);
   const preparedByName = stringValue(payload.preparedByName);
   const preparedByEmail = stringValue(payload.preparedByEmail);
+  const documentTitle = stringValue(payload.documentTitle) || documentTitleDefaults[language];
+  const monthlyObjective = stringValue(payload.monthlyObjective);
+  const monthlyThemes = nullableString(payload.monthlyThemes);
+  const website = stringValue(payload.website) || "blendbyte.pt";
+  const clientContactName = nullableString(payload.clientContactName);
+  const approvalDeadline = nullableString(payload.approvalDeadline);
+  const approvalInstructions = stringValue(payload.approvalInstructions) || defaultApprovalInstructions(language, month);
+  const emailSubject = stringValue(payload.emailSubject);
+  const emailBody = stringValue(payload.emailBody);
 
   if (!clientId) return jsonError("Escolha um cliente.");
   if (!isValidContentMonth(month)) return jsonError("Escolha um período válido.");
+  if (!monthlyObjective) return jsonError("Indique o objetivo do mês.");
   if (!preparedByName) return jsonError("Indique o nome de quem preparou o documento.");
   if (!preparedByEmail) return jsonError("Indique o email de quem preparou o documento.");
-  if (!itemIds.length) return jsonError("Selecione pelo menos um conteúdo.");
+  if (!exportItems.length) return jsonError("Selecione pelo menos um conteúdo.");
 
   const [clients, clientContent] = await Promise.all([
     getClients(),
@@ -112,15 +166,27 @@ export async function POST(request: Request) {
 
   const allowedItems = contentItemsForPlanningPeriod(clientContent, clientId, month);
   const allowedIds = new Set(allowedItems.map((item) => item.id));
+  const itemIds = exportItems.map((item) => item.id);
   const invalidIds = itemIds.filter((itemId) => !allowedIds.has(itemId));
   if (invalidIds.length) return jsonError("A seleção contém conteúdos inválidos para este cliente e período.");
 
-  const selectedItems = allowedItems.filter((item) => itemIds.includes(item.id));
+  const allowedItemsById = new Map(allowedItems.map((item) => [item.id, item]));
+  const selectedItems = exportItems.filter((item) => allowedItemsById.has(item.id));
   if (!selectedItems.length) return jsonError("Selecione pelo menos um conteúdo.");
 
   const data = buildContentPlanningExportData({
     client,
     month,
+    language,
+    documentTitle,
+    monthlyObjective,
+    monthlyThemes,
+    website,
+    clientContactName,
+    approvalDeadline,
+    approvalInstructions,
+    emailSubject,
+    emailBody,
     items: selectedItems,
     preparedByName,
     preparedByEmail,

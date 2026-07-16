@@ -192,8 +192,8 @@ export function ContentFiltersBar({
   const [moreFiltersOpen, setMoreFiltersOpen] = useState(false);
 
   return (
-    <div className="flex min-w-0 flex-1 basis-full flex-wrap items-end gap-2.5 lg:basis-auto">
-      <label className={`${labelClass} min-w-[190px] flex-1`}>
+    <div className="flex min-w-0 flex-1 basis-full flex-wrap items-end gap-2.5 lg:flex-none lg:basis-auto">
+      <label className={`${labelClass} min-w-[150px] flex-1 lg:w-[145px] lg:flex-none`}>
         Cliente
         <SelectField
           name="client"
@@ -202,7 +202,7 @@ export function ContentFiltersBar({
           options={clientOptions}
         />
       </label>
-      <label className={`${labelClass} min-w-[170px] flex-1`}>
+      <label className={`${labelClass} min-w-[140px] flex-1 lg:w-[135px] lg:flex-none`}>
         Estado
         <MultiSelectField
           name="status"
@@ -212,7 +212,7 @@ export function ContentFiltersBar({
           allLabel="Todos os estados"
         />
       </label>
-      <label className={`${labelClass} min-w-[140px] flex-1`}>
+      <label className={`${labelClass} min-w-[125px] flex-1 lg:w-[125px] lg:flex-none`}>
         Mês
         <SelectField
           name="month"
