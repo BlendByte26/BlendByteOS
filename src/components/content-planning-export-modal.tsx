@@ -189,7 +189,7 @@ export function ContentPlanningExportModal({
       <button
         type="button"
         onClick={openModal}
-        className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-full border border-[rgba(83,183,223,0.45)] bg-white/75 px-3.5 text-sm font-extrabold text-[var(--bb-charcoal)] shadow-[0_10px_24px_rgba(0,0,0,0.06)] transition hover:bg-[var(--bb-primary-hover)]"
+        className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-[rgba(83,183,223,0.45)] bg-white/75 px-3.5 text-sm font-extrabold text-[var(--bb-charcoal)] shadow-[0_10px_24px_rgba(0,0,0,0.06)] transition hover:bg-[var(--bb-primary-hover)]"
       >
         <FileDown className="size-4" aria-hidden="true" />
         Exportar planeamento

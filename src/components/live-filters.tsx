@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { SlidersHorizontal, RotateCcw } from "lucide-react";
-import { useCallback, useMemo, useState, useTransition } from "react";
+import { useCallback, useMemo, useState, useTransition, type ReactNode } from "react";
 import { DatePicker } from "@/components/date-picker";
 import { MultiSelectField, SelectField, type SelectOption } from "@/components/select-field";
 
@@ -34,6 +34,7 @@ type ContentFiltersBarProps = {
   ownerOptions: SelectOption[];
   statusOptions: SelectOption[];
   platformOptions: SelectOption[];
+  trailingAction?: ReactNode;
 };
 
 type TasksFiltersBarProps = {
@@ -180,6 +181,7 @@ export function ContentFiltersBar({
   ownerOptions,
   statusOptions,
   platformOptions,
+  trailingAction,
 }: ContentFiltersBarProps) {
   const keys = useMemo<Array<keyof ContentFilterValues>>(
     () => ["assignee", "client", "month", "publishUntil", "status", "platform"],
@@ -190,7 +192,7 @@ export function ContentFiltersBar({
   const [moreFiltersOpen, setMoreFiltersOpen] = useState(false);
 
   return (
-    <div className="flex min-w-0 flex-1 flex-wrap items-end gap-2.5">
+    <div className="flex min-w-0 flex-1 basis-full flex-wrap items-end gap-2.5 lg:basis-auto">
       <label className={`${labelClass} min-w-[190px] flex-1`}>
         Cliente
         <SelectField
@@ -234,7 +236,7 @@ export function ContentFiltersBar({
           Mais filtros{secondaryActiveCount ? ` · ${secondaryActiveCount}` : ""}
         </button>
         {moreFiltersOpen ? (
-          <div className="absolute right-0 z-[1000] mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-[20px] border border-[var(--bb-border)] bg-white/95 p-3 shadow-[0_24px_64px_rgba(0,0,0,0.14)] backdrop-blur-xl">
+          <div className="absolute left-0 z-[1000] mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-[20px] border border-[var(--bb-border)] bg-white/95 p-3 shadow-[0_24px_64px_rgba(0,0,0,0.14)] backdrop-blur-xl sm:left-auto sm:right-0">
             <div className="grid gap-2.5">
               <label className={labelClass}>
                 Responsável
@@ -279,6 +281,7 @@ export function ContentFiltersBar({
           </div>
         ) : null}
       </div>
+      {trailingAction}
       <div className="flex items-end gap-2">
         <UpdatingState isPending={isPending} />
       </div>
