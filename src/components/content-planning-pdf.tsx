@@ -1,20 +1,20 @@
 import {
+  Circle,
   Document,
   Font,
   Image,
   Page,
+  Rect,
   StyleSheet,
   Svg,
   Text,
   View,
-  Circle,
-  Rect,
 } from "@react-pdf/renderer";
+import type { ViewProps } from "@react-pdf/renderer";
 import type {
   ContentPlanningExportData,
   ContentPlanningExportItem,
   ContentPlanningLanguage,
-  TextBlock,
 } from "@/lib/content-planning-export";
 
 Font.registerHyphenationCallback((word) => [word]);
@@ -26,11 +26,13 @@ const paper = "#F7F7F3";
 const soft = "#EFEFEB";
 const muted = "#6B6B67";
 const line = "#D7D7D0";
+const calendarRowsPerPage = 9;
+const fragmentLineBudget = 14;
+const fragmentCharactersPerLine = 58;
+const fragmentCharacterLimit = 390;
 
 const labels = {
   pt: {
-    preparedBy: "Preparado por",
-    generatedAt: "Data de geração",
     contents: "conteúdos",
     platforms: "Plataformas",
     monthlyObjective: "Objetivo do mês",
@@ -42,20 +44,17 @@ const labels = {
     platform: "Plataforma",
     objective: "Objetivo",
     noObjective: "Objetivo por definir",
-    creativeText: "Texto do criativo",
-    caption: "Legenda",
     hashtags: "Hashtags",
     approvalComments: "Aprovação / comentários",
     approvalTitle: "Aprovação do planeamento",
     approvalDeadline: "Data limite de aprovação",
+    clientContact: "Contacto do cliente",
     noDate: "Sem data",
-    noCopy: "Texto do criativo por preencher.",
-    noCaption: "Legenda por preencher.",
+    noContent: "Conteúdo por preencher.",
+    continuation: "Continuação",
     plan: "Planeamento de Conteúdos",
   },
   en: {
-    preparedBy: "Prepared by",
-    generatedAt: "Generation date",
     contents: "contents",
     platforms: "Platforms",
     monthlyObjective: "Monthly objective",
@@ -67,18 +66,33 @@ const labels = {
     platform: "Platform",
     objective: "Objective",
     noObjective: "Objective to be defined",
-    creativeText: "Creative text",
-    caption: "Caption",
     hashtags: "Hashtags",
     approvalComments: "Approval / comments",
     approvalTitle: "Content plan approval",
     approvalDeadline: "Approval deadline",
+    clientContact: "Client contact",
     noDate: "No date",
-    noCopy: "Creative text to be completed.",
-    noCaption: "Caption to be completed.",
+    noContent: "Content to be completed.",
+    continuation: "Continuation",
     plan: "Content Plan",
   },
 } satisfies Record<ContentPlanningLanguage, Record<string, string>>;
+
+type SheetFragment = {
+  id: string;
+  label: string | null;
+  text: string;
+  marker?: boolean;
+  muted?: boolean;
+  lines: number;
+};
+
+type PlannedSheet = {
+  item: ContentPlanningExportItem;
+  pageIndex: number;
+  pageCount: number;
+  columns: [SheetFragment[], SheetFragment[]];
+};
 
 function t(data: ContentPlanningExportData) {
   return labels[data.language];
@@ -100,7 +114,21 @@ function formatDate(value: string | null, language: ContentPlanningLanguage) {
 }
 
 function platformList(platforms: string[], language: ContentPlanningLanguage) {
-  return platforms.length ? platforms.join(" · ") : labels[language].platform;
+  const uniquePlatforms = Array.from(
+    new Map(
+      platforms
+        .flatMap((platform) => platform.split(/\s*(?:·|,|\/|\||\+)\s*/))
+        .map((platform) => platform.trim())
+        .filter(Boolean)
+        .map((platform) => [platform.toLocaleLowerCase("pt-PT"), platform]),
+    ).values(),
+  );
+  return uniquePlatforms.length ? uniquePlatforms.join(" · ") : labels[language].platform;
+}
+
+function truncateText(value: string, limit: number) {
+  if (value.length <= limit) return value;
+  return `${value.slice(0, Math.max(0, limit - 3)).trimEnd()}...`;
 }
 
 function textParagraphs(value: string | null | undefined) {
@@ -110,34 +138,173 @@ function textParagraphs(value: string | null | undefined) {
     .filter(Boolean);
 }
 
-function estimatedItemWeight(item: ContentPlanningExportItem) {
-  return [
-    item.title,
-    item.objective,
-    item.copy,
-    item.caption,
-    item.hashtags,
-  ].filter(Boolean).join(" ").length + item.copyBlocks.length * 120 + item.captionParagraphs.length * 90;
+function chunkArray<T>(items: T[], size: number) {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
 }
 
-function contentGroups(items: ContentPlanningExportItem[]) {
-  const groups: ContentPlanningExportItem[][] = [];
-  let index = 0;
+function splitLongToken(token: string, limit: number) {
+  if (token.length <= limit) return [token];
+  const parts: string[] = [];
+  for (let index = 0; index < token.length; index += limit) {
+    parts.push(token.slice(index, index + limit));
+  }
+  return parts;
+}
 
-  while (index < items.length) {
-    const current = items[index]!;
-    const next = items[index + 1];
-    if (next && current.isShort && next.isShort && estimatedItemWeight(current) + estimatedItemWeight(next) < 1300) {
-      groups.push([current, next]);
-      index += 2;
-      continue;
+function splitTextForSheet(value: string) {
+  const chunks: string[] = [];
+  let current = "";
+  const tokens = value
+    .split(/(\s+)/)
+    .flatMap((token) => (token.trim() ? splitLongToken(token, fragmentCharacterLimit) : [token]));
+
+  for (const token of tokens) {
+    if (current && current.length + token.length > fragmentCharacterLimit) {
+      chunks.push(current.trim());
+      current = token.trimStart();
+    } else {
+      current += token;
     }
-
-    groups.push([current]);
-    index += 1;
   }
 
-  return groups;
+  if (current.trim()) chunks.push(current.trim());
+  return chunks.length ? chunks : [value];
+}
+
+function estimateFragmentLines(text: string, hasLabel: boolean) {
+  const textLines = text.split("\n").reduce((total, row) => {
+    return total + Math.max(1, Math.ceil(row.length / fragmentCharactersPerLine));
+  }, 0);
+  return textLines + (hasLabel ? 2 : 1);
+}
+
+function fragmentsFromText({
+  id,
+  text,
+  label,
+  continuationLabel,
+  marker = false,
+  muted = false,
+}: {
+  id: string;
+  text: string;
+  label: string | null;
+  continuationLabel?: string | null;
+  marker?: boolean;
+  muted?: boolean;
+}) {
+  return splitTextForSheet(text).map<SheetFragment>((chunk, index) => {
+    const chunkLabel = index === 0 ? label : (continuationLabel ?? label);
+    return {
+      id: `${id}-${index}`,
+      label: chunkLabel,
+      text: chunk,
+      marker,
+      muted,
+      lines: estimateFragmentLines(chunk, Boolean(chunkLabel)),
+    };
+  });
+}
+
+function itemFragments(item: ContentPlanningExportItem, language: ContentPlanningLanguage) {
+  const copy = labels[language];
+  const fragments: SheetFragment[] = [];
+  const continuationSuffix = " (cont.)";
+
+  fragments.push(
+    ...fragmentsFromText({
+      id: `${item.id}-objective`,
+      text: item.objective || copy.noObjective,
+      label: copy.objective,
+      continuationLabel: `${copy.objective}${continuationSuffix}`,
+      muted: !item.objective,
+    }),
+  );
+
+  for (const [index, block] of item.copyBlocks.entries()) {
+    const label = block.kind === "marker" ? block.label : null;
+    fragments.push(
+      ...fragmentsFromText({
+        id: `${item.id}-creative-${index}`,
+        text: block.text,
+        label,
+        continuationLabel: label ? `${label}${continuationSuffix}` : null,
+        marker: block.kind === "marker",
+      }),
+    );
+  }
+
+  for (const [index, paragraph] of item.captionParagraphs.entries()) {
+    fragments.push(
+      ...fragmentsFromText({
+        id: `${item.id}-post-${index}`,
+        text: paragraph,
+        label: null,
+      }),
+    );
+  }
+
+  if (!item.copyBlocks.length && !item.captionParagraphs.length) {
+    fragments.push(
+      ...fragmentsFromText({
+        id: `${item.id}-empty`,
+        text: copy.noContent,
+        label: null,
+        muted: true,
+      }),
+    );
+  }
+
+  if (item.hashtags) {
+    fragments.push(
+      ...fragmentsFromText({
+        id: `${item.id}-hashtags`,
+        text: item.hashtags,
+        label: copy.hashtags,
+        continuationLabel: `${copy.hashtags}${continuationSuffix}`,
+      }),
+    );
+  }
+
+  return fragments;
+}
+
+function planItemSheets(item: ContentPlanningExportItem, language: ContentPlanningLanguage) {
+  const pages: Array<{ columns: [SheetFragment[], SheetFragment[]]; weights: [number, number] }> = [];
+  let page = { columns: [[], []] as [SheetFragment[], SheetFragment[]], weights: [0, 0] as [number, number] };
+  let columnIndex: 0 | 1 = 0;
+
+  for (const fragment of itemFragments(item, language)) {
+    if (page.weights[columnIndex] + fragment.lines > fragmentLineBudget) {
+      if (columnIndex === 0) {
+        columnIndex = 1;
+      } else {
+        pages.push(page);
+        page = { columns: [[], []], weights: [0, 0] };
+        columnIndex = 0;
+      }
+    }
+
+    page.columns[columnIndex].push(fragment);
+    page.weights[columnIndex] += fragment.lines;
+  }
+
+  if (page.columns[0].length || page.columns[1].length) pages.push(page);
+
+  return pages.map<PlannedSheet>((plannedPage, pageIndex) => ({
+    item,
+    pageIndex,
+    pageCount: pages.length,
+    columns: plannedPage.columns,
+  }));
+}
+
+function plannedContentSheets(data: ContentPlanningExportData) {
+  return data.items.flatMap((item) => planItemSheets(item, data.language));
 }
 
 function ClientMark({ data }: { data: ContentPlanningExportData }) {
@@ -188,26 +355,11 @@ function CoverPage({ data }: { data: ContentPlanningExportData }) {
         </View>
       </View>
 
-      <View style={styles.coverMeta}>
-        <MetaLine label={copy.preparedBy} value={data.preparedByName} dark />
-        <MetaLine label={copy.generatedAt} value={data.generatedAtLabel} dark />
-      </View>
-
       <View style={styles.coverCount}>
         <Text style={styles.coverCountNumber}>{data.total}</Text>
         <Text style={styles.coverCountLabel}>{uppercase(copy.contents)}</Text>
       </View>
     </Page>
-  );
-}
-
-function MetaLine({ label, value, dark = false }: { label: string; value: string | null; dark?: boolean }) {
-  if (!value) return null;
-  return (
-    <View style={styles.metaLine}>
-      <Text style={dark ? styles.metaLabelDark : styles.metaLabel}>{uppercase(label)}</Text>
-      <Text style={dark ? styles.metaValueDark : styles.metaValue}>{value}</Text>
-    </View>
   );
 }
 
@@ -234,42 +386,44 @@ function ExecutiveSummaryPage({ data }: { data: ContentPlanningExportData }) {
   );
 }
 
-function CalendarPage({ data }: { data: ContentPlanningExportData }) {
+function CalendarPage({
+  data,
+  items,
+  pageIndex,
+  pageCount,
+}: {
+  data: ContentPlanningExportData;
+  items: ContentPlanningExportItem[];
+  pageIndex: number;
+  pageCount: number;
+}) {
   const copy = t(data);
+  const pageTitle = pageCount > 1 ? `${copy.calendar} · ${pageIndex + 1}/${pageCount}` : copy.calendar;
 
-  return (
-    <Page size={pageSize} orientation="landscape" style={styles.lightPage} wrap>
-      <PageHeader data={data} title={copy.calendar} fixed />
-      <View style={styles.calendarTable}>
-        <View style={styles.calendarHeader} fixed>
-          <Text style={[styles.calendarCell, styles.calendarDate]}>{copy.date}</Text>
-          <Text style={[styles.calendarCell, styles.calendarContent]}>{copy.content}</Text>
-          <Text style={[styles.calendarCell, styles.calendarFormat]}>{copy.format}</Text>
-          <Text style={[styles.calendarCell, styles.calendarPlatform]}>{copy.platform}</Text>
-          <Text style={[styles.calendarCell, styles.calendarObjective]}>{copy.objective}</Text>
-        </View>
-        {data.items.map((item, index) => (
-          <View key={item.id} style={index % 2 ? [styles.calendarRow, styles.calendarRowAlt] : styles.calendarRow} wrap={false}>
-            <Text style={[styles.calendarCell, styles.calendarDate]}>{formatDate(item.publishDate, data.language)}{item.publishTime ? ` · ${item.publishTime}` : ""}</Text>
-            <Text style={[styles.calendarCell, styles.calendarContent]}>#{String(item.sequence).padStart(2, "0")} {item.title}</Text>
-            <Text style={[styles.calendarCell, styles.calendarFormat]}>{item.format ?? "-"}</Text>
-            <Text style={[styles.calendarCell, styles.calendarPlatform]}>{item.platform}</Text>
-            <Text style={[styles.calendarCell, styles.calendarObjective]}>{item.objective ?? copy.noObjective}</Text>
-          </View>
-        ))}
-      </View>
-      <PageFooter data={data} fixed />
-    </Page>
-  );
-}
-
-function ContentSheetPage({ data, items }: { data: ContentPlanningExportData; items: ContentPlanningExportItem[] }) {
   return (
     <Page size={pageSize} orientation="landscape" style={styles.lightPage}>
-      <PageHeader data={data} title={data.documentTitle} />
-      <View style={items.length === 2 ? styles.sheetGrid : styles.sheetSingle}>
-        {items.map((item) => (
-          <ContentSheet key={item.id} data={data} item={item} compact={items.length === 2} />
+      <PageHeader data={data} title={pageTitle} />
+      <View style={styles.calendarTable}>
+        <View style={styles.calendarHeader}>
+          <CalendarCell style={styles.calendarDate} value={copy.date} />
+          <CalendarCell style={styles.calendarContent} value={copy.content} />
+          <CalendarCell style={styles.calendarFormat} value={copy.format} />
+          <CalendarCell style={styles.calendarPlatform} value={copy.platform} />
+        </View>
+        {items.map((item, index) => (
+          <View key={item.id} style={index % 2 ? [styles.calendarRow, styles.calendarRowAlt] : styles.calendarRow}>
+            <CalendarCell
+              style={styles.calendarDate}
+              value={`${formatDate(item.publishDate, data.language)}${item.publishTime ? ` · ${item.publishTime}` : ""}`}
+            />
+            <CalendarCell
+              style={styles.calendarContent}
+              value={`#${String(item.sequence).padStart(2, "0")} ${item.title}`}
+              maxLines={2}
+            />
+            <CalendarCell style={styles.calendarFormat} value={item.format ?? "-"} maxLines={2} />
+            <CalendarCell style={styles.calendarPlatform} value={item.platform} maxLines={2} />
+          </View>
         ))}
       </View>
       <PageFooter data={data} />
@@ -277,118 +431,94 @@ function ContentSheetPage({ data, items }: { data: ContentPlanningExportData; it
   );
 }
 
-function ContentSheet({
-  data,
-  item,
-  compact,
+function CalendarCell({
+  style,
+  value,
+  maxLines = 1,
 }: {
-  data: ContentPlanningExportData;
-  item: ContentPlanningExportItem;
-  compact: boolean;
+  style: ViewProps["style"];
+  value: string;
+  maxLines?: number;
 }) {
+  const characterLimit = maxLines === 1 ? 48 : 96;
+  return (
+    <View style={[styles.calendarCell, style as never]}>
+      <Text>{truncateText(value, characterLimit)}</Text>
+    </View>
+  );
+}
+
+function ContentSheetPage({ data, sheet }: { data: ContentPlanningExportData; sheet: PlannedSheet }) {
   const copy = t(data);
+  const { item, pageIndex, pageCount, columns } = sheet;
+  const continuation = pageCount > 1 ? `${copy.continuation} ${pageIndex + 1}/${pageCount}` : null;
 
   return (
-    <View style={compact ? styles.contentSheetCompact : styles.contentSheet} wrap={false}>
-      <View style={styles.sheetTop}>
-        <View>
-          <Text style={styles.sheetNumber}>#{String(item.sequence).padStart(2, "0")}</Text>
-          <Text style={styles.sheetDate}>
-            {formatDate(item.publishDate, data.language)}{item.publishTime ? ` · ${item.publishTime}` : ""}
-          </Text>
+    <Page size={pageSize} orientation="landscape" style={styles.lightPage}>
+      <PageHeader data={data} title={data.documentTitle} />
+      <View style={styles.contentSheet}>
+        <View style={styles.sheetTop}>
+          <View style={styles.sheetIdentity}>
+            <Text style={styles.sheetNumber}>#{String(item.sequence).padStart(2, "0")}</Text>
+            <Text style={styles.sheetDate}>
+              {formatDate(item.publishDate, data.language)}{item.publishTime ? ` · ${item.publishTime}` : ""}
+            </Text>
+            {continuation ? <Text style={styles.sheetContinuation}>{uppercase(continuation)}</Text> : null}
+          </View>
+          <View style={styles.sheetMetaGrid}>
+            <SheetMeta label={copy.format} value={item.format ?? "-"} />
+            <SheetMeta label={copy.platform} value={item.platform} />
+          </View>
         </View>
-        <View style={styles.sheetTags}>
-          {item.format ? <Text style={styles.sheetTag}>{uppercase(item.format)}</Text> : null}
-          <Text style={styles.sheetTagDark}>{uppercase(item.platform)}</Text>
-        </View>
-      </View>
 
-      <Text style={compact ? styles.sheetTitleCompact : styles.sheetTitle}>{item.title}</Text>
-      {compact ? (
-        <>
-          <InfoBlock label={copy.objective} fallback={copy.noObjective} value={item.objective} />
-          <CreativeBlock label={copy.creativeText} fallback={copy.noCopy} blocks={item.copyBlocks} />
-          <CaptionBlock data={data} item={item} />
-          <ApprovalBox label={copy.approvalComments} />
-        </>
-      ) : (
+        <Text style={item.title.length > 90 ? styles.sheetTitleLong : styles.sheetTitle}>
+          {truncateText(item.title, 150)}
+        </Text>
+        <Text style={styles.contentLabel}>{uppercase(copy.content)}</Text>
+
         <View style={styles.sheetBodyColumns}>
-          <View style={styles.sheetBodyColumn}>
-            <InfoBlock label={copy.objective} fallback={copy.noObjective} value={item.objective} />
-            <CreativeBlock label={copy.creativeText} fallback={copy.noCopy} blocks={item.copyBlocks} />
-          </View>
-          <View style={styles.sheetBodyColumn}>
-            <CaptionBlock data={data} item={item} compactTop />
-            <ApprovalBox label={copy.approvalComments} />
-          </View>
+          {columns.map((fragments, columnIndex) => (
+            <View key={`${item.id}-${pageIndex}-${columnIndex}`} style={styles.sheetBodyColumn}>
+              {fragments.map((fragment) => (
+                <SheetFragmentView key={fragment.id} fragment={fragment} />
+              ))}
+            </View>
+          ))}
         </View>
-      )}
-    </View>
-  );
-}
 
-function InfoBlock({ label, value, fallback }: { label: string; value: string | null; fallback: string }) {
-  return (
-    <View style={styles.infoBlock}>
-      <Text style={styles.blockLabel}>{uppercase(label)}</Text>
-      <Text style={styles.bodyText}>{value || fallback}</Text>
-    </View>
-  );
-}
-
-function CreativeBlock({ label, blocks, fallback }: { label: string; blocks: TextBlock[]; fallback: string }) {
-  return (
-    <View style={styles.infoBlock}>
-      <Text style={styles.blockLabel}>{uppercase(label)}</Text>
-      {blocks.length ? blocks.map((block, index) => <TextBlockView key={`${block.kind}-${index}`} block={block} />) : <Text style={styles.bodyTextMuted}>{fallback}</Text>}
-    </View>
-  );
-}
-
-function TextBlockView({ block }: { block: TextBlock }) {
-  if (block.kind === "marker") {
-    return (
-      <View style={styles.markerBlock}>
-        <Text style={styles.markerLabel}>{block.label}</Text>
-        {block.text ? <Paragraphs paragraphs={textParagraphs(block.text)} style={styles.bodyText} /> : null}
+        {pageIndex === pageCount - 1 ? <ApprovalBox label={copy.approvalComments} /> : <View style={styles.approvalSlot} />}
       </View>
-    );
-  }
+      <PageFooter data={data} />
+    </Page>
+  );
+}
 
-  return <Paragraphs paragraphs={textParagraphs(block.text)} style={styles.bodyText} />;
+function SheetMeta({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.sheetMetaCell}>
+      <Text style={styles.sheetMetaLabel}>{uppercase(label)}</Text>
+      <Text style={styles.sheetMetaValue}>{truncateText(uppercase(value), 58)}</Text>
+    </View>
+  );
+}
+
+function SheetFragmentView({ fragment }: { fragment: SheetFragment }) {
+  return (
+    <View style={fragment.marker ? styles.markerFragment : styles.sheetFragment}>
+      {fragment.label ? <Text style={styles.fragmentLabel}>{uppercase(fragment.label)}</Text> : null}
+      <Text style={fragment.muted ? styles.fragmentTextMuted : styles.fragmentText}>{fragment.text}</Text>
+    </View>
+  );
 }
 
 function ApprovalBox({ label }: { label: string }) {
   return (
     <View style={styles.approvalBox}>
-      <Text style={styles.approvalLabel}>{label}</Text>
-      <View style={styles.approvalLine} />
-      <View style={styles.approvalLine} />
-    </View>
-  );
-}
-
-function CaptionBlock({
-  data,
-  item,
-  compactTop = false,
-}: {
-  data: ContentPlanningExportData;
-  item: ContentPlanningExportItem;
-  compactTop?: boolean;
-}) {
-  const copy = t(data);
-
-  return (
-    <View style={compactTop ? styles.captionBlockCompactTop : styles.captionBlock}>
-      <Text style={styles.blockLabel}>{uppercase(copy.caption)}</Text>
-      {item.captionParagraphs.length ? <Paragraphs paragraphs={item.captionParagraphs} style={styles.captionText} /> : <Text style={styles.bodyTextMuted}>{copy.noCaption}</Text>}
-      {item.hashtags ? (
-        <View style={styles.hashtagBox}>
-          <Text style={styles.hashtagLabel}>{uppercase(copy.hashtags)}</Text>
-          <Text style={styles.hashtagText}>{item.hashtags}</Text>
-        </View>
-      ) : null}
+      <Text style={styles.approvalLabel}>{uppercase(label)}</Text>
+      <View style={styles.approvalLines}>
+        <View style={styles.approvalLine} />
+        <View style={styles.approvalLine} />
+      </View>
     </View>
   );
 }
@@ -405,14 +535,12 @@ function FinalPage({ data }: { data: ContentPlanningExportData }) {
 
       <View style={styles.finalLayout}>
         <View style={styles.finalCopy}>
-          <Text style={styles.finalEyebrow}>{uppercase(copy.approvalTitle)}</Text>
           <Text style={styles.finalTitle}>{copy.approvalTitle}</Text>
           <Paragraphs paragraphs={textParagraphs(data.approvalInstructions)} style={styles.finalText} />
         </View>
         <View style={styles.finalPanel}>
           {data.approvalDeadlineLabel ? <MetaLine label={copy.approvalDeadline} value={data.approvalDeadlineLabel} /> : null}
-          <MetaLine label={copy.preparedBy} value={data.preparedByName} />
-          <MetaLine label="Email" value={data.preparedByEmail} />
+          {data.clientContactName ? <MetaLine label={copy.clientContact} value={data.clientContactName} /> : null}
           <MetaLine label="Website" value={data.website} />
           <View style={styles.finalBrandBlock}>
             <Text style={styles.finalBrandSmall}>BlendByte</Text>
@@ -421,6 +549,16 @@ function FinalPage({ data }: { data: ContentPlanningExportData }) {
         </View>
       </View>
     </Page>
+  );
+}
+
+function MetaLine({ label, value }: { label: string; value: string | null }) {
+  if (!value) return null;
+  return (
+    <View style={styles.metaLine}>
+      <Text style={styles.metaLabel}>{uppercase(label)}</Text>
+      <Text style={styles.metaValue}>{value}</Text>
+    </View>
   );
 }
 
@@ -436,17 +574,9 @@ function Paragraphs({ paragraphs, style }: { paragraphs: string[]; style: object
   );
 }
 
-function PageHeader({
-  data,
-  title,
-  fixed = false,
-}: {
-  data: ContentPlanningExportData;
-  title: string;
-  fixed?: boolean;
-}) {
+function PageHeader({ data, title }: { data: ContentPlanningExportData; title: string }) {
   return (
-    <View style={styles.pageHeader} fixed={fixed}>
+    <View style={styles.pageHeader}>
       <View>
         <Text style={styles.pageEyebrow}>{uppercase(data.documentTitle)}</Text>
         <Text style={styles.pageTitle}>{title}</Text>
@@ -459,9 +589,9 @@ function PageHeader({
   );
 }
 
-function PageFooter({ data, fixed = false }: { data: ContentPlanningExportData; fixed?: boolean }) {
+function PageFooter({ data }: { data: ContentPlanningExportData }) {
   return (
-    <View style={styles.pageFooter} fixed={fixed}>
+    <View style={styles.pageFooter}>
       <Text>
         <Text style={styles.footerBrand}>BlendByte</Text> · {data.documentTitle}
       </Text>
@@ -471,6 +601,9 @@ function PageFooter({ data, fixed = false }: { data: ContentPlanningExportData; 
 }
 
 export function ContentPlanningPdfDocument({ data }: { data: ContentPlanningExportData }) {
+  const calendarPages = chunkArray(data.items, calendarRowsPerPage);
+  const contentSheets = plannedContentSheets(data);
+
   return (
     <Document
       title={`${data.documentTitle} - ${data.client.name} - ${data.monthLabel}`}
@@ -481,9 +614,17 @@ export function ContentPlanningPdfDocument({ data }: { data: ContentPlanningExpo
     >
       <CoverPage data={data} />
       <ExecutiveSummaryPage data={data} />
-      <CalendarPage data={data} />
-      {contentGroups(data.items).map((items) => (
-        <ContentSheetPage key={items.map((item) => item.id).join("-")} data={data} items={items} />
+      {calendarPages.map((items, pageIndex) => (
+        <CalendarPage
+          key={`calendar-${pageIndex}`}
+          data={data}
+          items={items}
+          pageIndex={pageIndex}
+          pageCount={calendarPages.length}
+        />
+      ))}
+      {contentSheets.map((sheet) => (
+        <ContentSheetPage key={`${sheet.item.id}-${sheet.pageIndex}`} data={data} sheet={sheet} />
       ))}
       <FinalPage data={data} />
     </Document>
@@ -582,13 +723,6 @@ const styles = StyleSheet.create({
     fontFamily: "Helvetica-Bold",
     textAlign: "center",
   },
-  coverMeta: {
-    position: "absolute",
-    left: 48,
-    bottom: 48,
-    flexDirection: "row",
-    gap: 34,
-  },
   coverCount: {
     position: "absolute",
     right: 48,
@@ -685,17 +819,17 @@ const styles = StyleSheet.create({
   },
   summaryMain: {
     flex: 1.3,
-    minHeight: 360,
+    height: 360,
     padding: 28,
-    borderRadius: 14,
+    borderRadius: 8,
     backgroundColor: "#FFFFFF",
     border: `1 solid ${line}`,
   },
   summarySide: {
     flex: 0.85,
-    minHeight: 360,
+    height: 360,
     padding: 24,
-    borderRadius: 14,
+    borderRadius: 8,
     backgroundColor: acid,
     color: ink,
   },
@@ -723,12 +857,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   calendarTable: {
+    height: 373,
     border: `1 solid ${line}`,
-    borderRadius: 10,
+    borderRadius: 8,
     overflow: "hidden",
     backgroundColor: "#FFFFFF",
   },
   calendarHeader: {
+    height: 40,
     flexDirection: "row",
     backgroundColor: ink,
     color: "#FFFFFF",
@@ -737,194 +873,181 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   calendarRow: {
+    height: 37,
     flexDirection: "row",
     borderTop: `1 solid ${line}`,
-    minHeight: 40,
-    fontSize: 9.3,
-    lineHeight: 1.32,
+    fontSize: 9.2,
+    lineHeight: 1.25,
   },
   calendarRowAlt: {
     backgroundColor: soft,
   },
   calendarCell: {
-    paddingVertical: 8,
-    paddingHorizontal: 8,
+    height: "100%",
+    paddingVertical: 7,
+    paddingHorizontal: 9,
+    justifyContent: "center",
   },
   calendarDate: {
-    width: "15%",
-  },
-  calendarContent: {
-    width: "31%",
-  },
-  calendarFormat: {
-    width: "13%",
-  },
-  calendarPlatform: {
     width: "18%",
   },
-  calendarObjective: {
-    width: "23%",
+  calendarContent: {
+    width: "44%",
   },
-  sheetGrid: {
-    flexDirection: "row",
-    gap: 18,
+  calendarFormat: {
+    width: "16%",
   },
-  sheetSingle: {
-    flexDirection: "column",
+  calendarPlatform: {
+    width: "22%",
   },
   contentSheet: {
-    minHeight: 0,
-    padding: 20,
+    height: 400,
+    padding: 17,
     border: "1.4 solid #111111",
-    borderRadius: 12,
+    borderRadius: 8,
     backgroundColor: "#FFFFFF",
-  },
-  contentSheetCompact: {
-    width: "49%",
-    minHeight: 382,
-    padding: 16,
-    border: "1.4 solid #111111",
-    borderRadius: 12,
-    backgroundColor: "#FFFFFF",
-  },
-  sheetBodyColumns: {
-    flexDirection: "row",
-    gap: 20,
-    alignItems: "flex-start",
-  },
-  sheetBodyColumn: {
-    width: "49%",
   },
   sheetTop: {
+    height: 43,
     flexDirection: "row",
     justifyContent: "space-between",
-    gap: 16,
+    alignItems: "stretch",
+  },
+  sheetIdentity: {
+    width: "46%",
   },
   sheetNumber: {
     color: acid,
-    fontSize: 24,
-    lineHeight: 1,
+    fontSize: 22,
+    lineHeight: 0.95,
     fontFamily: "Helvetica-Bold",
   },
   sheetDate: {
-    marginTop: 4,
+    marginTop: 3,
     color: muted,
-    fontSize: 9.5,
+    fontSize: 8.8,
     fontFamily: "Helvetica-Bold",
   },
-  sheetTags: {
-    alignItems: "flex-end",
-    gap: 6,
-  },
-  sheetTag: {
-    paddingVertical: 4,
-    paddingHorizontal: 9,
-    borderRadius: 10,
-    border: "1 solid #111111",
-    fontSize: 7.5,
-    fontFamily: "Helvetica-Bold",
-  },
-  sheetTagDark: {
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 11,
-    backgroundColor: ink,
-    color: "#FFFFFF",
-    fontSize: 7.5,
-    fontFamily: "Helvetica-Bold",
-  },
-  sheetTitle: {
-    marginTop: 14,
-    marginBottom: 12,
-    fontSize: 20,
-    lineHeight: 1.12,
-    fontFamily: "Helvetica-Bold",
-  },
-  sheetTitleCompact: {
-    marginTop: 14,
-    marginBottom: 12,
-    fontSize: 16,
-    lineHeight: 1.15,
-    fontFamily: "Helvetica-Bold",
-  },
-  infoBlock: {
-    marginTop: 11,
-  },
-  captionBlock: {
-    marginTop: 18,
-    paddingTop: 14,
-    borderTop: `1 solid ${line}`,
-  },
-  captionBlockCompactTop: {
-    marginTop: 11,
-  },
-  blockLabel: {
+  sheetContinuation: {
+    marginTop: 3,
     color: muted,
-    fontSize: 8.2,
-    fontFamily: "Helvetica-Bold",
-    letterSpacing: 1.6,
-    marginBottom: 7,
-  },
-  bodyText: {
-    fontSize: 10.3,
-    lineHeight: 1.34,
-  },
-  bodyTextMuted: {
-    color: muted,
-    fontSize: 10.3,
-    lineHeight: 1.34,
-  },
-  captionText: {
-    fontSize: 10.4,
-    lineHeight: 1.36,
-  },
-  markerBlock: {
-    marginTop: 7,
-    paddingTop: 7,
-    borderTop: `1 solid ${line}`,
-  },
-  markerLabel: {
-    color: ink,
-    fontSize: 9,
+    fontSize: 6.8,
     fontFamily: "Helvetica-Bold",
     letterSpacing: 1.2,
-    marginBottom: 5,
   },
-  hashtagBox: {
-    marginTop: 12,
-    padding: 10,
-    borderRadius: 9,
-    backgroundColor: soft,
+  sheetMetaGrid: {
+    width: "49%",
+    height: 43,
+    flexDirection: "row",
+    border: `1 solid ${line}`,
+    borderRadius: 5,
+    overflow: "hidden",
   },
-  hashtagLabel: {
+  sheetMetaCell: {
+    width: "50%",
+    height: 43,
+    paddingHorizontal: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRight: `1 solid ${line}`,
+  },
+  sheetMetaLabel: {
     color: muted,
-    fontSize: 7.8,
+    fontSize: 6.4,
     fontFamily: "Helvetica-Bold",
-    letterSpacing: 1.3,
-    marginBottom: 5,
+    letterSpacing: 1.1,
+    textAlign: "center",
+    marginBottom: 3,
   },
-  hashtagText: {
-    fontSize: 10,
-    lineHeight: 1.35,
+  sheetMetaValue: {
+    fontSize: 7.8,
+    lineHeight: 1.05,
+    fontFamily: "Helvetica-Bold",
+    textAlign: "center",
+  },
+  sheetTitle: {
+    height: 46,
+    marginTop: 7,
+    fontSize: 18,
+    lineHeight: 1.08,
+    fontFamily: "Helvetica-Bold",
+  },
+  sheetTitleLong: {
+    height: 46,
+    marginTop: 7,
+    fontSize: 14,
+    lineHeight: 1.1,
+    fontFamily: "Helvetica-Bold",
+  },
+  contentLabel: {
+    height: 13,
+    color: muted,
+    fontSize: 7.5,
+    fontFamily: "Helvetica-Bold",
+    letterSpacing: 1.5,
+  },
+  sheetBodyColumns: {
+    height: 200,
+    flexDirection: "row",
+    gap: 20,
+  },
+  sheetBodyColumn: {
+    width: "49%",
+    height: 200,
+    overflow: "hidden",
+  },
+  sheetFragment: {
+    marginBottom: 7,
+  },
+  markerFragment: {
+    marginBottom: 7,
+    paddingTop: 5,
+    borderTop: `1 solid ${line}`,
+  },
+  fragmentLabel: {
+    color: muted,
+    fontSize: 7.2,
+    fontFamily: "Helvetica-Bold",
+    letterSpacing: 1.1,
+    marginBottom: 3,
+  },
+  fragmentText: {
+    fontSize: 8.8,
+    lineHeight: 1.28,
+  },
+  fragmentTextMuted: {
+    color: muted,
+    fontSize: 8.8,
+    lineHeight: 1.28,
+  },
+  approvalSlot: {
+    height: 54,
   },
   approvalBox: {
-    marginTop: 16,
-    padding: 12,
-    borderRadius: 9,
+    height: 54,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 15,
     backgroundColor: "#FAFAF7",
     border: `1 solid ${line}`,
+    borderRadius: 5,
   },
   approvalLabel: {
+    width: 145,
     color: muted,
-    fontSize: 8,
+    fontSize: 7.2,
     fontFamily: "Helvetica-Bold",
-    letterSpacing: 1.4,
-    marginBottom: 8,
+    letterSpacing: 1.1,
+  },
+  approvalLines: {
+    flex: 1,
+    gap: 12,
   },
   approvalLine: {
     height: 1,
     backgroundColor: line,
-    marginTop: 12,
   },
   finalPage: {
     padding: 48,
@@ -941,21 +1064,15 @@ const styles = StyleSheet.create({
     fontFamily: "Helvetica-Bold",
   },
   finalLayout: {
-    marginTop: 58,
+    marginTop: 70,
     flexDirection: "row",
     gap: 34,
   },
   finalCopy: {
     flex: 1,
   },
-  finalEyebrow: {
-    color: acid,
-    fontSize: 10,
-    fontFamily: "Helvetica-Bold",
-    letterSpacing: 2.8,
-    marginBottom: 18,
-  },
   finalTitle: {
+    color: acid,
     fontSize: 34,
     lineHeight: 1,
     fontFamily: "Helvetica-Bold",
@@ -968,8 +1085,9 @@ const styles = StyleSheet.create({
   },
   finalPanel: {
     width: 230,
+    minHeight: 250,
     padding: 22,
-    borderRadius: 12,
+    borderRadius: 8,
     backgroundColor: acid,
     color: ink,
   },
@@ -988,21 +1106,8 @@ const styles = StyleSheet.create({
     lineHeight: 1.25,
     fontFamily: "Helvetica-Bold",
   },
-  metaLabelDark: {
-    color: "#9E9E99",
-    fontSize: 8,
-    fontFamily: "Helvetica-Bold",
-    letterSpacing: 1.4,
-    marginBottom: 5,
-  },
-  metaValueDark: {
-    color: "#FFFFFF",
-    fontSize: 11,
-    lineHeight: 1.25,
-    fontFamily: "Helvetica-Bold",
-  },
   finalBrandBlock: {
-    marginTop: 70,
+    marginTop: 54,
     paddingTop: 18,
     borderTop: "1.5 solid #111111",
   },
