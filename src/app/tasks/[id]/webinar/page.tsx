@@ -8,6 +8,7 @@ import {
 } from "@/lib/actions";
 import { requireRole } from "@/lib/auth";
 import { getInvest2030CampaignByTaskId, getTask } from "@/lib/data";
+import { invest2030GptUrls } from "@/lib/invest2030-gpts";
 import {
   initialInvest2030WebinarContent,
   isInvest2030WebinarTask,
@@ -64,7 +65,7 @@ export default async function Invest2030WebinarPage({ params }: Props) {
       parsedRequest={parsedRequest}
       newsletter={normalizedNewsletter}
       variant="webinar"
-      gptUrl={process.env.NEXT_PUBLIC_INVEST2030_WEBINAR_GPT_URL ?? null}
+      gptUrl={invest2030GptUrls.webinar}
       saveAction={saveInvest2030WebinarDraftAction.bind(null, id)}
       markScheduledAction={markInvest2030WebinarScheduledAction.bind(null, id)}
       markExportedAction={markInvest2030WebinarExportedAction.bind(null, id)}

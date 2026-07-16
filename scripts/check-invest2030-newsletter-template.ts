@@ -21,6 +21,7 @@ import {
   type Invest2030NewsletterContent,
   type Invest2030WebinarContent,
 } from "../src/lib/invest2030-newsletter.ts";
+import { invest2030GptUrls } from "../src/lib/invest2030-gpts.ts";
 
 type Box = { x: number; y: number; width: number; height: number };
 type LocatorLike = {
@@ -275,6 +276,8 @@ function assertWorkspaceResponsiveSource() {
   assert(workspace.includes("Aguardando conteúdo do GPT"), "Workspace deve explicitar o estado awaiting_import.");
   assert(workspace.includes("visibleTabs = hasImported"), "Workspace deve mudar separadores consoante a importação.");
   assert(workspace.includes("aria-label={tabAriaLabel}"), "Workspace deve ter separadores acessíveis.");
+  assert(workspace.includes("Abrir GPT Newsletter Invest2030"), "Newsletter deve ter atalho direto para o GPT próprio.");
+  assert(workspace.includes("Abrir GPT Webinar Invest2030"), "Webinar deve manter atalho direto para o GPT próprio.");
   assert(workspace.includes("Gerar/importar conteúdo"), "Importação JSON deve estar disponível no resumo.");
   assert(workspace.includes('role="dialog"'), "Importação e texto original devem abrir em modal acessível.");
   assert(workspace.includes("max-h-[620px] overflow-auto"), "Preview deve ter scroll interno compacto.");
@@ -364,6 +367,17 @@ function assertWebinarIdentificationAndBriefing() {
   assert(safeInvest2030WebinarRegistrationUrl(parsed).valid, "Link de inscrição estruturado deve ser válido.");
 }
 
+function assertGptUrlConfiguration() {
+  assert(
+    invest2030GptUrls.newsletter === "https://chatgpt.com/g/g-6a567bd8b7248191a1bd1cd62d3c79e8-gerador-de-newsletters-invest2030",
+    "URL do GPT Newsletter Invest2030 deve estar configurado centralmente.",
+  );
+  assert(
+    invest2030GptUrls.webinar === "https://chatgpt.com/g/g-6a58bb2fb24c81918ea2247f4694f8f6-webinar-invest2030-gerador-json",
+    "URL do GPT Webinar Invest2030 deve estar configurado centralmente.",
+  );
+}
+
 function assertWebinarJsonAndRendering() {
   const parsed = parseInvest2030TaskNotes(webinarBriefing);
   const accepted = parseInvest2030WebinarJson(JSON.stringify(webinarContent));
@@ -430,6 +444,7 @@ async function main() {
   assertWorkspaceResponsiveSource();
   assertJsonImportStates();
   assertOriginalBriefingsStayOpaque();
+  assertGptUrlConfiguration();
   assertWebinarIdentificationAndBriefing();
   assertWebinarJsonAndRendering();
 

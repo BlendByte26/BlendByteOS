@@ -182,7 +182,7 @@ export function Invest2030NewsletterWorkspace({
   const tabAriaLabel = isWebinar ? "Separadores do webinar" : "Separadores da newsletter";
   const previewTitle = isWebinar ? "Preview do webinar" : "Preview da newsletter";
   const iframeTitle = isWebinar ? "Preview do webinar Invest2030" : "Preview da newsletter Invest2030";
-  const gptButtonLabel = isWebinar ? "Abrir GPT Webinar Invest2030" : "Abrir GPT Invest2030";
+  const gptButtonLabel = isWebinar ? "Abrir GPT Webinar Invest2030" : "Abrir GPT Newsletter Invest2030";
   const missingGptMessage = isWebinar ? "GPT Webinar Invest2030 ainda não configurado." : "GPT Invest2030 ainda não configurado.";
   const initialContent = newsletter?.content_json ?? (isWebinar ? initialInvest2030WebinarContent(parsedRequest) : initialInvest2030NewsletterContent(parsedRequest));
   const [content, setContent] = useState<Invest2030CampaignContent>(initialContent);
