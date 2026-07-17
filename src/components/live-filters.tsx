@@ -96,10 +96,6 @@ function useLiveQueryFilters<T extends FilterValues>(
     if (keys.some((key) => String(key) === "assignee")) nextParams.delete("owner");
     if (keys.some((key) => String(key) === "publishUntil")) nextParams.delete("until");
     if (keys.some((key) => String(key) === "due")) nextParams.delete("until");
-    if (keys.some((key) => String(key) === "status") && keys.every((key) => !hasFilterValue(nextFilters[key]))) {
-      nextParams.delete("attention");
-    }
-
     const query = nextParams.toString();
     startTransition(() => {
       router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });

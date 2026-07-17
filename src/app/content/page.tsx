@@ -24,7 +24,6 @@ import { operationalProfiles } from "@/lib/operational-profiles";
 import { parseContentStatusParams } from "@/lib/smart-links";
 import { contentStatusTones } from "@/lib/status-styles";
 import { isSupabaseConfigured } from "@/lib/supabase";
-import type { ContentItem } from "@/lib/types";
 import { contentStatuses } from "@/lib/types";
 import { Panel } from "@/components/ui";
 
@@ -115,26 +114,6 @@ function parseView(value: string | undefined): ContentView {
   return "table";
 }
 
-function isAttentionParam(value: string | undefined) {
-  return value === "true" || value === "1";
-}
-
-function contentMissingFields(item: ContentItem) {
-  const missing: string[] = [];
-  if (!item.platform?.trim()) missing.push("plataforma");
-  if (!item.format?.trim()) missing.push("formato");
-  if (!item.assignee_name?.trim()) missing.push("owner");
-  if (["pending", "in_progress", "ready_to_publish"].includes(item.status)) {
-    if (!item.creative_brief?.trim() && !item.brief_url?.trim()) missing.push("briefing");
-    if (!item.copy_text?.trim()) missing.push("copy");
-  }
-  return missing;
-}
-
-function contentNeedsAttention(item: ContentItem) {
-  return item.is_blocked || contentMissingFields(item).length > 0;
-}
-
 function hrefForView(params: Record<string, string | string[] | undefined>, view: ContentView) {
   const nextParams = new URLSearchParams();
 
@@ -160,7 +139,6 @@ export default async function ContentPage({ searchParams }: Props) {
   const activeProfile = await requireCurrentOperationalProfile();
   const requestedAssignee = valueOf(params, "assignee") ?? valueOf(params, "owner");
   const currentView = parseView(valueOf(params, "view"));
-  const attention = isAttentionParam(valueOf(params, "attention"));
   const bulkOpen = valueOf(params, "bulk") === "1";
   const status = parseContentStatusParams(params.status);
   const monthYear = parseMonthYearParams(params);
@@ -189,7 +167,7 @@ export default async function ContentPage({ searchParams }: Props) {
     filters.platform === "Sem plataforma"
       ? filteredItems.filter((item) => displayContentPlatform(item.platform) === "Sem plataforma")
       : filteredItems;
-  const items = attention ? platformFilteredItems.filter(contentNeedsAttention) : platformFilteredItems;
+  const items = platformFilteredItems;
   const platforms = uniqueValues(itemsForOptions, (item) => displayContentPlatform(item.platform));
   const defaultPreparer = defaultExportPreparer(activeProfile.name, teamMembers);
   const yearOptions = [monthYear.currentYear, String(Number(monthYear.currentYear) + 1)].map((year) => ({
@@ -202,7 +180,6 @@ export default async function ContentPage({ searchParams }: Props) {
   ];
   const tableKey = [
     JSON.stringify(filters),
-    attention ? "attention" : "",
     items.map((item) => `${item.id}:${item.status}:${item.updated_at}`).join("|"),
   ].join(":");
 

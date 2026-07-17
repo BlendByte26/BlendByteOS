@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { ClientBadge } from "@/components/client-badge";
+import { DashboardAgenda } from "@/components/dashboard-agenda";
 import { QuickTodosPanel } from "@/components/quick-todos";
 import { Badge, ExternalLink, Panel } from "@/components/ui";
 import { APP_ACCESS_VIEW_COOKIE, isAppAccessView } from "@/lib/app-access";
@@ -14,6 +15,7 @@ import {
   getQuickNotes,
   getQuickTodos,
   getTasks,
+  getTeamMembers,
 } from "@/lib/data";
 import {
   contentStatusLabels,
@@ -373,11 +375,11 @@ export default async function DashboardPage({ searchParams }: Props) {
     isPreview ? undefined : valueOf(params, "view"),
     isPreview ? currentProfile.defaultView : cookieStore.get(APP_ACCESS_VIEW_COOKIE)?.value ?? currentProfile.defaultView,
   );
-  const [clients, content, tasks, invest2030Requests] = await Promise.all([
+  const [clients, content, tasks, teamMembers] = await Promise.all([
     getClients(),
     getContentItems(),
     getTasks(),
-    getInvest2030Requests(),
+    getTeamMembers(),
   ]);
   const [quickTodos, quickNotes, mentionedComments] = await Promise.all([
     getQuickTodos(currentView, currentProfile.key),
@@ -403,12 +405,6 @@ export default async function DashboardPage({ searchParams }: Props) {
   );
   const marketingMetrics: DashboardMetric[] = [
     {
-      label: "Atenções",
-      value: attentionContent.length,
-      href: buildContentUrl({ attention: true }),
-      tone: attentionContent.length ? "warning" : "default",
-    },
-    {
       label: "Prontos a publicar",
       value: readyContent.length,
       href: buildContentUrl({ status: "ready" }),
@@ -432,11 +428,6 @@ export default async function DashboardPage({ searchParams }: Props) {
   ];
   const designMetrics: DashboardMetric[] = [
     { label: "Em design", value: designContent.length },
-    {
-      label: "Atenções de design",
-      value: designAttention.length,
-      tone: designAttention.length ? "warning" : "default",
-    },
     { label: "Prontos para validar", value: readyForValidation.length },
     { label: "Tarefas de design", value: designTasks.length },
     {
@@ -464,25 +455,16 @@ export default async function DashboardPage({ searchParams }: Props) {
 
       <MentionsPanel mentions={mentionedComments} />
 
-      {currentView === "design" ? (
-        <DesignView
-          clientsById={clientsById}
-          designAttention={designAttention}
-          designContent={designContent}
-          designTasks={designTasks}
-          readyForValidation={readyForValidation}
-        />
-      ) : (
-        <MarketingManagementView
-          activeContent={activeContent}
-          activeTasks={activeTasks}
-          attentionContent={attentionContent}
-          clients={clients}
-          clientsById={clientsById}
-          invest2030Requests={invest2030Requests}
-          readyContent={readyContent}
-        />
-      )}
+      <DashboardAgenda
+        view={currentView}
+        profileName={currentProfile.name}
+        isAdmin={currentProfile.key === "guilherme"}
+        requestedOwner={valueOf(params, "owner")}
+        clients={clients}
+        content={content}
+        tasks={tasks}
+        teamMembers={teamMembers}
+      />
     </>
   );
 }

@@ -481,15 +481,6 @@ export function TasksTable({
   return (
     <>
       <Panel>
-        <div className="border-b border-[var(--bb-border)] bg-white/45 px-5 py-4">
-          <div>
-            <h1 className="text-xl font-extrabold text-[var(--bb-charcoal)]">Tarefas</h1>
-            <p className="mt-1 text-sm font-medium text-[var(--bb-muted)]">
-              Lista operacional por prazo, cliente, responsável e estado.
-            </p>
-          </div>
-        </div>
-
         {tableError ? (
           <div className="border-b border-[var(--bb-border)] bg-[var(--bb-red-soft)] px-5 py-3 text-sm font-bold text-[#8f2415]">
             {tableError}
