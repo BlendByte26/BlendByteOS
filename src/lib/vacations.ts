@@ -56,3 +56,11 @@ export function overlappingWorkingDates(a: Pick<VacationRequest, "start_date" | 
   const right = new Set(calculateVacationWorkingDates(b.start_date, b.end_date, holidays));
   return calculateVacationWorkingDates(a.start_date, a.end_date, holidays).filter((date) => right.has(date));
 }
+
+export function missingVacationBalanceMemberIds(
+  memberIds: readonly string[],
+  existingBalanceMemberIds: readonly string[],
+) {
+  const existing = new Set(existingBalanceMemberIds);
+  return memberIds.filter((memberId) => !existing.has(memberId));
+}

@@ -57,7 +57,7 @@ import type {
   TaskStatus,
   TaskType,
 } from "./types";
-import { calculateBalance, calculateVacationWorkingDays, getPortugalNationalHolidays, type CustomHoliday, type VacationBalance, type VacationRequest } from "./vacations";
+import { calculateBalance, calculateVacationWorkingDays, getPortugalNationalHolidays, missingVacationBalanceMemberIds, type CustomHoliday, type VacationBalance, type VacationRequest } from "./vacations";
 
 type CreateClientResult =
   | { ok: true; clientId: string }
@@ -2306,11 +2306,68 @@ async function currentTeamMemberId() {
 function dateYear(value: string) { const match = /^(\d{4})-\d{2}-\d{2}$/.exec(value); if (!match) throw new Error("Data inválida."); return Number(match[1]); }
 function numeric(formData: FormData, key: string) { const value = Number(requiredText(formData, key)); if (!Number.isFinite(value)) throw new Error(`Valor inválido: ${key}.`); return value; }
 
-export async function initializeVacationBalancesAction(formData: FormData) {
-  await requireGuilhermeOperationalProfile(); const year = numeric(formData, "year"); const supabase = await supabaseOrError();
-  const { data: members, error } = await supabase.from("team_members").select("id").eq("active", true); if (error) throw new Error(error.message);
-  const { error: insertError } = await supabase.from("vacation_balances").upsert((members ?? []).map((m) => ({ team_member_id: m.id, year, entitled_days: 22, carried_over_days: 0, adjustment_days: 0 })), { onConflict: "team_member_id,year", ignoreDuplicates: true });
-  if (insertError) throw new Error(insertError.message); revalidatePath("/team"); redirect(`/team?tab=vacations&year=${year}`);
+export type InitializeVacationBalancesState = {
+  status: "idle" | "success" | "error";
+  message: string;
+};
+
+export async function initializeVacationBalancesAction(
+  _previousState: InitializeVacationBalancesState,
+  formData: FormData,
+): Promise<InitializeVacationBalancesState> {
+  let year: number | null = null;
+
+  try {
+    await requireGuilhermeOperationalProfile();
+    const selectedYear = numeric(formData, "year");
+    year = selectedYear;
+    const supabase = await supabaseOrError();
+    const [{ data: members, error: membersError }, { data: existing, error: existingError }] =
+      await Promise.all([
+        supabase.from("team_members").select("id").eq("active", true),
+        supabase.from("vacation_balances").select("team_member_id").eq("year", selectedYear),
+      ]);
+
+    if (membersError) throw membersError;
+    if (existingError) throw existingError;
+
+    const missingIds = new Set(missingVacationBalanceMemberIds(
+      (members ?? []).map((member) => member.id),
+      (existing ?? []).map((balance) => balance.team_member_id),
+    ));
+    const missingMembers = (members ?? []).filter((member) => missingIds.has(member.id));
+
+    if (!missingMembers.length) {
+      return { status: "success", message: `Os saldos de ${selectedYear} já estavam configurados.` };
+    }
+
+    const { error: insertError } = await supabase.from("vacation_balances").insert(
+      missingMembers.map((member) => ({
+        team_member_id: member.id,
+        year: selectedYear,
+        entitled_days: 22,
+        carried_over_days: 0,
+        adjustment_days: 0,
+      })),
+    );
+
+    if (insertError) throw insertError;
+
+    revalidatePath("/team");
+    return {
+      status: "success",
+      message: `Os saldos de férias de ${selectedYear} foram criados para ${missingMembers.length} ${missingMembers.length === 1 ? "membro" : "membros"}.`,
+    };
+  } catch (error) {
+    console.error("Erro ao criar saldos de férias", {
+      year,
+      error,
+    });
+    return {
+      status: "error",
+      message: "Não foi possível criar os saldos de férias. Tenta novamente ou consulta os logs.",
+    };
+  }
 }
 
 export async function saveVacationBalanceAction(id: string, formData: FormData) {

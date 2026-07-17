@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { calculateBalance, calculateVacationWorkingDays, getPortugalNationalHolidays, overlappingWorkingDates } from "../src/lib/vacations.ts";
+import { calculateBalance, calculateVacationWorkingDays, getPortugalNationalHolidays, missingVacationBalanceMemberIds, overlappingWorkingDates } from "../src/lib/vacations.ts";
 
 const holidays2026 = getPortugalNationalHolidays(2026);
 assert.equal(calculateVacationWorkingDays("2026-07-20", "2026-07-24", []), 5);
@@ -15,4 +15,7 @@ assert.ok(calculateBalance(balance, [{ status: "approved", working_days: 21 }]).
 assert.ok(calculateBalance(balance, [{ status: "approved", working_days: 22 }]).projectedAvailable < 2);
 assert.deepEqual(overlappingWorkingDates({ start_date: "2026-07-20", end_date: "2026-07-24" }, { start_date: "2026-07-22", end_date: "2026-07-27" }, []), ["2026-07-22", "2026-07-23", "2026-07-24"]);
 assert.equal(getPortugalNationalHolidays(2026).find((h) => h.name === "Domingo de Páscoa")?.date, "2026-04-05");
+assert.deepEqual(missingVacationBalanceMemberIds(["a", "b", "c", "d"], []), ["a", "b", "c", "d"]);
+assert.deepEqual(missingVacationBalanceMemberIds(["a", "b", "c", "d"], ["a", "c"]), ["b", "d"]);
+assert.deepEqual(missingVacationBalanceMemberIds(["a", "b"], ["a", "b"]), []);
 console.log("Vacation calculation checks passed.");
