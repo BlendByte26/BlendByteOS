@@ -30,7 +30,7 @@ export default async function TeamPage({ searchParams }: Props) {
   const vacationData = activeTab === "vacations" ? await getVacationData(year, currentProfile.key) : null;
 
   return (
-    <div className="grid gap-4"><div><h1 className="text-2xl font-black text-[var(--bb-charcoal)]">BlendHub</h1><p className="text-sm font-bold text-[var(--bb-muted)]">Equipa, recursos e férias num só lugar.</p></div><BlendHubTabs active={activeTab} />
+    <div className="grid gap-4"><BlendHubTabs active={activeTab} />
     {activeTab !== "vacations" ? <TeamDirectory
       key={createOpen ? "create-open" : "default"}
       teamMembers={teamMembers}
