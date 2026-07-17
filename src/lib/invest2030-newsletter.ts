@@ -89,6 +89,8 @@ export type Invest2030WebinarContent = {
   session_topics: string[];
   speaker: Invest2030WebinarSpeaker;
   closing_paragraphs: string[];
+  primary_cta_label?: string;
+  primary_cta_url?: string;
 };
 
 export type Invest2030CampaignContent = Invest2030NewsletterContent | Invest2030WebinarContent;
@@ -327,6 +329,8 @@ export function initialInvest2030WebinarContent(
       image_url: "",
     },
     closing_paragraphs: [],
+    primary_cta_label: "Garantir a minha vaga",
+    primary_cta_url: safeWebinarPrimaryHref(parsed).url,
   };
 }
 
@@ -497,11 +501,25 @@ export function parseInvest2030WebinarJson(rawJson: string): {
     "session_topics",
     "speaker",
     "closing_paragraphs",
+    "primary_cta_label",
+    "primary_cta_url",
   ] as const;
+  const optionalKeys = new Set(["primary_cta_label", "primary_cta_url"]);
+  const requiredKeys = allowedKeys.filter((key) => !optionalKeys.has(key));
   const stringKeys = ["subject", "preheader", "eyebrow", "hero_title", "hero_subtitle", "session_section_title"] as const;
   const arrayKeys = ["intro_paragraphs", "session_topics", "closing_paragraphs"] as const;
 
-  assertExactKeys(record, allowedKeys, errors);
+  assertExactKeys(
+    Object.fromEntries(Object.entries(record).filter(([key]) => !optionalKeys.has(key))),
+    requiredKeys,
+    errors,
+  );
+  if ("primary_cta_url" in record && typeof record.primary_cta_url !== "string") {
+    errors.push("Campo primary_cta_url tem de ser texto.");
+  }
+  if ("primary_cta_label" in record && typeof record.primary_cta_label !== "string") {
+    errors.push("Campo primary_cta_label tem de ser texto.");
+  }
   stringKeys.forEach((key) => assertStringField(record, key, errors));
   arrayKeys.forEach((key) => assertStringArrayField(record, key, errors));
 
@@ -563,6 +581,8 @@ export function parseInvest2030WebinarJson(rawJson: string): {
     session_topics: stringArray(record.session_topics),
     speaker,
     closing_paragraphs: stringArray(record.closing_paragraphs),
+    primary_cta_label: stringValue(record.primary_cta_label) || "Garantir a minha vaga",
+    primary_cta_url: stringValue(record.primary_cta_url),
   };
 
   const fieldsToCheck = [
@@ -950,12 +970,12 @@ function safeWebinarPrimaryHref(parsed: Invest2030NewsletterParsedRequest) {
   return validUrl(rawUrl) ? { url: new URL(rawUrl).toString(), valid: true } : { url: "#inscricao-webinar-por-definir", valid: false };
 }
 
-function renderWebinarButtonRows(primaryUrl: string) {
+function renderWebinarButtonRows(primaryUrl: string, primaryLabel: string) {
   return `<table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin:0 auto;">
                   <tbody>
                     <tr>
                       <td align="center" bgcolor="#1e63b6" style="border-radius:8px;">
-                        <a href="${escapeHtml(primaryUrl)}" style="display:inline-block; padding:15px 28px; font-family:Arial, Helvetica, sans-serif; font-size:16px; line-height:20px; color:#ffffff; font-weight:bold; text-transform:uppercase;" target="_blank">Garantir a minha vaga</a>
+                        <a href="${escapeHtml(primaryUrl)}" style="display:inline-block; padding:15px 28px; font-family:Arial, Helvetica, sans-serif; font-size:16px; line-height:20px; color:#ffffff; font-weight:bold; text-transform:uppercase;" target="_blank">${escapeHtml(primaryLabel)}</a>
                       </td>
                       <td style="width:12px; font-size:1px; line-height:1px;"> </td>
                       <td align="center" bgcolor="#ffffff" style="border:1px solid #1e63b6; border-radius:8px;">
@@ -1029,7 +1049,8 @@ export function generateInvest2030WebinarHtml(
   content: Invest2030WebinarContent,
   parsed: Invest2030NewsletterParsedRequest,
 ) {
-  const primaryHref = safeWebinarPrimaryHref(parsed).url;
+  const primaryHref = safeInvest2030WebinarRegistrationUrl(parsed, content).url;
+  const primaryLabel = content.primary_cta_label?.trim() || "Garantir a minha vaga";
   const stats = [...content.stats.slice(0, 4)];
   while (stats.length < 4) stats.push({ label: "", value: "" });
 
@@ -1164,7 +1185,7 @@ export function generateInvest2030WebinarHtml(
             <tr>
               <td class="mobile-padding" style="padding:42px 56px 20px 56px; font-family:Arial, Helvetica, sans-serif; font-size:19px; line-height:31px; color:#2e2e2e;">
                 ${renderMainParagraphs(content.intro_paragraphs, "34px")}
-                ${renderWebinarButtonRows(primaryHref).replace("<tr>", '<tr class="button-row">')}
+                ${renderWebinarButtonRows(primaryHref, primaryLabel).replace("<tr>", '<tr class="button-row">')}
               </td>
             </tr>
 
@@ -1195,7 +1216,7 @@ ${renderWebinarSpeaker(content)}
             <tr>
               <td class="mobile-padding" style="padding:34px 56px 42px 56px; font-family:Arial, Helvetica, sans-serif; font-size:18px; line-height:30px; color:#2e2e2e;">
                 ${renderClosingParagraphs(content.closing_paragraphs)}
-                ${renderWebinarButtonRows(primaryHref).replace("<tr>", '<tr class="button-row">')}
+                ${renderWebinarButtonRows(primaryHref, primaryLabel).replace("<tr>", '<tr class="button-row">')}
               </td>
             </tr>
 
@@ -1259,7 +1280,7 @@ export function validateInvest2030Webinar(
   const blockers: string[] = [];
   const warnings: string[] = [];
   const html = generateInvest2030WebinarHtml(content, parsed);
-  const primaryLink = safeWebinarPrimaryHref(parsed);
+  const primaryLink = safeInvest2030WebinarRegistrationUrl(parsed, content);
 
   if (!content.subject.trim()) blockers.push("Assunto vazio.");
   if (!content.preheader.trim()) blockers.push("Preheader vazio.");
@@ -1270,6 +1291,7 @@ export function validateInvest2030Webinar(
     if (content.stats[index]?.label !== label) blockers.push(`Indicador ${index + 1} tem de ser ${label}.`);
   });
   if (!content.session_topics.some((topic) => topic.trim())) blockers.push("Adicione pelo menos um tópico da sessão.");
+  if (content.primary_cta_label !== undefined && !content.primary_cta_label.trim()) blockers.push("Texto do botão principal vazio.");
   if (!primaryLink.valid) blockers.push("Falta definir um link válido para a inscrição no webinar.");
   if (/\{\{|\}\}|__|TODO|LOREM|PLACEHOLDER/i.test(html)) blockers.push("Existem campos técnicos internos ou placeholders por preencher.");
   if (!html.startsWith("<!doctype html>") || !html.endsWith("</html>")) blockers.push("HTML estrutural inválido.");
@@ -1313,6 +1335,10 @@ export function invest2030CampaignFilename(variant: Invest2030CampaignVariant, c
   return `invest2030-${slug || fallback}.html`;
 }
 
-export function safeInvest2030WebinarRegistrationUrl(parsed: Invest2030NewsletterParsedRequest) {
-  return safeWebinarPrimaryHref(parsed);
+export function safeInvest2030WebinarRegistrationUrl(
+  parsed: Invest2030NewsletterParsedRequest,
+  content?: Pick<Invest2030WebinarContent, "primary_cta_url">,
+) {
+  const editedUrl = normalizeCtaUrlInput(content?.primary_cta_url ?? "");
+  return editedUrl ? safeWebinarPrimaryHref({ ...parsed, primaryButtonUrl: editedUrl }) : safeWebinarPrimaryHref(parsed);
 }

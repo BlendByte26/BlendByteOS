@@ -203,11 +203,17 @@ export function Invest2030NewsletterWorkspace({
   const importCloseRef = useRef<HTMLButtonElement>(null);
   const originalCloseRef = useRef<HTMLButtonElement>(null);
   const finalCta = hasImported && isNewsletterContent(content) ? safeInvest2030CtaUrl(content.cta_url) : { url: "", usedDefault: false };
-  const webinarRegistration = safeInvest2030WebinarRegistrationUrl(parsedRequest);
-  const contentWithFinalLink = useMemo(
-    () => isNewsletterContent(content) ? ({ ...content, cta_url: finalCta.url }) : content,
-    [content, finalCta.url],
+  const webinarRegistration = safeInvest2030WebinarRegistrationUrl(
+    parsedRequest,
+    isWebinarContent(content) ? content : undefined,
   );
+  const editableWebinarRegistrationUrl = isWebinarContent(content)
+    ? content.primary_cta_url ?? webinarRegistration.url
+    : "";
+  const contentWithFinalLink = useMemo(() => {
+    if (isNewsletterContent(content)) return { ...content, cta_url: finalCta.url };
+    return { ...content, primary_cta_url: editableWebinarRegistrationUrl };
+  }, [content, editableWebinarRegistrationUrl, finalCta.url]);
   const html = useMemo(
     () => {
       if (!hasImported) return "";
@@ -458,7 +464,7 @@ export function Invest2030NewsletterWorkspace({
         isWebinarContent(content) ? (
           <WebinarEditTab
             content={content}
-            registrationUrl={webinarRegistration.url}
+            registrationUrl={editableWebinarRegistrationUrl}
             openAccordion={openAccordion}
             setOpenAccordion={setOpenAccordion}
             patchContent={(patch) => setContent((current) => ({ ...current, ...patch }))}
@@ -1061,8 +1067,8 @@ function WebinarEditTab({
         >
           <div className="grid gap-4">
             <ListEditor title="Parágrafos finais" items={content.closing_paragraphs} onChange={(items) => patchContent({ closing_paragraphs: items })} multiline allowMove />
-            <TextInput label="Botão principal" value="Garantir a minha vaga" onChange={() => undefined} />
-            <TextInput label="Link do botão principal" value={registrationUrl} onChange={() => undefined} />
+            <TextInput label="Botão principal" value={content.primary_cta_label ?? "Garantir a minha vaga"} onChange={(value) => patchContent({ primary_cta_label: value })} />
+            <TextInput label="Link do botão principal" value={registrationUrl} onChange={(value) => patchContent({ primary_cta_url: value })} />
             <TextInput label="Botão secundário" value="Saber mais" onChange={() => undefined} />
             <TextInput label="Link do botão secundário" value="https://www.invest2030.pt/pt/contactos/" onChange={() => undefined} />
           </div>

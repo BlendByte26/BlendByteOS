@@ -383,6 +383,18 @@ function assertWebinarJsonAndRendering() {
   const accepted = parseInvest2030WebinarJson(JSON.stringify(webinarContent));
   assert(accepted.content, "Schema de webinar válido deve ser aceite.");
 
+  const editedLink = "https://example.com/inscricao-webinar";
+  const editedLabel = "Reservar lugar agora";
+  const acceptedWithEditedLink = parseInvest2030WebinarJson(JSON.stringify({ ...webinarContent, primary_cta_label: editedLabel, primary_cta_url: editedLink }));
+  assert(acceptedWithEditedLink.content?.primary_cta_url === editedLink, "Link principal editado deve ser aceite e preservado.");
+  assert(acceptedWithEditedLink.content?.primary_cta_label === editedLabel, "Texto do botão principal editado deve ser aceite e preservado.");
+  const editedHtml = generateInvest2030WebinarHtml({ ...webinarContent, primary_cta_label: editedLabel, primary_cta_url: editedLink }, parsed);
+  assert(editedHtml.includes(editedLink), "HTML do webinar deve usar o link principal editado.");
+  assert(
+    editedHtml.includes(`>${editedLabel}</a>`),
+    "HTML do webinar deve usar o texto do botão principal editado.",
+  );
+
   const newsletterRejected = parseInvest2030WebinarJson(JSON.stringify(sourceContent));
   assert(!newsletterRejected.content, "Schema da newsletter deve ser rejeitado na página webinar.");
   assert(newsletterRejected.errors.some((error) => error.includes("Campo não previsto")), "Campos adicionais devem ser rejeitados.");
