@@ -2,11 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { KeyRound, ListPlus, LogOut, Plus } from "lucide-react";
+import { Eye, KeyRound, ListPlus, LogOut, Plus, X } from "lucide-react";
 import type { MouseEvent } from "react";
 import { logoutAction } from "@/app/access/actions";
 import { BrandLogo } from "@/components/brand-logo";
 import type { AuthenticatedOperationalProfile } from "@/lib/auth";
+import type { OperationalProfile } from "@/lib/operational-profiles";
+import { operationalProfiles, previewProfileKeys } from "@/lib/operational-profiles";
+import { startAdminPreviewAction, stopAdminPreviewAction } from "@/app/admin-preview/actions";
 
 const navItems = [
   { href: "/", label: "Painel" },
@@ -28,18 +31,20 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function TopNav({ profile }: { profile: AuthenticatedOperationalProfile | null }) {
+export function TopNav({ profile, realProfile, previewProfile }: { profile: AuthenticatedOperationalProfile | null; realProfile: AuthenticatedOperationalProfile | null; previewProfile: OperationalProfile | null }) {
   const pathname = usePathname();
   const isDashboard = pathname === "/";
   const rawAction = pageActions[pathname];
   const isAdmin = profile?.authRole === "admin";
+  const isPreview = Boolean(previewProfile);
+  const returnPath = pathname;
   const action =
     rawAction &&
     (pathname === "/clients" || pathname === "/team" ? isAdmin : Boolean(profile))
       ? rawAction
       : null;
   const showProfileControls = isDashboard && profile;
-  const bulkContentHref = pathname === "/content" ? "/content?bulk=1" : null;
+  const bulkContentHref = !isPreview && pathname === "/content" ? "/content?bulk=1" : null;
 
   function openBulkContent(event: MouseEvent<HTMLAnchorElement>) {
     if (typeof window === "undefined") return;
@@ -51,7 +56,9 @@ export function TopNav({ profile }: { profile: AuthenticatedOperationalProfile |
   }
 
   return (
-    <header className="sticky top-0 z-30 border-b border-[rgba(0,0,0,0.04)] bg-[rgba(247,247,242,0.82)] px-4 py-4 backdrop-blur-xl md:px-6">
+    <header className="sticky top-0 z-30 border-b border-[rgba(0,0,0,0.04)] bg-[rgba(247,247,242,0.92)] backdrop-blur-xl">
+      {previewProfile ? <div className="border-b border-amber-300 bg-amber-100 px-4 py-2 text-amber-950"><div className="mx-auto flex max-w-[1280px] flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center text-xs font-extrabold sm:text-sm"><Eye className="size-4 shrink-0" /><span>Estás a visualizar a aplicação como {previewProfile.name}. As alterações estão desativadas neste modo.</span><form action={stopAdminPreviewAction}><input type="hidden" name="returnPath" value={returnPath} /><button className="inline-flex items-center gap-1 rounded-full bg-amber-950 px-3 py-1 text-xs text-white"><X className="size-3" />Sair da pré-visualização</button></form></div></div> : null}
+      <div className="px-4 py-4 md:px-6">
       <div className="mx-auto flex max-w-[1280px] items-center justify-between gap-4">
         <Link href="/" className="flex min-w-0 items-center gap-3">
           <BrandLogo
@@ -82,7 +89,8 @@ export function TopNav({ profile }: { profile: AuthenticatedOperationalProfile |
         </nav>
 
         <div className="flex min-w-0 items-center justify-end gap-2">
-          {showProfileControls ? (
+          {realProfile?.key === "guilherme" ? <details className="relative"><summary className="inline-flex min-h-9 cursor-pointer list-none items-center gap-1.5 rounded-full border border-[var(--bb-border)] bg-white/70 px-3 text-xs font-extrabold"><Eye className="size-3.5" />Ver aplicação como</summary><div className="absolute right-0 top-11 z-50 w-64 rounded-2xl border border-[var(--bb-border)] bg-white p-2 shadow-2xl">{previewProfileKeys.map((key) => { const item = operationalProfiles[key]; return <form action={startAdminPreviewAction} key={key}><input type="hidden" name="profile" value={key}/><input type="hidden" name="returnPath" value={returnPath}/><button disabled={previewProfile?.key === key} className="w-full rounded-xl px-3 py-2 text-left hover:bg-[var(--bb-primary-soft)] disabled:opacity-50"><span className="block text-sm font-extrabold">{item.name}</span><span className="text-xs font-semibold text-[var(--bb-muted)]">{item.role}</span></button></form>; })}</div></details> : null}
+          {showProfileControls && !isPreview ? (
             <div className="flex min-w-0 items-center justify-end gap-2">
               <span className="hidden max-w-[190px] truncate rounded-full border border-[var(--bb-border)] bg-white/55 px-3 py-2 text-xs font-extrabold text-[var(--bb-muted)] sm:inline-flex">
                 Perfil: {profile.name}
@@ -117,7 +125,7 @@ export function TopNav({ profile }: { profile: AuthenticatedOperationalProfile |
               <span className="hidden sm:inline">Criar em lote</span>
             </Link>
           ) : null}
-          {action ? (
+          {action && !isPreview ? (
             <Link
               href={action.href}
               className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[var(--bb-black)] px-4 text-sm font-bold text-white shadow-[0_16px_34px_rgba(0,0,0,0.14)] transition duration-200 hover:bg-[var(--bb-primary)] hover:text-[var(--bb-black)]"
@@ -150,6 +158,7 @@ export function TopNav({ profile }: { profile: AuthenticatedOperationalProfile |
           );
         })}
       </nav>
+      </div>
     </header>
   );
 }

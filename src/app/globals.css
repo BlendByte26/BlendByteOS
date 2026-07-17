@@ -223,3 +223,20 @@ table.bb-sticky-actions-table .bb-status-col + .bb-actions-col {
   box-shadow: 0 0 0 4px var(--bb-primary-soft);
   background: rgba(255, 255, 255, 0.92);
 }
+/* Em pré-visualização, os formulários de Server Actions continuam protegidos no
+   servidor e os controlos de gravação deixam de parecer disponíveis. */
+.admin-preview form[method="post"]:not([data-preview-allowed]) button[type="submit"],
+.admin-preview form[method="post"]:not([data-preview-allowed]) button:not([type]) {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.admin-preview a[href$="/new"],
+.admin-preview a[href*="/edit"] {
+  display: none;
+}
+
+.admin-preview header form:has(input[name="returnPath"]) button {
+  cursor: pointer;
+  opacity: 1;
+}

@@ -1,6 +1,7 @@
 import type { AppAccessView } from "./app-access";
 
 export const OPERATIONAL_PROFILE_COOKIE = "bb_operational_profile";
+export const ADMIN_PREVIEW_PROFILE_COOKIE = "admin_preview_profile";
 
 export type OperationalRole = "admin" | "marketing" | "design";
 
@@ -56,6 +57,13 @@ export type OperationalProfile = {
   canSeeAll?: boolean;
 };
 export type DesignProfileKey = "carlota" | "carolina";
+export type PreviewProfileKey = "sofia" | "carlota" | "carolina";
+
+export const previewProfileKeys = ["sofia", "carlota", "carolina"] as const satisfies readonly PreviewProfileKey[];
+
+export function isPreviewProfileKey(value: string | null | undefined): value is PreviewProfileKey {
+  return Boolean(value && previewProfileKeys.includes(value as PreviewProfileKey));
+}
 
 export const designProfileKeys = ["carlota", "carolina"] as const satisfies readonly DesignProfileKey[];
 export const designProfiles = designProfileKeys.map((key) => operationalProfiles[key]);

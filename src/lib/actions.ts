@@ -25,7 +25,8 @@ import {
   isOperationalProfileKey,
   isDesignAssigneeName,
 } from "./operational-profiles";
-import { requireCurrentOperationalProfile, requireRole } from "./auth";
+import { requireCurrentOperationalProfile, requireRole as requireAuthRole } from "./auth";
+import { assertNotAdminPreviewMode } from "./admin-preview";
 import { getSupabase, getSupabaseAdmin, isSupabaseSchemaError } from "./supabase";
 import {
   clientColorKeys,
@@ -258,6 +259,11 @@ function numberValue(formData: FormData, key: string) {
 
 type SupabaseClient = NonNullable<Awaited<ReturnType<typeof getSupabase>>>;
 
+async function requireRole(roles: readonly ("admin" | "marketing" | "design")[]) {
+  await assertNotAdminPreviewMode();
+  return requireAuthRole(roles);
+}
+
 async function getNextClientDisplayOrder(supabase: SupabaseClient) {
   const { data, error } = await supabase
     .from("clients")
@@ -291,12 +297,14 @@ function demoRedirect(path: string): never {
 }
 
 async function supabaseOrRedirect(path: string) {
+  await assertNotAdminPreviewMode();
   const supabase = await getSupabase();
   if (!supabase) demoRedirect(path);
   return supabase;
 }
 
 async function supabaseOrError() {
+  await assertNotAdminPreviewMode();
   const supabase = await getSupabase();
   if (!supabase) {
     throw new Error("Modo demo: configure o Supabase para gravar alterações.");
@@ -305,12 +313,14 @@ async function supabaseOrError() {
 }
 
 async function requireGuilhermeOperationalProfile() {
+  await assertNotAdminPreviewMode();
   const profile = await requireCurrentOperationalProfile();
   if (profile.key !== "guilherme") throw new Error("Apenas o perfil Guilherme pode executar esta ação.");
   return profile;
 }
 
 async function currentOperationalProfile() {
+  await assertNotAdminPreviewMode();
   return requireCurrentOperationalProfile();
 }
 

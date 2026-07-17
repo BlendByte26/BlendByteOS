@@ -7,6 +7,7 @@ import {
 } from "@/lib/app-access";
 import { getValidSupabaseConfig } from "@/lib/supabase";
 import type { Database } from "@/lib/database.types";
+import { ADMIN_PREVIEW_PROFILE_COOKIE, isPreviewProfileKey } from "@/lib/operational-profiles";
 
 const ACCESS_PATH = "/access";
 const SET_PASSWORD_PATH = "/access/set-password";
@@ -21,6 +22,11 @@ function createNextResponse(request: NextRequest) {
 
 function withPathHeader(request: NextRequest) {
   const response = createNextResponse(request);
+  const previewCookie = request.cookies.get(ADMIN_PREVIEW_PROFILE_COOKIE)?.value;
+
+  if (previewCookie && !isPreviewProfileKey(previewCookie)) {
+    response.cookies.delete(ADMIN_PREVIEW_PROFILE_COOKIE);
+  }
   const view = request.nextUrl.pathname === "/" ? request.nextUrl.searchParams.get("view") : null;
 
   if (isAppAccessView(view)) {
@@ -126,6 +132,11 @@ export async function proxy(request: NextRequest) {
     inactiveUrl.search = "";
     inactiveUrl.searchParams.set("inactive", "1");
     return isAccessPage ? response : NextResponse.redirect(inactiveUrl);
+  }
+
+  const previewCookie = request.cookies.get(ADMIN_PREVIEW_PROFILE_COOKIE)?.value;
+  if (previewCookie && (profile.profile_key !== "guilherme" || !isPreviewProfileKey(previewCookie))) {
+    response.cookies.delete(ADMIN_PREVIEW_PROFILE_COOKIE);
   }
 
   if (isAccessPage && !isSetPasswordPage) {

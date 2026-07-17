@@ -75,15 +75,26 @@ export async function getAuthenticatedOperationalProfile() {
   return data ? profileFromRow(data as UserProfileRow) : null;
 }
 
-export async function getCurrentOperationalProfile() {
+export async function getRealProfile() {
   const profile = await getAuthenticatedOperationalProfile();
   if (profile) return profile;
   if (!isSupabaseConfigured()) return demoOperationalProfile();
   return null;
 }
 
+export async function getCurrentOperationalProfile() {
+  const { getEffectiveProfile } = await import("./admin-preview");
+  return getEffectiveProfile(await getRealProfile());
+}
+
 export async function requireCurrentOperationalProfile() {
   const profile = await getCurrentOperationalProfile();
+  if (!profile) redirect("/access");
+  return profile;
+}
+
+export async function requireRealProfile() {
+  const profile = await getRealProfile();
   if (!profile) redirect("/access");
   return profile;
 }

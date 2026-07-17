@@ -302,7 +302,7 @@ export async function getVacationData(year: number, profileKey: OperationalProfi
   const member = (await getTeamMembers()).find((item) => item.name.toLocaleLowerCase("pt") === profileKey);
   return {
     balances: (balancesResult.data as VacationBalance[]).filter((item) => item.team_member_id === member?.id).map((item) => ({ ...item, admin_notes: null })),
-    requests: requests.filter((item) => item.status === "approved" || item.team_member_id === member?.id).map((item) => item.team_member_id === member?.id ? item : { ...item, employee_note: null, admin_note: null }),
+    requests: requests.filter((item) => item.team_member_id === member?.id),
     holidays: holidaysResult.data as CustomHoliday[],
   };
 }

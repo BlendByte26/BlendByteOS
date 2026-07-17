@@ -8,9 +8,11 @@ import {
   APP_ACCESS_VIEW_COOKIE,
   isProductionEnvironment,
 } from "@/lib/app-access";
-import { OPERATIONAL_PROFILE_COOKIE } from "@/lib/operational-profiles";
+import { ADMIN_PREVIEW_PROFILE_COOKIE, OPERATIONAL_PROFILE_COOKIE } from "@/lib/operational-profiles";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import type { AppAccessView } from "@/lib/app-access";
+import { ADMIN_PREVIEW_READ_ONLY_MESSAGE, isAdminPreviewMode } from "@/lib/admin-preview";
+import { getRealProfile } from "@/lib/auth";
 
 export type LoginState = {
   error: string | null;
@@ -29,6 +31,7 @@ function clearLegacyOperationalCookies(cookieStore: Awaited<ReturnType<typeof co
   cookieStore.delete(APP_ACCESS_COOKIE);
   cookieStore.delete(APP_ACCESS_ERROR_COOKIE);
   cookieStore.delete(OPERATIONAL_PROFILE_COOKIE);
+  cookieStore.delete(ADMIN_PREVIEW_PROFILE_COOKIE);
 }
 
 function redirectViewForRole(role: string): AppAccessView {
@@ -107,6 +110,9 @@ export async function setPasswordAction(
   _previousState: SetPasswordState,
   formData: FormData,
 ): Promise<SetPasswordState> {
+  if (await isAdminPreviewMode(await getRealProfile())) {
+    return { error: ADMIN_PREVIEW_READ_ONLY_MESSAGE };
+  }
   const password = text(formData, "password");
   const passwordConfirm = text(formData, "password_confirm");
 
