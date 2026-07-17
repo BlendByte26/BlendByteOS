@@ -13,7 +13,7 @@ const navItems = [
   { href: "/clients", label: "Clientes" },
   { href: "/content", label: "Conteúdos" },
   { href: "/tasks", label: "Tarefas" },
-  { href: "/team", label: "Equipa" },
+  { href: "/team", label: "BlendHub" },
   { href: "/archive", label: "Arquivo" },
 ];
 
@@ -21,7 +21,6 @@ const pageActions: Record<string, { href: string; label: string }> = {
   "/clients": { href: "/clients/new", label: "Novo cliente" },
   "/content": { href: "/content/new", label: "Novo conteúdo" },
   "/tasks": { href: "/tasks/new", label: "Nova tarefa" },
-  "/team": { href: "/team?new=1", label: "Novo membro" },
 };
 
 function isActive(pathname: string, href: string) {

@@ -1,4 +1,5 @@
 import type { OperationalProfileKey, OperationalRole } from "./operational-profiles";
+export type { CustomHoliday, VacationBalance, VacationRequest, VacationStatus } from "./vacations";
 
 export const clientTypes = ["internal", "external", "grupo_investe", "partner"] as const;
 export const clientStatuses = ["setup", "active", "paused", "archived"] as const;

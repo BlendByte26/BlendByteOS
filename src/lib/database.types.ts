@@ -12,6 +12,7 @@ import type {
   UsefulLink,
   UserProfile,
 } from "./types";
+import type { CustomHoliday, VacationBalance, VacationRequest } from "./vacations";
 
 type Insertable<T> = Omit<T, "id" | "created_at" | "updated_at" | "clients" | "source_task">;
 type Updatable<T> = Partial<Insertable<T>>;
@@ -161,6 +162,24 @@ export type Database = {
         > &
           Pick<TeamMember, "name">;
         Update: Updatable<TeamMember>;
+        Relationships: [];
+      };
+      vacation_balances: {
+        Row: VacationBalance;
+        Insert: Partial<Pick<VacationBalance, "id" | "created_at" | "updated_at" | "entitled_days" | "carried_over_days" | "adjustment_days" | "admin_notes">> & Pick<VacationBalance, "team_member_id" | "year">;
+        Update: Updatable<VacationBalance>;
+        Relationships: [];
+      };
+      vacation_requests: {
+        Row: VacationRequest;
+        Insert: Partial<Pick<VacationRequest, "id" | "created_at" | "updated_at" | "status" | "employee_note" | "admin_note" | "decided_by_profile" | "decided_at">> & Pick<VacationRequest, "team_member_id" | "start_date" | "end_date" | "working_days" | "requested_by_profile">;
+        Update: Updatable<VacationRequest>;
+        Relationships: [];
+      };
+      custom_holidays: {
+        Row: CustomHoliday;
+        Insert: Partial<Pick<CustomHoliday, "id" | "created_at" | "updated_at" | "active">> & Pick<CustomHoliday, "holiday_date" | "name" | "holiday_type" | "created_by_profile">;
+        Update: Updatable<CustomHoliday>;
         Relationships: [];
       };
       company_contacts: {

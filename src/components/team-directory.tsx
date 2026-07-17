@@ -237,12 +237,14 @@ export function TeamDirectory({
   usefulLinks,
   createOpen = false,
   canEdit = false,
+  activeTab = "team",
 }: {
   teamMembers: TeamMember[];
   companyContacts: CompanyContact[];
   usefulLinks: UsefulLink[];
   createOpen?: boolean;
   canEdit?: boolean;
+  activeTab?: "team" | "contacts" | "links";
 }) {
   const [creating, setCreating] = useState(createOpen);
   const [editing, setEditing] = useState<TeamMember | null>(null);
@@ -254,9 +256,10 @@ export function TeamDirectory({
   return (
     <>
       <div className="grid gap-4">
-        <Panel className="p-4">
-          <div className="mb-4">
+        {activeTab === "team" ? <Panel className="p-4">
+          <div className="mb-4 flex items-center justify-between gap-3">
             <h1 className="text-lg font-extrabold text-[var(--bb-charcoal)]">Equipa</h1>
+            {canEdit ? <button type="button" onClick={() => setCreating(true)} className="inline-flex min-h-9 items-center gap-2 rounded-full border border-[var(--bb-border)] bg-white/70 px-3 text-xs font-extrabold transition hover:bg-[var(--bb-primary-soft)]"><UserPlus className="size-3.5" />Novo membro</button> : null}
           </div>
           {teamMembers.length ? (
             <div className="grid gap-3 md:grid-cols-2">
@@ -290,9 +293,9 @@ export function TeamDirectory({
           ) : (
             <EmptyState title="Ainda não existem membros na equipa." />
           )}
-        </Panel>
+        </Panel> : null}
 
-        <Panel className="p-4">
+        {activeTab === "contacts" ? <Panel className="p-4">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-extrabold text-[var(--bb-charcoal)]">Contactos gerais BlendByte</h2>
             {canEdit ? (
@@ -374,9 +377,9 @@ export function TeamDirectory({
           ) : (
             <EmptyState title="Sem contactos gerais guardados." />
           )}
-        </Panel>
+        </Panel> : null}
 
-        <Panel className="p-4">
+        {activeTab === "links" ? <Panel className="p-4">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-extrabold text-[var(--bb-charcoal)]">Links úteis</h2>
             {canEdit ? (
@@ -451,10 +454,10 @@ export function TeamDirectory({
           ) : (
             <EmptyState title="Sem links úteis guardados." />
           )}
-        </Panel>
+        </Panel> : null}
       </div>
 
-      {canEdit && creating ? (
+      {canEdit && activeTab === "team" && creating ? (
         <ModalShell title="Novo membro" onClose={() => setCreating(false)}>
           <form action={createTeamMemberAction} className="grid gap-4">
             <TeamMemberFields />
@@ -471,7 +474,7 @@ export function TeamDirectory({
         </ModalShell>
       ) : null}
 
-      {canEdit && editing ? (
+      {canEdit && activeTab === "team" && editing ? (
         <ModalShell title="Editar membro" onClose={() => setEditing(null)}>
           <form action={updateTeamMemberAction.bind(null, editing.id)} className="grid gap-4">
             <TeamMemberFields member={editing} />
@@ -488,7 +491,7 @@ export function TeamDirectory({
         </ModalShell>
       ) : null}
 
-      {canEdit && creatingContact ? (
+      {canEdit && activeTab === "contacts" && creatingContact ? (
         <ModalShell title="Novo contacto" onClose={() => setCreatingContact(false)}>
           <form action={createCompanyContactAction} className="grid gap-4">
             <CompanyContactFields />
@@ -505,7 +508,7 @@ export function TeamDirectory({
         </ModalShell>
       ) : null}
 
-      {canEdit && editingContact ? (
+      {canEdit && activeTab === "contacts" && editingContact ? (
         <ModalShell title="Editar contacto" onClose={() => setEditingContact(null)}>
           <form action={updateCompanyContactAction.bind(null, editingContact.id)} className="grid gap-4">
             <CompanyContactFields contact={editingContact} />
@@ -522,13 +525,13 @@ export function TeamDirectory({
         </ModalShell>
       ) : null}
 
-      {canEdit && creatingUsefulLink ? (
+      {canEdit && activeTab === "links" && creatingUsefulLink ? (
         <ModalShell title="Novo link útil" onClose={() => setCreatingUsefulLink(false)}>
           <UsefulLinkForm action={createUsefulLinkAction} submitLabel="Guardar link" />
         </ModalShell>
       ) : null}
 
-      {canEdit && editingUsefulLink ? (
+      {canEdit && activeTab === "links" && editingUsefulLink ? (
         <ModalShell title="Editar link útil" onClose={() => setEditingUsefulLink(null)}>
           <UsefulLinkForm
             link={editingUsefulLink}

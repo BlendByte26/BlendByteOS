@@ -26,6 +26,9 @@ import type {
   TaskStatus,
   TeamMember,
   UsefulLink,
+  VacationBalance,
+  VacationRequest,
+  CustomHoliday,
 } from "./types";
 
 export type ContentFilters = {
@@ -279,6 +282,29 @@ export async function getTeamMember(id: string) {
   }
 
   return data as TeamMember | null;
+}
+
+export async function getVacationData(year: number, profileKey: OperationalProfileKey) {
+  const supabase = await getSupabase();
+  if (!supabase) return { balances: [] as VacationBalance[], requests: [] as VacationRequest[], holidays: [] as CustomHoliday[] };
+  const [balancesResult, requestsResult, holidaysResult] = await Promise.all([
+    supabase.from("vacation_balances").select("*").eq("year", year),
+    supabase.from("vacation_requests").select("*").gte("start_date", `${year}-01-01`).lte("start_date", `${year}-12-31`).order("start_date"),
+    supabase.from("custom_holidays").select("*").gte("holiday_date", `${year}-01-01`).lte("holiday_date", `${year}-12-31`).order("holiday_date"),
+  ]);
+  const error = balancesResult.error ?? requestsResult.error ?? holidaysResult.error;
+  if (error) {
+    if (isSupabaseSchemaError(error)) return { balances: [], requests: [], holidays: [] };
+    throw new Error(error.message);
+  }
+  const requests = requestsResult.data as VacationRequest[];
+  if (profileKey === "guilherme") return { balances: balancesResult.data as VacationBalance[], requests, holidays: holidaysResult.data as CustomHoliday[] };
+  const member = (await getTeamMembers()).find((item) => item.name.toLocaleLowerCase("pt") === profileKey);
+  return {
+    balances: (balancesResult.data as VacationBalance[]).filter((item) => item.team_member_id === member?.id).map((item) => ({ ...item, admin_notes: null })),
+    requests: requests.filter((item) => item.status === "approved" || item.team_member_id === member?.id).map((item) => item.team_member_id === member?.id ? item : { ...item, employee_note: null, admin_note: null }),
+    holidays: holidaysResult.data as CustomHoliday[],
+  };
 }
 
 export async function getQuickTodos(view: QuickTodoView, profileKey: OperationalProfileKey) {

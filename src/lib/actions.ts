@@ -57,6 +57,7 @@ import type {
   TaskStatus,
   TaskType,
 } from "./types";
+import { calculateBalance, calculateVacationWorkingDays, getPortugalNationalHolidays, type CustomHoliday, type VacationBalance, type VacationRequest } from "./vacations";
 
 type CreateClientResult =
   | { ok: true; clientId: string }
@@ -304,7 +305,9 @@ async function supabaseOrError() {
 }
 
 async function requireGuilhermeOperationalProfile() {
-  await requireRole(["admin"]);
+  const profile = await requireCurrentOperationalProfile();
+  if (profile.key !== "guilherme") throw new Error("Apenas o perfil Guilherme pode executar esta ação.");
+  return profile;
 }
 
 async function currentOperationalProfile() {
@@ -2124,7 +2127,7 @@ export async function createTeamMemberAction(formData: FormData) {
 
   if (error) throw new Error(error.message);
   revalidatePath("/team");
-  redirect("/team");
+  redirect("/team?tab=team");
 }
 
 function companyContactPayload(formData: FormData) {
@@ -2192,7 +2195,7 @@ export async function createUsefulLinkAction(formData: FormData): Promise<Useful
 
   if (error) return { ok: false, message: usefulLinkMutationMessage(error) };
   revalidatePath("/team");
-  redirect("/team");
+  redirect("/team?tab=links");
 }
 
 export async function updateUsefulLinkAction(
@@ -2220,7 +2223,7 @@ export async function updateUsefulLinkAction(
 
   if (error) return { ok: false, message: usefulLinkMutationMessage(error) };
   revalidatePath("/team");
-  redirect("/team");
+  redirect("/team?tab=links");
 }
 
 export async function deleteUsefulLinkAction(id: string, formData?: FormData) {
@@ -2231,7 +2234,7 @@ export async function deleteUsefulLinkAction(id: string, formData?: FormData) {
 
   if (error) throw new Error(usefulLinkMutationMessage(error));
   revalidatePath("/team");
-  redirect("/team");
+  redirect("/team?tab=links");
 }
 
 export async function createCompanyContactAction(formData: FormData) {
@@ -2241,7 +2244,7 @@ export async function createCompanyContactAction(formData: FormData) {
 
   if (error) throw new Error(error.message);
   revalidatePath("/team");
-  redirect("/team");
+  redirect("/team?tab=contacts");
 }
 
 export async function updateCompanyContactAction(id: string, formData: FormData) {
@@ -2254,7 +2257,7 @@ export async function updateCompanyContactAction(id: string, formData: FormData)
 
   if (error) throw new Error(error.message);
   revalidatePath("/team");
-  redirect("/team");
+  redirect("/team?tab=contacts");
 }
 
 export async function deleteCompanyContactAction(id: string, formData?: FormData) {
@@ -2265,7 +2268,7 @@ export async function deleteCompanyContactAction(id: string, formData?: FormData
 
   if (error) throw new Error(error.message);
   revalidatePath("/team");
-  redirect("/team");
+  redirect("/team?tab=contacts");
 }
 
 export async function updateTeamMemberAction(id: string, formData: FormData) {
@@ -2278,5 +2281,76 @@ export async function updateTeamMemberAction(id: string, formData: FormData) {
 
   if (error) throw new Error(error.message);
   revalidatePath("/team");
-  redirect("/team");
+  redirect("/team?tab=team");
 }
+
+async function vacationContext(year: number) {
+  const supabase = await supabaseOrError();
+  const [custom, requests, balances] = await Promise.all([
+    supabase.from("custom_holidays").select("*").eq("active", true).gte("holiday_date", `${year}-01-01`).lte("holiday_date", `${year}-12-31`),
+    supabase.from("vacation_requests").select("*").gte("start_date", `${year}-01-01`).lte("start_date", `${year}-12-31`),
+    supabase.from("vacation_balances").select("*").eq("year", year),
+  ]);
+  const error = custom.error ?? requests.error ?? balances.error; if (error) throw new Error(error.message);
+  const holidays = [...getPortugalNationalHolidays(year), ...(custom.data as CustomHoliday[]).map((h) => ({ date: h.holiday_date, name: h.name, type: h.holiday_type }))];
+  return { supabase, holidays, requests: requests.data as VacationRequest[], balances: balances.data as VacationBalance[] };
+}
+
+async function currentTeamMemberId() {
+  const profile = await requireCurrentOperationalProfile(); const supabase = await supabaseOrError();
+  const { data, error } = await supabase.from("team_members").select("id").ilike("name", profile.name).eq("active", true).maybeSingle();
+  if (error || !data) throw new Error("O perfil atual não está associado a um membro ativo da equipa.");
+  return { profile, memberId: data.id };
+}
+
+function dateYear(value: string) { const match = /^(\d{4})-\d{2}-\d{2}$/.exec(value); if (!match) throw new Error("Data inválida."); return Number(match[1]); }
+function numeric(formData: FormData, key: string) { const value = Number(requiredText(formData, key)); if (!Number.isFinite(value)) throw new Error(`Valor inválido: ${key}.`); return value; }
+
+export async function initializeVacationBalancesAction(formData: FormData) {
+  await requireGuilhermeOperationalProfile(); const year = numeric(formData, "year"); const supabase = await supabaseOrError();
+  const { data: members, error } = await supabase.from("team_members").select("id").eq("active", true); if (error) throw new Error(error.message);
+  const { error: insertError } = await supabase.from("vacation_balances").upsert((members ?? []).map((m) => ({ team_member_id: m.id, year, entitled_days: 22, carried_over_days: 0, adjustment_days: 0 })), { onConflict: "team_member_id,year", ignoreDuplicates: true });
+  if (insertError) throw new Error(insertError.message); revalidatePath("/team"); redirect(`/team?tab=vacations&year=${year}`);
+}
+
+export async function saveVacationBalanceAction(id: string, formData: FormData) {
+  await requireGuilhermeOperationalProfile(); const year = numeric(formData, "year"); const supabase = await supabaseOrError();
+  const { error } = await supabase.from("vacation_balances").update({ entitled_days: numeric(formData, "entitled_days"), carried_over_days: numeric(formData, "carried_over_days"), adjustment_days: numeric(formData, "adjustment_days"), admin_notes: text(formData, "admin_notes") }).eq("id", id);
+  if (error) throw new Error(error.message); revalidatePath("/team"); redirect(`/team?tab=vacations&year=${year}`);
+}
+
+export async function createVacationRequestAction(formData: FormData) {
+  const { profile, memberId } = await currentTeamMemberId(); const selectedMember = text(formData, "team_member_id");
+  if (selectedMember && profile.key !== "guilherme") throw new Error("Não pode registar férias para outra pessoa.");
+  const teamMemberId = selectedMember ?? memberId, start = requiredText(formData, "start_date"), end = requiredText(formData, "end_date"), year = dateYear(start);
+  if (dateYear(end) !== year) throw new Error("O pedido não pode atravessar dois anos civis. Crie dois pedidos separados.");
+  const context = await vacationContext(year), workingDays = calculateVacationWorkingDays(start, end, context.holidays); if (workingDays <= 0) throw new Error("O intervalo não contém dias úteis.");
+  const balance = context.balances.find((b) => b.team_member_id === teamMemberId); if (!balance) throw new Error("O saldo deste ano ainda não foi inicializado.");
+  const memberRequests = context.requests.filter((r) => r.team_member_id === teamMemberId); const summary = calculateBalance(balance, memberRequests);
+  if (summary.projectedAvailable < workingDays) throw new Error("Saldo insuficiente para este pedido.");
+  const isAdmin = profile.key === "guilherme"; const { error } = await context.supabase.from("vacation_requests").insert({ team_member_id: teamMemberId, start_date: start, end_date: end, working_days: workingDays, status: isAdmin ? "approved" : "pending", employee_note: text(formData, "employee_note"), requested_by_profile: profile.key, decided_by_profile: isAdmin ? profile.key : null, decided_at: isAdmin ? new Date().toISOString() : null });
+  if (error) throw new Error(error.message); revalidatePath("/team"); redirect(`/team?tab=vacations&year=${year}`);
+}
+
+export async function decideVacationRequestAction(id: string, decision: "approved" | "rejected", formData: FormData) {
+  const profile = await requireGuilhermeOperationalProfile(); const supabase = await supabaseOrError(); const { data, error } = await supabase.from("vacation_requests").select("*").eq("id", id).eq("status", "pending").single(); if (error) throw new Error("O pedido já não está pendente.");
+  const request = data as VacationRequest, year = dateYear(request.start_date); const context = await vacationContext(year); const days = calculateVacationWorkingDays(request.start_date, request.end_date, context.holidays);
+  if (decision === "approved") { const balance = context.balances.find((b) => b.team_member_id === request.team_member_id); if (!balance) throw new Error("Saldo não inicializado."); const summary = calculateBalance(balance, context.requests.filter((r) => r.team_member_id === request.team_member_id && r.id !== id)); if (summary.available < days) throw new Error("Já não existe saldo suficiente para aprovar este pedido."); }
+  const { error: updateError } = await supabase.from("vacation_requests").update({ status: decision, working_days: days, admin_note: text(formData, "admin_note"), decided_by_profile: profile.key, decided_at: new Date().toISOString() }).eq("id", id).eq("status", "pending");
+  if (updateError) throw new Error(updateError.message); revalidatePath("/team"); redirect(`/team?tab=vacations&year=${year}`);
+}
+
+export async function cancelVacationRequestAction(id: string, formData: FormData) {
+  const { profile, memberId } = await currentTeamMemberId(); const year = numeric(formData, "year"); const supabase = await supabaseOrError();
+  let query = supabase.from("vacation_requests").update({ status: "cancelled", decided_by_profile: profile.key, decided_at: new Date().toISOString() }).eq("id", id);
+  if (profile.key !== "guilherme") query = query.eq("team_member_id", memberId).eq("status", "pending"); else query = query.in("status", ["pending", "approved"]);
+  const { data, error } = await query.select("id"); if (error || !data?.length) throw new Error("Não tem permissão para cancelar este pedido."); revalidatePath("/team"); redirect(`/team?tab=vacations&year=${year}`);
+}
+
+export async function saveCustomHolidayAction(formData: FormData) {
+  const profile = await requireGuilhermeOperationalProfile(); const date = requiredText(formData, "holiday_date"), year = dateYear(date), id = text(formData, "id"), supabase = await supabaseOrError();
+  const payload = { holiday_date: date, name: requiredText(formData, "name"), holiday_type: requiredText(formData, "holiday_type") as "municipal" | "company" | "custom", active: formData.get("active") === "on", created_by_profile: profile.key };
+  const { error } = id ? await supabase.from("custom_holidays").update(payload).eq("id", id) : await supabase.from("custom_holidays").insert(payload); if (error) throw new Error(error.message); revalidatePath("/team"); redirect(`/team?tab=vacations&year=${year}`);
+}
+
+export async function deleteCustomHolidayAction(id: string, formData: FormData) { await requireGuilhermeOperationalProfile(); const year = numeric(formData, "year"), supabase = await supabaseOrError(); const { error } = await supabase.from("custom_holidays").delete().eq("id", id); if (error) throw new Error(error.message); revalidatePath("/team"); redirect(`/team?tab=vacations&year=${year}`); }

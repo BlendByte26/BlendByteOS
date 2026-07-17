@@ -1,0 +1,18 @@
+import assert from "node:assert/strict";
+import { calculateBalance, calculateVacationWorkingDays, getPortugalNationalHolidays, overlappingWorkingDates } from "../src/lib/vacations.ts";
+
+const holidays2026 = getPortugalNationalHolidays(2026);
+assert.equal(calculateVacationWorkingDays("2026-07-20", "2026-07-24", []), 5);
+assert.equal(calculateVacationWorkingDays("2026-07-17", "2026-07-20", []), 2);
+assert.equal(calculateVacationWorkingDays("2026-06-08", "2026-06-12", holidays2026), 4);
+assert.equal(calculateVacationWorkingDays("2026-07-20", "2026-07-24", [{ date: "2026-07-22" }]), 4);
+assert.equal(calculateVacationWorkingDays("2026-07-30", "2026-08-03", []), 3);
+assert.throws(() => calculateVacationWorkingDays("2026-12-31", "2027-01-02", []), /dois anos/);
+assert.equal(calculateVacationWorkingDays("2026-07-18", "2026-07-19", []), 0);
+const balance = { entitled_days: 22, carried_over_days: 1, adjustment_days: -1 };
+assert.deepEqual(calculateBalance(balance, [{ status: "approved", working_days: 5 }, { status: "pending", working_days: 4 }]), { total: 22, approvedUsed: 5, pendingRequested: 4, available: 17, projectedAvailable: 13 });
+assert.ok(calculateBalance(balance, [{ status: "approved", working_days: 21 }]).available >= 1);
+assert.ok(calculateBalance(balance, [{ status: "approved", working_days: 22 }]).projectedAvailable < 2);
+assert.deepEqual(overlappingWorkingDates({ start_date: "2026-07-20", end_date: "2026-07-24" }, { start_date: "2026-07-22", end_date: "2026-07-27" }, []), ["2026-07-22", "2026-07-23", "2026-07-24"]);
+assert.equal(getPortugalNationalHolidays(2026).find((h) => h.name === "Domingo de Páscoa")?.date, "2026-04-05");
+console.log("Vacation calculation checks passed.");
