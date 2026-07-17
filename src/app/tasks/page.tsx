@@ -103,17 +103,18 @@ function hrefForView(params: Record<string, string | string[] | undefined>, view
 
 export default async function TasksPage({ searchParams }: Props) {
   const params = (await searchParams) ?? {};
+  const profile = await requireCurrentOperationalProfile();
+  const requestedAssignee = valueOf(params, "assignee") ?? valueOf(params, "owner");
   const currentView = parseView(valueOf(params, "view"));
   const requestedStatus = parseTaskStatusParam(valueOf(params, "status"));
   const filters = {
-    assignee: valueOf(params, "assignee") ?? valueOf(params, "owner") ?? "",
+    assignee: requestedAssignee === "all" ? "" : requestedAssignee ?? profile.name,
     client: valueOf(params, "client") ?? "",
     priority: parseTaskPriorityParam(valueOf(params, "priority")),
     status: requestedStatus,
     due: valueOf(params, "due") ?? valueOf(params, "until") ?? "",
   };
-  const [profile, clients, teamMembers, tasksForOptions, filteredTasks] = await Promise.all([
-    requireCurrentOperationalProfile(),
+  const [clients, teamMembers, tasksForOptions, filteredTasks] = await Promise.all([
     getClients(),
     getTeamMembers(),
     getTasks(),

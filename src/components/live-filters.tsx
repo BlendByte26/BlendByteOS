@@ -68,6 +68,7 @@ function useLiveQueryFilters<T extends FilterValues>(
   initialFilters: T,
   keys: Array<keyof T>,
   clearValues?: Partial<T>,
+  explicitEmptyValues?: Partial<Record<keyof T, string>>,
 ) {
   const router = useRouter();
   const pathname = usePathname();
@@ -87,6 +88,8 @@ function useLiveQueryFilters<T extends FilterValues>(
         value.filter(Boolean).forEach((item) => nextParams.append(String(key), item));
       } else if (value) {
         nextParams.set(String(key), value);
+      } else if (explicitEmptyValues?.[key]) {
+        nextParams.set(String(key), explicitEmptyValues[key]);
       }
     });
 
@@ -101,7 +104,7 @@ function useLiveQueryFilters<T extends FilterValues>(
     startTransition(() => {
       router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
     });
-  }, [keys, pathname, router, searchSnapshot]);
+  }, [explicitEmptyValues, keys, pathname, router, searchSnapshot]);
 
   const updateFilter = useCallback((key: keyof T, value: T[keyof T], mode: "immediate" | "debounced" = "immediate") => {
     const nextFilters = { ...filters, [key]: value };
@@ -203,10 +206,15 @@ export function ContentFiltersBar({
     [],
   );
   const clearValues = useMemo<Partial<ContentFilterValues>>(() => ({ year: defaultYear }), [defaultYear]);
+  const explicitEmptyValues = useMemo<Partial<Record<keyof ContentFilterValues, string>>>(
+    () => ({ assignee: "all" }),
+    [],
+  );
   const { filters, isPending, updateFilter, clearFilters } = useLiveQueryFilters(
     initialFilters,
     keys,
     clearValues,
+    explicitEmptyValues,
   );
   const secondaryActiveCount = [
     filters.year !== defaultYear ? filters.year : "",
@@ -338,9 +346,15 @@ export function TasksFiltersBar({
     () => ["assignee", "client", "status", "priority", "due"],
     [],
   );
+  const explicitEmptyValues = useMemo<Partial<Record<keyof TaskFilterValues, string>>>(
+    () => ({ assignee: "all" }),
+    [],
+  );
   const { filters, hasActiveFilters, isPending, updateFilter, clearFilters } = useLiveQueryFilters(
     initialFilters,
     keys,
+    undefined,
+    explicitEmptyValues,
   );
 
   return (

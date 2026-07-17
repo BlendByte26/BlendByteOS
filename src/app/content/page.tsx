@@ -158,6 +158,7 @@ function hrefForView(params: Record<string, string | string[] | undefined>, view
 export default async function ContentPage({ searchParams }: Props) {
   const params = (await searchParams) ?? {};
   const activeProfile = await requireCurrentOperationalProfile();
+  const requestedAssignee = valueOf(params, "assignee") ?? valueOf(params, "owner");
   const currentView = parseView(valueOf(params, "view"));
   const attention = isAttentionParam(valueOf(params, "attention"));
   const bulkOpen = valueOf(params, "bulk") === "1";
@@ -166,7 +167,7 @@ export default async function ContentPage({ searchParams }: Props) {
   const selectedContentMonth = contentMonthFromParts(monthYear.month, monthYear.year);
   const defaultContentMonth = selectedContentMonth || `${monthYear.year}-${currentMonthValue()}`;
   const filtersForBar = {
-    assignee: valueOf(params, "assignee") ?? valueOf(params, "owner") ?? "",
+    assignee: requestedAssignee === "all" ? "" : requestedAssignee ?? activeProfile.name,
     client: valueOf(params, "client") ?? "",
     month: monthYear.month,
     status,
