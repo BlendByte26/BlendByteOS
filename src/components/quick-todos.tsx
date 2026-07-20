@@ -163,10 +163,19 @@ export function QuickTodosPanel({
   todos: QuickTodo[];
   notes: QuickNote[];
 }) {
+  const isAdminLayout = profile.key === "guilherme";
+
   return (
     <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
       <TodayPanel profile={profile} />
-      <QuickTodosList key={`${view}-${profile.key}`} view={view} profile={profile} todos={todos} notes={notes} />
+      <QuickTodosList
+        key={`${view}-${profile.key}`}
+        view={view}
+        profile={profile}
+        todos={todos}
+        notes={notes}
+        expanded={isAdminLayout}
+      />
     </div>
   );
 }
@@ -176,11 +185,13 @@ function QuickTodosList({
   profile,
   todos,
   notes,
+  expanded = false,
 }: {
   view: QuickTodoView;
   profile: OperationalProfile;
   todos: QuickTodo[];
   notes: QuickNote[];
+  expanded?: boolean;
 }) {
   const initialNote = notes[0] ?? null;
   const [localTodos, setLocalTodos] = useState(() => sortQuickTodos(todos.filter((todo) => todo.item_type === "todo")));
@@ -198,6 +209,8 @@ function QuickTodosList({
   const visibleTodos = useMemo(() => sortQuickTodos(localTodos), [localTodos]);
   const noteIsSaved = noteText === savedNoteText;
   const noteSaveLabel = isSavingNote ? "A guardar notas" : noteIsSaved ? "Notas guardadas" : "Guardar notas";
+  const expandedPanelClasses =
+    "rounded-[24px] border border-[rgba(0,0,0,0.11)] bg-[rgba(255,255,255,0.86)] p-3.5 shadow-[0_18px_52px_rgba(0,0,0,0.08)] backdrop-blur-xl transition duration-200 hover:-translate-y-0.5 hover:border-[rgba(0,0,0,0.15)] hover:shadow-[0_24px_64px_rgba(0,0,0,0.11)]";
 
   function setItemPending(setter: React.Dispatch<React.SetStateAction<Set<string>>>, id: string, isPending: boolean) {
     setter((current) => {
@@ -404,9 +417,8 @@ function QuickTodosList({
     setNoteText(normalizedNoteText);
   }
 
-  return (
+  const panelContent = (
     <>
-      <Panel className="p-3.5">
         {feedback ? (
           <div className="mb-2 flex justify-end">
             <p className="rounded-full bg-[var(--bb-red-soft)] px-3 py-1 text-xs font-extrabold text-[#8f2415]" role="status">
@@ -415,8 +427,8 @@ function QuickTodosList({
           </div>
         ) : null}
 
-        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <section className="min-w-0">
+        <div className={expanded ? "contents" : "grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"}>
+          <section className={`min-w-0 ${expanded ? `order-2 lg:col-span-2 ${expandedPanelClasses}` : ""}`}>
             <form onSubmit={handleCreate} className="mb-2.5 flex gap-2">
               <input
                 name="text"
@@ -505,7 +517,7 @@ function QuickTodosList({
             )}
           </section>
 
-          <section className="relative flex min-w-0 flex-col">
+          <section className={`relative flex min-w-0 flex-col ${expanded ? `order-1 ${expandedPanelClasses}` : ""}`}>
             <button
               type="button"
               onClick={handleSaveNote}
@@ -525,7 +537,12 @@ function QuickTodosList({
             />
           </section>
         </div>
-      </Panel>
+    </>
+  );
+
+  return (
+    <>
+      <Panel className={expanded ? "contents" : "p-3.5"}>{panelContent}</Panel>
 
       {editingReminder ? (
         <ModalShell
