@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Archive, ClipboardList, Mail, Pencil, Send, Trash2, Video, X } from "lucide-react";
+import { Archive, ClipboardList, Mail, Pencil, Send, Trash2, TriangleAlert, Video, X } from "lucide-react";
 import { ClientBadge } from "@/components/client-badge";
 import { TaskForm } from "@/components/forms";
 import { LinksIndicator } from "@/components/links";
@@ -39,6 +39,7 @@ type TasksTableProps = {
   clients: Client[];
   teamMembers: TeamMember[];
   view: TasksView;
+  today: string;
   emptyTitle: string;
   canPersist: boolean;
   canDelete: boolean;
@@ -241,6 +242,7 @@ export function TasksTable({
   clients,
   teamMembers,
   view,
+  today,
   emptyTitle,
   canPersist,
   canDelete,
@@ -510,11 +512,26 @@ export function TasksTable({
                     colorKey: task.clients?.color_key,
                   });
                   const isArchived = task.status === "archived";
+                  const isOverdue = Boolean(
+                    task.due_date &&
+                      task.due_date < today &&
+                      task.status !== "done" &&
+                      task.status !== "archived",
+                  );
 
                   return (
                     <tr key={task.id} className="odd:bg-white/18">
-                      <td className={`border-l-4 px-4 py-4 font-medium whitespace-nowrap text-[var(--bb-muted)] ${clientToken.borderStrong}`}>
-                        {formatDate(task.due_date)}
+                      <td className={`border-l-4 px-4 py-4 font-medium whitespace-nowrap ${clientToken.borderStrong}`}>
+                        <span
+                          className={`inline-flex items-center gap-1.5 ${
+                            isOverdue ? "font-bold text-[#b42318]" : "text-[var(--bb-muted)]"
+                          }`}
+                          title={isOverdue ? "Em atraso" : undefined}
+                          aria-label={isOverdue ? `${formatDate(task.due_date)}, em atraso` : undefined}
+                        >
+                          {isOverdue ? <TriangleAlert className="size-4" aria-hidden="true" /> : null}
+                          {formatDate(task.due_date)}
+                        </span>
                       </td>
                       <td className="max-w-[360px] px-4 py-4 font-bold text-[var(--bb-charcoal)]">
                         <button

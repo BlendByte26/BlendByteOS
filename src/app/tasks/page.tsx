@@ -121,6 +121,7 @@ export default async function TasksPage({ searchParams }: Props) {
     getTasks(filters),
   ]);
   const tasks = filteredTasks.filter((task) => taskInView(task, currentView));
+  const today = currentWeekRange().today;
   const assignees = uniqueValues(tasksForOptions, (task) => task.assignee_name);
   const tableKey = [
     currentView,
@@ -187,6 +188,7 @@ export default async function TasksPage({ searchParams }: Props) {
         clients={clients}
         teamMembers={teamMembers}
         view={currentView}
+        today={today}
         emptyTitle={emptyStateLabels[currentView]}
         canPersist={isSupabaseConfigured()}
         canDelete={profile.authRole !== "design"}
