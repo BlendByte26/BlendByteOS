@@ -352,7 +352,7 @@ create index if not exists content_items_publish_date_idx on public.content_item
 create index if not exists content_items_status_idx on public.content_items(status);
 create index if not exists content_items_platform_idx on public.content_items(platform);
 create index if not exists content_items_is_blocked_idx on public.content_items(is_blocked);
-create unique index if not exists content_items_seed_unique_idx on public.content_items(client_id, month, title);
+drop index if exists public.content_items_seed_unique_idx;
 create index if not exists tasks_client_id_idx on public.tasks(client_id);
 create index if not exists tasks_due_date_idx on public.tasks(due_date);
 create index if not exists tasks_status_idx on public.tasks(status);
@@ -396,6 +396,45 @@ drop trigger if exists set_content_items_updated_at on public.content_items;
 create trigger set_content_items_updated_at
 before update on public.content_items
 for each row execute function public.set_updated_at();
+
+create or replace function public.enforce_content_publish_identity_unique()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if tg_op = 'UPDATE'
+    and (new.client_id, new.publish_date, new.title, new.platform)
+      is not distinct from
+      (old.client_id, old.publish_date, old.title, old.platform)
+  then
+    return new;
+  end if;
+
+  if new.publish_date is not null and exists (
+    select 1
+    from public.content_items existing
+    where existing.id <> new.id
+      and existing.client_id = new.client_id
+      and existing.publish_date = new.publish_date
+      and existing.title = new.title
+      and existing.platform = new.platform
+  ) then
+    raise exception using
+      errcode = '23505',
+      message = 'content_items_publish_identity_unique: duplicate client, day, title and platform';
+  end if;
+
+  return new;
+end;
+$$;
+
+revoke all on function public.enforce_content_publish_identity_unique() from public, anon, authenticated;
+
+drop trigger if exists enforce_content_publish_identity_unique on public.content_items;
+create trigger enforce_content_publish_identity_unique
+before insert or update of client_id, publish_date, title, platform on public.content_items
+for each row execute function public.enforce_content_publish_identity_unique();
 
 drop trigger if exists set_tasks_updated_at on public.tasks;
 create trigger set_tasks_updated_at

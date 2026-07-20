@@ -222,9 +222,9 @@ function contentMonthValue(formData: FormData, publishDate: string | null) {
 function contentMutationErrorMessage(error: { message?: string; code?: string }) {
   if (
     error.code === "23505" ||
-    error.message?.includes("content_items_seed_unique_idx")
+    error.message?.includes("content_items_publish_identity_unique")
   ) {
-    return "Já existe um conteúdo para este cliente com o mesmo mês e título. Altere o título, a data de publicação ou o mês de planeamento.";
+    return "Já existe um conteúdo para este cliente com o mesmo dia, título e plataforma. Altere o título, a data de publicação ou a plataforma.";
   }
 
   return error.message ?? "Não foi possível guardar o conteúdo.";
