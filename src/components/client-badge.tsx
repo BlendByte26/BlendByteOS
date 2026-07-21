@@ -44,7 +44,7 @@ export function ClientBadge({
       logoPath={resolvedLogoUrl}
       fallback={code}
       className={`grid size-16 shrink-0 place-items-center overflow-hidden rounded-2xl border bg-white/64 text-sm font-extrabold ${token.border} ${token.text} shadow-[0_10px_24px_rgba(0,0,0,0.06)]`}
-      imageClassName="h-full w-full object-contain p-1.5"
+      imageClassName="h-full w-full object-cover"
     />
   ) : (
     <span

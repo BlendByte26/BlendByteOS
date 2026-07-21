@@ -247,7 +247,7 @@ export function ClientAvatar({
         <img
           src={client.logo_url}
           alt=""
-          className="h-full w-full object-contain p-1.5"
+          className="h-full w-full object-cover"
         />
       ) : (
         <span>{getClientInitials(client)}</span>

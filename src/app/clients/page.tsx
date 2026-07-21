@@ -83,7 +83,7 @@ export default async function ClientsPage() {
                             logoPath={logoPath}
                             fallback={displayCode}
                             className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-xl border border-[var(--bb-border)] bg-white/60 text-xs font-extrabold text-[var(--bb-charcoal)] shadow-[0_10px_24px_rgba(0,0,0,0.06)]"
-                            imageClassName="h-full w-full object-contain p-1.5"
+                            imageClassName="h-full w-full object-cover"
                           />
                           <ClientBadge
                             clientId={client.id}
