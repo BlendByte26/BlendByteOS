@@ -10,7 +10,7 @@ type Props = {
 };
 
 export default async function EditClientPage({ params }: Props) {
-  await requireRole(["admin"]);
+  await requireRole(["admin", "marketing"]);
   const { id } = await params;
   const [client, teamMembers] = await Promise.all([getClient(id), getTeamMembers()]);
 

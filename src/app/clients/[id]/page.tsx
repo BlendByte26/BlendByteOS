@@ -21,6 +21,7 @@ import {
 import { buildContentUrl, buildTasksUrl } from "@/lib/smart-links";
 import { getTaskDisplayTitle } from "@/lib/task-display";
 import { cleanPrefixedTitle } from "@/lib/title-display";
+import { canManageClients, requireCurrentOperationalProfile } from "@/lib/auth";
 import { Badge, EmptyState, Panel, SecondaryLink, TableWrap } from "@/components/ui";
 import type { Client } from "@/lib/types";
 
@@ -59,7 +60,8 @@ function contractValueFor(client: Client) {
 
 export default async function ClientDetailPage({ params }: Props) {
   const { id } = await params;
-  const [client, content, tasks] = await Promise.all([
+  const [profile, client, content, tasks] = await Promise.all([
+    requireCurrentOperationalProfile(),
     getClient(id),
     getContentItems({ client: id }),
     getTasks({ client: id }),
@@ -67,6 +69,7 @@ export default async function ClientDetailPage({ params }: Props) {
 
   if (!client) notFound();
 
+  const canEdit = canManageClients(profile);
   const openTasks = tasks.filter((task) => !["done", "archived"].includes(task.status));
   const services = servicesFor(client);
   const newTaskHref = `/tasks/new?client=${encodeURIComponent(client.id)}`;
@@ -107,7 +110,9 @@ export default async function ClientDetailPage({ params }: Props) {
 
           <div className="flex flex-wrap gap-2">
             <SecondaryLink href="/clients">Voltar</SecondaryLink>
-            <SecondaryLink href={`/clients/${client.id}/edit`}>Editar cliente</SecondaryLink>
+            {canEdit ? (
+              <SecondaryLink href={`/clients/${client.id}/edit`}>Editar cliente</SecondaryLink>
+            ) : null}
           </div>
         </div>
 
@@ -141,6 +146,7 @@ export default async function ClientDetailPage({ params }: Props) {
         client={client}
         tasks={tasks}
         content={content}
+        canEdit={canEdit}
         updateChecklistAction={updateClientSetupChecklistAction}
         createChecklistAction={createDefaultClientChecklistAction}
         updateLinksAction={updateClientLinksAction}

@@ -94,6 +94,7 @@ export function ClientOperationalControls({
   client,
   tasks,
   content,
+  canEdit,
   updateChecklistAction,
   createChecklistAction,
   updateLinksAction,
@@ -101,6 +102,7 @@ export function ClientOperationalControls({
   client: Client;
   tasks: Task[];
   content: ContentItem[];
+  canEdit: boolean;
   updateChecklistAction: UpdateChecklistAction;
   createChecklistAction: CreateChecklistAction;
   updateLinksAction: UpdateLinksAction;
@@ -213,17 +215,19 @@ export function ClientOperationalControls({
         <Panel className="p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <PanelHeader title="Links rápidos" />
-            <button
-              type="button"
-              onClick={() => {
-                setLinksError(null);
-                setLinksMessage(null);
-                setLinksOpen(true);
-              }}
-              className="inline-flex min-h-10 items-center rounded-full border border-[var(--bb-border)] bg-white/65 px-4 text-sm font-bold text-[var(--bb-charcoal)] transition hover:bg-[var(--bb-primary-soft)]"
-            >
-              Editar links
-            </button>
+            {canEdit ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setLinksError(null);
+                  setLinksMessage(null);
+                  setLinksOpen(true);
+                }}
+                className="inline-flex min-h-10 items-center rounded-full border border-[var(--bb-border)] bg-white/65 px-4 text-sm font-bold text-[var(--bb-charcoal)] transition hover:bg-[var(--bb-primary-soft)]"
+              >
+                Editar links
+              </button>
+            ) : null}
           </div>
           {hasLinks ? (
             <div className="mt-4 grid gap-4 lg:grid-cols-3">
@@ -259,8 +263,9 @@ export function ClientOperationalControls({
                     <input
                       type="checkbox"
                       checked={item.done}
+                      disabled={!canEdit}
                       onChange={(event) => toggleChecklistItem(item.label, event.target.checked)}
-                      className="size-4 accent-[var(--bb-primary)]"
+                      className="size-4 accent-[var(--bb-primary)] disabled:cursor-not-allowed"
                     />
                     <span className={item.done ? "text-[var(--bb-charcoal)]" : "text-[var(--bb-muted)]"}>
                       {item.label}
@@ -274,13 +279,15 @@ export function ClientOperationalControls({
               <p className="text-sm font-semibold text-[var(--bb-muted)]">
                 Ainda não existe checklist de setup para este cliente.
               </p>
-              <button
-                type="button"
-                onClick={createDefaultChecklist}
-                className="mt-4 inline-flex min-h-10 items-center rounded-full bg-[var(--bb-black)] px-4 text-sm font-bold text-white transition hover:bg-[var(--bb-primary)] hover:text-[var(--bb-black)]"
-              >
-                Criar checklist padrão
-              </button>
+              {canEdit ? (
+                <button
+                  type="button"
+                  onClick={createDefaultChecklist}
+                  className="mt-4 inline-flex min-h-10 items-center rounded-full bg-[var(--bb-black)] px-4 text-sm font-bold text-white transition hover:bg-[var(--bb-primary)] hover:text-[var(--bb-black)]"
+                >
+                  Criar checklist padrão
+                </button>
+              ) : null}
             </div>
           )}
           <div className="mt-3 min-h-5 text-xs font-bold">
@@ -326,7 +333,7 @@ export function ClientOperationalControls({
         )}
       </Panel>
 
-      {linksOpen && typeof document !== "undefined"
+      {canEdit && linksOpen && typeof document !== "undefined"
         ? createPortal(
             <div
               className="fixed inset-0 bg-[rgba(12,16,18,0.32)] p-3 backdrop-blur-sm md:p-6"

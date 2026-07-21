@@ -6,7 +6,11 @@ import { ClientLogo } from "@/components/client-logo";
 import { getClientDisplayCode, getClientVisualToken } from "@/lib/client-visuals";
 import { clientStatusLabels, clientTypeLabels } from "@/lib/labels";
 import { getClients, getContentItems, getTasks } from "@/lib/data";
-import { canManageClients, requireCurrentOperationalProfile } from "@/lib/auth";
+import {
+  canDeleteClients,
+  canManageClients,
+  requireCurrentOperationalProfile,
+} from "@/lib/auth";
 import { Badge, EditIconLink, EmptyState, ExternalLink, Panel, TableWrap } from "@/components/ui";
 
 function getStaticClientLogoPath(clientCode: string | null) {
@@ -30,6 +34,7 @@ export default async function ClientsPage() {
     getTasks(),
   ]);
   const canEdit = canManageClients(profile);
+  const canDelete = canDeleteClients(profile);
   const contentCountByClient = new Map<string, number>();
   const taskCountByClient = new Map<string, number>();
 
@@ -55,7 +60,7 @@ export default async function ClientsPage() {
                   <th className="px-5 py-4 font-extrabold">Responsável</th>
                   <th className="px-5 py-4 font-extrabold">Plataformas</th>
                   <th className="px-5 py-4 font-extrabold">Links</th>
-                  {canEdit ? (
+                  {canEdit || canDelete ? (
                     <th className="bb-actions-col sticky right-0 px-2 py-4 font-extrabold">Ações</th>
                   ) : null}
                 </tr>
@@ -111,16 +116,18 @@ export default async function ClientsPage() {
                           <ExternalLink href={client.meta_url} label="Meta" />
                         </div>
                       </td>
-                      {canEdit ? (
+                      {canEdit || canDelete ? (
                         <td className="bb-actions-col sticky right-0 px-2 py-4">
                           <div className="bb-actions-row">
-                            <EditIconLink href={`/clients/${client.id}/edit`} />
-                            <ClientDeleteControl
-                              clientId={client.id}
-                              clientName={client.name}
-                              contentCount={contentCountByClient.get(client.id) ?? 0}
-                              taskCount={taskCountByClient.get(client.id) ?? 0}
-                            />
+                            {canEdit ? <EditIconLink href={`/clients/${client.id}/edit`} /> : null}
+                            {canDelete ? (
+                              <ClientDeleteControl
+                                clientId={client.id}
+                                clientName={client.name}
+                                contentCount={contentCountByClient.get(client.id) ?? 0}
+                                taskCount={taskCountByClient.get(client.id) ?? 0}
+                              />
+                            ) : null}
                           </div>
                         </td>
                       ) : null}

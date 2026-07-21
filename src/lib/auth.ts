@@ -106,6 +106,10 @@ export async function requireRole(roles: readonly OperationalRole[]) {
 }
 
 export function canManageClients(profile: Pick<AuthenticatedOperationalProfile, "authRole"> | null) {
+  return profile ? ["admin", "marketing"].includes(profile.authRole) : false;
+}
+
+export function canDeleteClients(profile: Pick<AuthenticatedOperationalProfile, "authRole"> | null) {
   return profile?.authRole === "admin";
 }
 

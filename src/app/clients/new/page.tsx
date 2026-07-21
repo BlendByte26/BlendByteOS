@@ -5,7 +5,7 @@ import { getTeamMembers } from "@/lib/data";
 import { requireRole } from "@/lib/auth";
 
 export default async function NewClientPage() {
-  await requireRole(["admin"]);
+  await requireRole(["admin", "marketing"]);
   const teamMembers = await getTeamMembers();
 
   return (

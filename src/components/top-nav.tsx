@@ -45,11 +45,16 @@ export function TopNav({ profile, realProfile, previewProfile }: Props) {
   const isDashboard = pathname === "/";
   const rawAction = pageActions[pathname];
   const isAdmin = profile?.authRole === "admin";
+  const canManageClients = profile ? ["admin", "marketing"].includes(profile.authRole) : false;
   const isPreview = Boolean(previewProfile);
   const returnPath = pathname;
   const action =
     rawAction &&
-    (pathname === "/clients" || pathname === "/team" ? isAdmin : Boolean(profile))
+    (pathname === "/clients"
+      ? canManageClients
+      : pathname === "/team"
+        ? isAdmin
+        : Boolean(profile))
       ? rawAction
       : null;
   const showProfileControls = isDashboard && profile;

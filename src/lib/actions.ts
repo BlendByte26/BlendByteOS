@@ -399,7 +399,7 @@ async function uploadClientLogo(
 }
 
 export async function createClientAction(formData: FormData): Promise<CreateClientResult> {
-  await requireRole(["admin"]);
+  await requireRole(["admin", "marketing"]);
   const supabase = await getSupabase();
 
   if (!supabase) {
@@ -523,7 +523,7 @@ export async function createClientAction(formData: FormData): Promise<CreateClie
 }
 
 export async function updateClientAction(id: string, formData: FormData) {
-  await requireRole(["admin"]);
+  await requireRole(["admin", "marketing"]);
   const supabase = await supabaseOrRedirect(`/clients/${id}`);
   const currentLogoUrl = text(formData, "logo_url");
   const file = clientLogoFile(formData);
@@ -603,7 +603,7 @@ export async function updateClientSetupChecklistAction(
   id: string,
   checklist: SetupChecklistItem[],
 ) {
-  await requireRole(["admin"]);
+  await requireRole(["admin", "marketing"]);
   const supabase = await supabaseOrError();
   const payload = sanitizeChecklist(checklist);
   const { error } = await supabase
@@ -625,7 +625,7 @@ export async function createDefaultClientChecklistAction(id: string) {
 }
 
 export async function updateClientLinksAction(id: string, formData: FormData) {
-  await requireRole(["admin"]);
+  await requireRole(["admin", "marketing"]);
   const supabase = await supabaseOrError();
   const payload = {
     google_drive_url: text(formData, "google_drive_url"),
