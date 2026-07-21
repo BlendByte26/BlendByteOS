@@ -138,7 +138,7 @@ export function buildTasksUrl({
   owner,
   until,
 }: {
-  view?: "all" | "today" | "week" | "archived";
+  view?: "all" | "today" | "week" | "next7" | "archived";
   client?: string | null;
   status?: TaskStatus | TaskStatusSlug | null;
   priority?: TaskPriority | null;

@@ -8,6 +8,7 @@ import type {
   QuickNote,
   QuickTodo,
   Task,
+  TaskComment,
   TeamMember,
   UsefulLink,
   UserProfile,
@@ -75,6 +76,21 @@ export type Database = {
             columns: ["client_id"];
             isOneToOne: false;
             referencedRelation: "clients";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      task_comments: {
+        Row: TaskComment;
+        Insert: Partial<Pick<TaskComment, "id" | "created_at" | "updated_at" | "mentioned_profile_keys">> &
+          Omit<TaskComment, "id" | "created_at" | "updated_at" | "mentioned_profile_keys">;
+        Update: Updatable<TaskComment>;
+        Relationships: [
+          {
+            foreignKeyName: "task_comments_task_id_fkey";
+            columns: ["task_id"];
+            isOneToOne: false;
+            referencedRelation: "tasks";
             referencedColumns: ["id"];
           },
         ];

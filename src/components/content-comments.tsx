@@ -3,7 +3,12 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { MessageSquare, Send, Trash2 } from "lucide-react";
 import { operationalProfiles, type OperationalProfile, type OperationalProfileKey } from "@/lib/operational-profiles";
-import type { ContentComment } from "@/lib/types";
+import type { ContentComment, TaskComment } from "@/lib/types";
+
+type CommentRecord = Pick<
+  ContentComment,
+  "id" | "author_profile_key" | "author_name" | "body" | "mentioned_profile_keys" | "created_at" | "updated_at"
+>;
 
 type ContentCommentsResult =
   | { ok: true; comments: ContentComment[] }
@@ -21,6 +26,47 @@ type ContentCommentsProps = {
   listAction?: (contentId: string) => Promise<ContentCommentsResult>;
   createAction: (formData: FormData) => Promise<ContentCommentMutationResult>;
   deleteAction: (commentId: string) => Promise<ContentCommentMutationResult>;
+  onCountChange?: (count: number) => void;
+};
+
+type TaskCommentsResult =
+  | { ok: true; comments: TaskComment[] }
+  | { ok: false; message: string };
+
+type TaskCommentMutationResult =
+  | { ok: true; comment?: TaskComment }
+  | { ok: false; message: string };
+
+type TaskCommentsProps = {
+  taskId: string;
+  initialComments: TaskComment[];
+  activeProfile: OperationalProfile;
+  canPersist: boolean;
+  listAction?: (taskId: string) => Promise<TaskCommentsResult>;
+  createAction: (formData: FormData) => Promise<TaskCommentMutationResult>;
+  deleteAction: (commentId: string) => Promise<TaskCommentMutationResult>;
+  onCountChange?: (count: number) => void;
+};
+
+type CommentsPanelProps = {
+  entityId: string;
+  entityFieldName: "content_id" | "task_id";
+  subjectLabel: "conteúdo" | "tarefa";
+  initialComments: CommentRecord[];
+  activeProfile: OperationalProfile;
+  canPersist: boolean;
+  listAction?: (entityId: string) => Promise<
+    | { ok: true; comments: CommentRecord[] }
+    | { ok: false; message: string }
+  >;
+  createAction: (formData: FormData) => Promise<
+    | { ok: true; comment?: CommentRecord }
+    | { ok: false; message: string }
+  >;
+  deleteAction: (commentId: string) => Promise<
+    | { ok: true; comment?: CommentRecord }
+    | { ok: false; message: string }
+  >;
   onCountChange?: (count: number) => void;
 };
 
@@ -42,12 +88,14 @@ function profileName(key: string) {
   return operationalProfiles[key as OperationalProfileKey]?.name ?? key;
 }
 
-function canDeleteComment(comment: ContentComment, activeProfile: OperationalProfile) {
+function canDeleteComment(comment: CommentRecord, activeProfile: OperationalProfile) {
   return activeProfile.key === "guilherme" || comment.author_profile_key === activeProfile.key;
 }
 
-export function ContentComments({
-  contentId,
+function CommentsPanel({
+  entityId,
+  entityFieldName,
+  subjectLabel,
   initialComments,
   activeProfile,
   canPersist,
@@ -55,7 +103,7 @@ export function ContentComments({
   createAction,
   deleteAction,
   onCountChange,
-}: ContentCommentsProps) {
+}: CommentsPanelProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [comments, setComments] = useState(initialComments);
   const [body, setBody] = useState("");
@@ -68,7 +116,7 @@ export function ContentComments({
 
     let active = true;
     startTransition(async () => {
-      const result = await listAction(contentId);
+      const result = await listAction(entityId);
       if (!active) return;
       if (!result.ok) {
         setMessage(result.message);
@@ -81,7 +129,7 @@ export function ContentComments({
     return () => {
       active = false;
     };
-  }, [contentId, listAction, onCountChange]);
+  }, [entityId, listAction, onCountChange]);
 
   function addMention(key: OperationalProfileKey, name: string) {
     const mention = `@${name}`;
@@ -166,7 +214,7 @@ export function ContentComments({
             Comentários ({comments.length})
           </h3>
           <p className="mt-1 text-sm font-medium text-[var(--bb-muted)]">
-            Notas simples para este conteúdo.
+            Notas simples para {subjectLabel === "conteúdo" ? "este conteúdo" : "esta tarefa"}.
           </p>
         </div>
         <span className="rounded-full border border-[var(--bb-border)] bg-white/65 px-3 py-2 text-xs font-extrabold text-[var(--bb-muted)]">
@@ -175,7 +223,7 @@ export function ContentComments({
       </div>
 
       <form action={submit} className="grid gap-3 rounded-[20px] border border-[var(--bb-border)] bg-white/45 p-4">
-        <input type="hidden" name="content_id" value={contentId} />
+        <input type="hidden" name={entityFieldName} value={entityId} />
         {mentions.map((mention) => (
           <input key={mention} type="hidden" name="mentioned_profile_keys" value={mention} />
         ))}
@@ -267,10 +315,32 @@ export function ContentComments({
           ))
         ) : (
           <div className="rounded-[18px] border border-dashed border-[var(--bb-border)] bg-white/35 px-4 py-6 text-center text-sm font-bold text-[var(--bb-muted)]">
-            Ainda não há comentários neste conteúdo.
+            Ainda não há comentários {subjectLabel === "conteúdo" ? "neste conteúdo" : "nesta tarefa"}.
           </div>
         )}
       </div>
     </section>
+  );
+}
+
+export function ContentComments({ contentId, ...props }: ContentCommentsProps) {
+  return (
+    <CommentsPanel
+      {...props}
+      entityId={contentId}
+      entityFieldName="content_id"
+      subjectLabel="conteúdo"
+    />
+  );
+}
+
+export function TaskComments({ taskId, ...props }: TaskCommentsProps) {
+  return (
+    <CommentsPanel
+      {...props}
+      entityId={taskId}
+      entityFieldName="task_id"
+      subjectLabel="tarefa"
+    />
   );
 }

@@ -54,6 +54,7 @@ import type {
   ServiceType,
   SetupChecklistItem,
   Task,
+  TaskComment,
   TaskPriority,
   TaskStatus,
   TaskType,
@@ -84,6 +85,14 @@ type ContentCommentsResult =
 
 type ContentCommentMutationResult =
   | { ok: true; comment?: ContentComment }
+  | { ok: false; message: string };
+
+type TaskCommentsResult =
+  | { ok: true; comments: TaskComment[] }
+  | { ok: false; message: string };
+
+type TaskCommentMutationResult =
+  | { ok: true; comment?: TaskComment }
   | { ok: false; message: string };
 
 export type UsefulLinkMutationResult =
@@ -986,6 +995,98 @@ export async function deleteContentCommentAction(commentId: string): Promise<Con
 
   revalidatePath("/content");
   revalidatePath(`/content/${comment.content_id}/edit`);
+  return { ok: true };
+}
+
+export async function listTaskCommentsAction(taskId: string): Promise<TaskCommentsResult> {
+  const supabase = await getSupabase();
+
+  if (!supabase) {
+    return { ok: true, comments: [] };
+  }
+
+  const { data, error } = await supabase
+    .from("task_comments")
+    .select("*")
+    .eq("task_id", taskId)
+    .order("created_at", { ascending: true });
+
+  if (error) return { ok: false, message: error.message };
+  return { ok: true, comments: data as TaskComment[] };
+}
+
+export async function createTaskCommentAction(formData: FormData): Promise<TaskCommentMutationResult> {
+  await requireRole(["admin", "marketing", "design"]);
+  const supabase = await getSupabase();
+
+  if (!supabase) {
+    return { ok: false, message: "Modo demo: configure o Supabase para comentar." };
+  }
+
+  const profile = await currentOperationalProfile();
+  const taskId = text(formData, "task_id");
+  const body = text(formData, "body");
+
+  if (!taskId) {
+    return { ok: false, message: "Tarefa em falta para comentar." };
+  }
+
+  if (!body) {
+    return { ok: false, message: "Escreva um comentário antes de enviar." };
+  }
+
+  const { data, error } = await supabase
+    .from("task_comments")
+    .insert({
+      task_id: taskId,
+      author_profile_key: profile.key,
+      author_name: profile.name,
+      body,
+      mentioned_profile_keys: mentionedProfileKeys(formData),
+    })
+    .select("*")
+    .single();
+
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath("/");
+  revalidatePath("/tasks");
+  revalidatePath(`/tasks/${taskId}/edit`);
+  return { ok: true, comment: data as TaskComment };
+}
+
+export async function deleteTaskCommentAction(commentId: string): Promise<TaskCommentMutationResult> {
+  await requireRole(["admin", "marketing", "design"]);
+  const supabase = await getSupabase();
+
+  if (!supabase) {
+    return { ok: false, message: "Modo demo: configure o Supabase para apagar comentários." };
+  }
+
+  const profile = await currentOperationalProfile();
+  const { data: comment, error: readError } = await supabase
+    .from("task_comments")
+    .select("*")
+    .eq("id", commentId)
+    .maybeSingle();
+
+  if (readError) return { ok: false, message: readError.message };
+  if (!comment) return { ok: false, message: "Comentário não encontrado." };
+
+  const canDelete =
+    profile.key === "guilherme" || comment.author_profile_key === profile.key;
+
+  if (!canDelete) {
+    return { ok: false, message: "Só o autor ou o Guilherme podem apagar este comentário." };
+  }
+
+  const { error } = await supabase.from("task_comments").delete().eq("id", commentId);
+
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath("/");
+  revalidatePath("/tasks");
+  revalidatePath(`/tasks/${comment.task_id}/edit`);
   return { ok: true };
 }
 
@@ -2251,7 +2352,7 @@ function usefulLinkMutationMessage(error: { message?: string; code?: string }) {
 }
 
 export async function createUsefulLinkAction(formData: FormData): Promise<UsefulLinkMutationResult | void> {
-  await requireGuilhermeOperationalProfile();
+  await requireRole(["admin", "marketing", "design"]);
   const supabase = await getSupabase();
 
   if (!supabase) {

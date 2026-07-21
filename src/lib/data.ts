@@ -22,6 +22,8 @@ import type {
   QuickTodo,
   QuickTodoView,
   Task,
+  TaskComment,
+  TaskMention,
   TaskPriority,
   TaskStatus,
   TeamMember,
@@ -146,6 +148,7 @@ const sampleQuickTodos: QuickTodo[] = [
 
 const sampleQuickNotes: QuickNote[] = [];
 const sampleContentComments: ContentComment[] = [];
+const sampleTaskComments: TaskComment[] = [];
 const sampleCompanyContacts: CompanyContact[] = [];
 const sampleUsefulLinks: UsefulLink[] = [];
 const sampleInvest2030Requests: Invest2030Request[] = [];
@@ -540,6 +543,62 @@ export async function getTasks(filters: TaskFilters = {}) {
 export async function getTask(id: string) {
   const tasks = await getTasks();
   return tasks.find((task) => task.id === id) ?? null;
+}
+
+export async function getTaskComments(taskId: string) {
+  const supabase = await getSupabase();
+
+  if (!supabase) {
+    return sampleTaskComments.filter((comment) => comment.task_id === taskId);
+  }
+
+  const { data, error } = await supabase
+    .from("task_comments")
+    .select("*")
+    .eq("task_id", taskId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    return handleSupabaseReadError(
+      error,
+      sampleTaskComments.filter((comment) => comment.task_id === taskId),
+      "comentários de tarefas",
+    );
+  }
+
+  return data as TaskComment[];
+}
+
+export async function getMentionedTaskComments(profileKey: OperationalProfileKey, limit = 5) {
+  const supabase = await getSupabase();
+
+  if (!supabase) {
+    return sampleTaskComments
+      .filter((comment) => comment.mentioned_profile_keys.includes(profileKey))
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .slice(0, limit) as TaskMention[];
+  }
+
+  const { data, error } = await supabase
+    .from("task_comments")
+    .select(`
+      *,
+      tasks(
+        id,
+        title,
+        client_id,
+        clients(*)
+      )
+    `)
+    .contains("mentioned_profile_keys", [profileKey])
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    return handleSupabaseReadError(error, [], "menções em comentários de tarefas");
+  }
+
+  return data as TaskMention[];
 }
 
 export async function getInvest2030NewsletterByTaskId(taskId: string) {

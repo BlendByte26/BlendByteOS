@@ -3,7 +3,10 @@ import { TasksFiltersBar } from "@/components/live-filters";
 import { TasksTable } from "@/components/tasks-table";
 import {
   archiveTaskInlineAction,
+  createTaskCommentAction,
+  deleteTaskCommentAction,
   deleteTaskInlineAction,
+  listTaskCommentsAction,
   sendTaskToDesignInlineAction,
   updateTaskStatusInlineAction,
   updateTaskInlineAction,
@@ -27,12 +30,13 @@ function valueOf(params: Record<string, string | string[] | undefined>, key: str
   return Array.isArray(value) ? value[0] : value;
 }
 
-type TasksView = "all" | "today" | "week" | "archived";
+type TasksView = "all" | "today" | "week" | "next7" | "archived";
 
 const viewOptions: Array<{ value: TasksView; label: string }> = [
   { value: "all", label: "Todas" },
   { value: "today", label: "Hoje" },
   { value: "week", label: "Esta semana" },
+  { value: "next7", label: "Próximos 7 dias" },
   { value: "archived", label: "Arquivadas" },
 ];
 
@@ -40,11 +44,12 @@ const emptyStateLabels: Record<TasksView, string> = {
   all: "Sem tarefas ativas.",
   today: "Sem tarefas para hoje.",
   week: "Sem tarefas para esta semana.",
+  next7: "Sem tarefas para os próximos 7 dias.",
   archived: "Sem tarefas arquivadas.",
 };
 
 function parseView(value: string | undefined): TasksView {
-  if (value === "today" || value === "week" || value === "archived") return value;
+  if (value === "today" || value === "week" || value === "next7" || value === "archived") return value;
   return "all";
 }
 
@@ -78,6 +83,12 @@ function taskInView(task: Awaited<ReturnType<typeof getTasks>>[number], view: Ta
   if (view === "today") return task.due_date === dates.today;
   if (view === "week") {
     return Boolean(task.due_date && task.due_date >= dates.start && task.due_date <= dates.end);
+  }
+  if (view === "next7") {
+    const end = new Date();
+    end.setDate(end.getDate() + 6);
+    const endDate = localDateString(end);
+    return Boolean(task.due_date && task.due_date >= dates.today && task.due_date <= endDate);
   }
 
   return true;
@@ -192,11 +203,15 @@ export default async function TasksPage({ searchParams }: Props) {
         emptyTitle={emptyStateLabels[currentView]}
         canPersist={isSupabaseConfigured()}
         canDelete={profile.authRole !== "design"}
+        activeProfile={profile}
         updateTaskAction={updateTaskInlineAction}
         updateStatusAction={updateTaskStatusInlineAction}
         sendToDesignAction={sendTaskToDesignInlineAction}
         archiveTaskAction={archiveTaskInlineAction}
         deleteTaskAction={deleteTaskInlineAction}
+        listCommentsAction={listTaskCommentsAction}
+        createCommentAction={createTaskCommentAction}
+        deleteCommentAction={deleteTaskCommentAction}
       />
     </>
   );

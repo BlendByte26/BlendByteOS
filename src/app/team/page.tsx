@@ -38,6 +38,7 @@ export default async function TeamPage({ searchParams }: Props) {
       usefulLinks={usefulLinks}
       createOpen={createOpen}
       canEdit={canEdit}
+      canAddUsefulLinks
       activeTab={activeTab}
     /> : vacationData ? <VacationWorkspace key={`vacations-${year}`} year={year} isAdmin={currentProfile.key === "guilherme"} profileKey={currentProfile.key} members={teamMembers} balances={vacationData.balances} requests={vacationData.requests} holidays={vacationData.holidays} /> : null}</div>
   );

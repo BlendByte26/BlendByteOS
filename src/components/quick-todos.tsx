@@ -163,8 +163,6 @@ export function QuickTodosPanel({
   todos: QuickTodo[];
   notes: QuickNote[];
 }) {
-  const isAdminLayout = profile.key === "guilherme";
-
   return (
     <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
       <TodayPanel profile={profile} />
@@ -174,7 +172,7 @@ export function QuickTodosPanel({
         profile={profile}
         todos={todos}
         notes={notes}
-        expanded={isAdminLayout}
+        expanded
       />
     </div>
   );

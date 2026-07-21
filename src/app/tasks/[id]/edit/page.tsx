@@ -1,14 +1,24 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ClipboardList, Mail, Video } from "lucide-react";
-import { createContentFromTaskAction, deleteTaskAction, sendTaskToDesignAction, updateTaskAction } from "@/lib/actions";
-import { getClients, getInvest2030NewsletterByTaskId, getTask, getTeamMembers } from "@/lib/data";
+import {
+  createContentFromTaskAction,
+  createTaskCommentAction,
+  deleteTaskAction,
+  deleteTaskCommentAction,
+  listTaskCommentsAction,
+  sendTaskToDesignAction,
+  updateTaskAction,
+} from "@/lib/actions";
+import { getClients, getInvest2030NewsletterByTaskId, getTask, getTaskComments, getTeamMembers } from "@/lib/data";
 import { DesignHandoffForm } from "@/components/design-handoff-form";
 import { ConfirmSubmitForm } from "@/components/confirm-submit-form";
-import { FormFrame, TaskForm } from "@/components/forms";
+import { FormFrame } from "@/components/forms";
+import { TaskEditorTabs } from "@/components/task-editor-tabs";
 import { PageHeader } from "@/components/ui";
 import { isDesignAssigneeName } from "@/lib/operational-profiles";
 import { requireCurrentOperationalProfile } from "@/lib/auth";
+import { isSupabaseConfigured } from "@/lib/supabase";
 import {
   INVEST2030_WEBINAR_TEMPLATE_VERSION,
   invest2030NewsletterStatusLabels,
@@ -25,11 +35,12 @@ export default async function EditTaskPage({ params }: Props) {
   const { id } = await params;
   const activeProfile = await requireCurrentOperationalProfile();
   const canDelete = activeProfile.authRole !== "design";
-  const [clients, teamMembers, task, newsletter] = await Promise.all([
+  const [clients, teamMembers, task, newsletter, comments] = await Promise.all([
     getClients(),
     getTeamMembers(),
     getTask(id),
     getInvest2030NewsletterByTaskId(id),
+    getTaskComments(id),
   ]);
 
   if (!task) notFound();
@@ -57,12 +68,18 @@ export default async function EditTaskPage({ params }: Props) {
         </div>
       ) : null}
       <FormFrame title="Dados da tarefa">
-        <TaskForm
-          action={updateTaskAction.bind(null, task.id)}
+        <TaskEditorTabs
+          taskAction={updateTaskAction.bind(null, task.id)}
           clients={clients}
           teamMembers={teamMembers}
           task={task}
+          activeProfile={activeProfile}
+          canPersist={isSupabaseConfigured()}
           submitLabel="Guardar alterações"
+          initialComments={comments}
+          listCommentsAction={listTaskCommentsAction}
+          createCommentAction={createTaskCommentAction}
+          deleteCommentAction={deleteTaskCommentAction}
           footerAction={
             showNewsletterPreparation || showWebinarPreparation || hasInvestSocialContent || showDesignHandoff ? (
               <>

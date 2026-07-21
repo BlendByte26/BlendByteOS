@@ -59,7 +59,7 @@ export function ContentEditModal({
   onClose,
 }: ContentEditModalProps) {
   const router = useRouter();
-  const modalRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [saveMessage, setSaveMessage] = useState<{ itemId: string; message: string } | null>(null);
 
   useEffect(() => {
@@ -75,11 +75,7 @@ export function ContentEditModal({
 
   useEffect(() => {
     if (!editing) return;
-    window.setTimeout(() => {
-      const target = modalRef.current?.querySelector<HTMLElement>(`[data-content-section="${editing.section}"]`);
-      target?.scrollIntoView({ block: "start", behavior: "smooth" });
-      target?.querySelector<HTMLElement>("input, textarea, button")?.focus();
-    }, 80);
+    scrollAreaRef.current?.scrollTo({ top: 0 });
   }, [editing]);
 
   if (!editing || typeof document === "undefined") return null;
@@ -125,7 +121,6 @@ export function ContentEditModal({
       }}
     >
       <div
-        ref={modalRef}
         role="dialog"
         aria-modal="true"
         aria-label="Editar conteúdo"
@@ -149,7 +144,7 @@ export function ContentEditModal({
             <X className="size-4" aria-hidden="true" />
           </button>
         </div>
-        <div className="overflow-y-auto px-5 py-5">
+        <div ref={scrollAreaRef} className="overflow-y-auto px-5 py-5">
           {visibleSaveMessage ? (
             <div className="mb-4 rounded-[16px] border border-[var(--bb-border)] bg-white/55 px-4 py-3 text-sm font-bold text-[var(--bb-muted)]">
               {visibleSaveMessage}

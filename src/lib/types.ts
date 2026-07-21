@@ -283,6 +283,23 @@ export type ContentMention = ContentComment & {
   };
 };
 
+export type TaskComment = {
+  id: string;
+  task_id: string;
+  author_profile_key: string;
+  author_name: string;
+  body: string;
+  mentioned_profile_keys: string[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type TaskMention = TaskComment & {
+  tasks?: Pick<Task, "id" | "title" | "client_id"> & {
+    clients?: Pick<Client, "id" | "name" | "client_code" | "short_name" | "display_order" | "logo_url" | "color_key"> | null;
+  };
+};
+
 export type Task = {
   id: string;
   client_id: string | null;

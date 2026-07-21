@@ -237,6 +237,7 @@ export function TeamDirectory({
   usefulLinks,
   createOpen = false,
   canEdit = false,
+  canAddUsefulLinks = false,
   activeTab = "team",
 }: {
   teamMembers: TeamMember[];
@@ -244,6 +245,7 @@ export function TeamDirectory({
   usefulLinks: UsefulLink[];
   createOpen?: boolean;
   canEdit?: boolean;
+  canAddUsefulLinks?: boolean;
   activeTab?: "team" | "contacts" | "links";
 }) {
   const [creating, setCreating] = useState(createOpen);
@@ -382,7 +384,7 @@ export function TeamDirectory({
         {activeTab === "links" ? <Panel className="p-4">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-extrabold text-[var(--bb-charcoal)]">Links úteis</h2>
-            {canEdit ? (
+            {canAddUsefulLinks ? (
               <button
                 type="button"
                 onClick={() => setCreatingUsefulLink(true)}
@@ -525,7 +527,7 @@ export function TeamDirectory({
         </ModalShell>
       ) : null}
 
-      {canEdit && activeTab === "links" && creatingUsefulLink ? (
+      {canAddUsefulLinks && activeTab === "links" && creatingUsefulLink ? (
         <ModalShell title="Novo link útil" onClose={() => setCreatingUsefulLink(false)}>
           <UsefulLinkForm action={createUsefulLinkAction} submitLabel="Guardar link" />
         </ModalShell>

@@ -12,6 +12,7 @@ import {
   getContentItems,
   getInvest2030Requests,
   getMentionedContentComments,
+  getMentionedTaskComments,
   getQuickNotes,
   getQuickTodos,
   getTasks,
@@ -25,7 +26,7 @@ import {
 import { buildContentUrl, buildTasksUrl } from "@/lib/smart-links";
 import { getTaskDisplayTitle } from "@/lib/task-display";
 import { cleanPrefixedTitle } from "@/lib/title-display";
-import type { Client, ContentItem, ContentMention, Invest2030Request, Task } from "@/lib/types";
+import type { Client, ContentItem, ContentMention, Invest2030Request, Task, TaskMention } from "@/lib/types";
 
 type Props = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -151,6 +152,23 @@ function isThisWeek(value: string | null) {
   if (!value) return false;
   const week = currentWeekRange();
   return value >= week.start && value <= week.end;
+}
+
+function nextSevenDaysRange() {
+  const start = new Date();
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+
+  return {
+    start: localDateString(start),
+    end: localDateString(end),
+  };
+}
+
+function isInNextSevenDays(value: string | null) {
+  if (!value) return false;
+  const range = nextSevenDaysRange();
+  return value >= range.start && value <= range.end;
 }
 
 function clientFor(item: Pick<Task | ContentItem, "client_id">, clientsById: Map<string, Client>) {
@@ -381,13 +399,17 @@ export default async function DashboardPage({ searchParams }: Props) {
     getTasks(),
     getTeamMembers(),
   ]);
-  const [quickTodos, quickNotes, mentionedComments] = await Promise.all([
+  const [quickTodos, quickNotes, mentionedContentComments, mentionedTaskComments] = await Promise.all([
     getQuickTodos(currentView, currentProfile.key),
     getQuickNotes(currentView, currentProfile.key),
     getMentionedContentComments(currentProfile.key, 5),
+    getMentionedTaskComments(currentProfile.key, 5),
   ]);
   const clientsById = new Map(clients.map((client) => [client.id, client]));
   const activeTasks = tasks.filter(isActiveTask);
+  const currentUserTasks = activeTasks.filter((task) => ownerMatches(task.assignee_name, currentProfile.name));
+  const currentUserUrgentTasks = currentUserTasks.filter((task) => task.priority === "urgent");
+  const currentUserNextSevenDaysTasks = currentUserTasks.filter((task) => isInNextSevenDays(task.due_date));
   const activeContent = content.filter(isActiveContent);
   const attentionContent = activeContent.filter(
     (item) => item.is_blocked || contentMissingFields(item).length > 0,
@@ -405,25 +427,15 @@ export default async function DashboardPage({ searchParams }: Props) {
   );
   const marketingMetrics: DashboardMetric[] = [
     {
-      label: "Prontos a publicar",
-      value: readyContent.length,
-      href: buildContentUrl({ status: "ready" }),
-    },
-    {
       label: "Tarefas urgentes",
-      value: activeTasks.filter((task) => task.priority === "urgent").length,
-      href: buildTasksUrl({ priority: "urgent" }),
-      tone: activeTasks.some((task) => task.priority === "urgent") ? "warning" : "default",
+      value: currentUserUrgentTasks.length,
+      href: buildTasksUrl({ priority: "urgent", owner: currentProfile.name }),
+      tone: currentUserUrgentTasks.length ? "warning" : "default",
     },
     {
-      label: "Pendentes",
-      value: activeContent.filter((item) => item.status === "pending").length,
-      href: buildContentUrl({ status: "pending" }),
-    },
-    {
-      label: "Em design",
-      value: activeContent.filter((item) => item.status === "in_progress").length,
-      href: buildContentUrl({ status: "design" }),
+      label: "Novas tarefas a fazer nos próximos 7 dias",
+      value: currentUserNextSevenDaysTasks.length,
+      href: buildTasksUrl({ view: "next7", owner: currentProfile.name }),
     },
   ];
   const designMetrics: DashboardMetric[] = [
@@ -440,7 +452,7 @@ export default async function DashboardPage({ searchParams }: Props) {
 
   return (
     <>
-      <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
+      <div className={`grid gap-2.5 sm:grid-cols-2 ${currentView === "design" ? "lg:grid-cols-4" : "lg:grid-cols-2"}`}>
         {(currentView === "design" ? designMetrics : marketingMetrics).map((metric) => (
           <Metric key={metric.label} {...metric} />
         ))}
@@ -453,7 +465,11 @@ export default async function DashboardPage({ searchParams }: Props) {
         notes={quickNotes}
       />
 
-      <MentionsPanel mentions={mentionedComments} />
+      <MentionsPanel
+        mentions={[...mentionedContentComments, ...mentionedTaskComments]
+          .sort((a, b) => b.created_at.localeCompare(a.created_at))
+          .slice(0, 5)}
+      />
 
       <DashboardAgenda
         view={currentView}
@@ -469,22 +485,32 @@ export default async function DashboardPage({ searchParams }: Props) {
   );
 }
 
-function MentionsPanel({ mentions }: { mentions: ContentMention[] }) {
+function MentionsPanel({ mentions }: { mentions: Array<ContentMention | TaskMention> }) {
   return (
     <div className="mt-3">
       <DashboardBlock title="Menções">
         {mentions.length ? (
           <div className="grid gap-1.5 md:grid-cols-2 xl:grid-cols-5">
             {mentions.map((mention) => {
-              const content = mention.content_items;
-              const client = content?.clients ?? null;
+              const content = "content_id" in mention ? mention.content_items : null;
+              const task = "task_id" in mention ? mention.tasks : null;
+              const client = content?.clients ?? task?.clients ?? null;
               const clientToken = getClientVisualToken({
                 clientCode: client?.client_code,
                 clientName: client?.name,
                 shortName: client?.short_name,
                 colorKey: client?.color_key,
               });
-              const title = content ? cleanPrefixedTitle(content.title, client) : "Conteúdo";
+              const title = task
+                ? getTaskDisplayTitle(task)
+                : content
+                  ? cleanPrefixedTitle(content.title, client)
+                  : "Item";
+              const href = task
+                ? `/tasks/${task.id}/edit`
+                : content
+                  ? `/content/${content.id}/edit`
+                  : null;
 
               return (
                 <div
@@ -507,9 +533,9 @@ function MentionsPanel({ mentions }: { mentions: ContentMention[] }) {
                       </span>
                     ) : null}
                   </div>
-                  {content ? (
+                  {href ? (
                     <div className="mt-2">
-                      <ActionLink href={`/content/${content.id}/edit`} label="Abrir" />
+                      <ActionLink href={href} label="Abrir" />
                     </div>
                   ) : null}
                 </div>

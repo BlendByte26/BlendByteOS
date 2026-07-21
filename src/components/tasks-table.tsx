@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Archive, ClipboardList, Mail, Pencil, Send, Trash2, TriangleAlert, Video, X } from "lucide-react";
 import { ClientBadge } from "@/components/client-badge";
-import { TaskForm } from "@/components/forms";
+import { TaskEditorTabs } from "@/components/task-editor-tabs";
 import { LinksIndicator } from "@/components/links";
 import { SelectField } from "@/components/select-field";
 import { Badge, EmptyState, Panel, TableWrap } from "@/components/ui";
@@ -25,14 +25,27 @@ import {
   type DesignProfileKey,
 } from "@/lib/operational-profiles";
 import { getTaskDisplayTitle } from "@/lib/task-display";
-import { taskStatuses, type Client, type Task, type TaskStatus, type TeamMember } from "@/lib/types";
+import type { AuthenticatedOperationalProfile } from "@/lib/auth";
+import { taskStatuses, type Client, type Task, type TaskComment, type TaskStatus, type TeamMember } from "@/lib/types";
 
 type UpdateTaskAction = (id: string, formData: FormData) => void | Promise<void>;
 type UpdateTaskStatusAction = (id: string, formData: FormData) => void | Promise<void>;
 type SendToDesignAction = (id: string, designerProfileKey?: string) => Promise<Task>;
 type ArchiveTaskAction = (id: string) => void | Promise<void>;
 type DeleteTaskAction = (id: string) => void | Promise<void>;
-type TasksView = "all" | "today" | "week" | "archived";
+type ListTaskCommentsAction = (taskId: string) => Promise<
+  | { ok: true; comments: TaskComment[] }
+  | { ok: false; message: string }
+>;
+type TaskCommentAction = (formData: FormData) => Promise<
+  | { ok: true; comment?: TaskComment }
+  | { ok: false; message: string }
+>;
+type DeleteTaskCommentAction = (commentId: string) => Promise<
+  | { ok: true; comment?: TaskComment }
+  | { ok: false; message: string }
+>;
+type TasksView = "all" | "today" | "week" | "next7" | "archived";
 
 type TasksTableProps = {
   tasks: Task[];
@@ -43,11 +56,15 @@ type TasksTableProps = {
   emptyTitle: string;
   canPersist: boolean;
   canDelete: boolean;
+  activeProfile: AuthenticatedOperationalProfile;
   updateTaskAction: UpdateTaskAction;
   updateStatusAction: UpdateTaskStatusAction;
   sendToDesignAction: SendToDesignAction;
   archiveTaskAction: ArchiveTaskAction;
   deleteTaskAction: DeleteTaskAction;
+  listCommentsAction: ListTaskCommentsAction;
+  createCommentAction: TaskCommentAction;
+  deleteCommentAction: DeleteTaskCommentAction;
 };
 
 function formatDate(value: string | null) {
@@ -246,11 +263,15 @@ export function TasksTable({
   emptyTitle,
   canPersist,
   canDelete,
+  activeProfile,
   updateTaskAction,
   updateStatusAction,
   sendToDesignAction,
   archiveTaskAction,
   deleteTaskAction,
+  listCommentsAction,
+  createCommentAction,
+  deleteCommentAction,
 }: TasksTableProps) {
   const router = useRouter();
   const [localTasks, setLocalTasks] = useState(tasks);
@@ -638,12 +659,17 @@ export function TasksTable({
                     {saveMessage}
                   </div>
                 ) : null}
-                <TaskForm
-                  action={saveTask}
+                <TaskEditorTabs
+                  taskAction={saveTask}
                   clients={clients}
                   teamMembers={teamMembers}
                   task={editing}
+                  activeProfile={activeProfile}
+                  canPersist={canPersist}
                   submitLabel="Guardar alterações"
+                  listCommentsAction={listCommentsAction}
+                  createCommentAction={createCommentAction}
+                  deleteCommentAction={deleteCommentAction}
                   onCancel={() => setEditing(null)}
                   footerAction={
                     isInvestNewsletter ||
