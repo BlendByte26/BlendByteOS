@@ -2,7 +2,7 @@ import type { OperationalProfileKey, OperationalRole } from "./operational-profi
 export type { CustomHoliday, VacationBalance, VacationRequest, VacationStatus } from "./vacations";
 
 export const clientTypes = ["internal", "external", "grupo_investe", "partner"] as const;
-export const clientStatuses = ["setup", "active", "paused", "archived"] as const;
+export const clientStatuses = ["active", "inactive"] as const;
 export const clientColorKeys = [
   "slate",
   "blue",
@@ -138,6 +138,7 @@ export type Client = {
   adjudication_url: string | null;
   budget_url: string | null;
   other_documents_url: string | null;
+  brand_guidelines_url: string | null;
   brand_assets_url: string | null;
   setup_checklist: SetupChecklistItem[] | null;
   reporting_url: string | null;

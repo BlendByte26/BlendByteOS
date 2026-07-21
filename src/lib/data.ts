@@ -772,7 +772,7 @@ export async function getDashboardData() {
     blockedContent: activeContent.filter((item) => item.is_blocked),
     blockedTasks: activeTasks.filter((task) => task.is_blocked),
     clientsInSetup: clients
-      .filter((client) => ["setup", "active"].includes(client.status))
+      .filter((client) => client.status === "active")
       .map((client) => ({
         client,
         missing: getClientMissingSetup(client),

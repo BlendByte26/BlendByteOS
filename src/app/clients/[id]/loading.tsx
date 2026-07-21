@@ -12,7 +12,7 @@ export default function ClientDetailLoading() {
           <span className="sr-only">A carregar links</span>
         </Panel>
         <Panel className="h-64 animate-pulse">
-          <span className="sr-only">A carregar setup</span>
+          <span className="sr-only">A carregar informação do cliente</span>
         </Panel>
       </div>
     </div>

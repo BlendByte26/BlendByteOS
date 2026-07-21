@@ -2,15 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getClient, getContentItems, getTasks } from "@/lib/data";
 import { displayContentPlatform } from "@/lib/content-platform";
-import {
-  createDefaultClientChecklistAction,
-  updateClientLinksAction,
-  updateClientSetupChecklistAction,
-} from "@/lib/actions";
 import { ClientBadge } from "@/components/client-badge";
 import { ClientOperationalControls } from "@/components/client-operational-controls";
 import { LinksList } from "@/components/links";
 import { getClientVisualToken } from "@/lib/client-visuals";
+import { getEffectiveClientStatus } from "@/lib/client-profile";
 import {
   clientStatusLabels,
   clientTypeLabels,
@@ -18,7 +14,6 @@ import {
   taskPriorityLabels,
   taskStatusLabels,
 } from "@/lib/labels";
-import { buildContentUrl, buildTasksUrl } from "@/lib/smart-links";
 import { getTaskDisplayTitle } from "@/lib/task-display";
 import { cleanPrefixedTitle } from "@/lib/title-display";
 import { canManageClients, requireCurrentOperationalProfile } from "@/lib/auth";
@@ -70,7 +65,9 @@ export default async function ClientDetailPage({ params }: Props) {
   if (!client) notFound();
 
   const canEdit = canManageClients(profile);
+  const effectiveStatus = getEffectiveClientStatus(client);
   const openTasks = tasks.filter((task) => !["done", "archived"].includes(task.status));
+  const activeContent = content.filter((item) => !["published", "archived"].includes(item.status));
   const services = servicesFor(client);
   const newTaskHref = `/tasks/new?client=${encodeURIComponent(client.id)}`;
   const newContentHref = `/content/new?client=${encodeURIComponent(client.id)}`;
@@ -97,13 +94,13 @@ export default async function ClientDetailPage({ params }: Props) {
                   colorKey={client.color_key}
                   variant="header"
                 />
-                <Badge value={client.status} label={clientStatusLabels[client.status]} />
+                <Badge value={effectiveStatus} label={clientStatusLabels[effectiveStatus]} />
               </div>
               <h1 className="text-3xl font-extrabold tracking-tight text-[var(--bb-charcoal)] md:text-4xl">
                 {client.name}
               </h1>
               <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-[var(--bb-muted)]">
-                Perfil operacional com links, setup, tarefas e conteúdos associados.
+                Informação, recursos e contexto operacional do cliente.
               </p>
             </div>
           </div>
@@ -116,29 +113,13 @@ export default async function ClientDetailPage({ params }: Props) {
           </div>
         </div>
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <Info label="Tipo" value={clientTypeLabels[client.type]} />
           <Info label="Responsável interno" value={client.owner_name ?? "-"} />
           <Info label="Serviços contratados" value={services.join(", ") || "-"} />
           <Info label="Valor contratado" value={contractValueFor(client) ?? "-"} />
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          <OperationalShortcut href={buildContentUrl({ client: client.id })}>
-            Conteúdos ativos
-          </OperationalShortcut>
-          <OperationalShortcut href={buildContentUrl({ client: client.id, status: "ready" })}>
-            Prontos a publicar
-          </OperationalShortcut>
-          <OperationalShortcut href={buildContentUrl({ client: client.id, attention: true })}>
-            Atenções
-          </OperationalShortcut>
-          <OperationalShortcut href={buildTasksUrl({ client: client.id })}>
-            Tarefas ativas
-          </OperationalShortcut>
-          <OperationalShortcut href={buildTasksUrl({ client: client.id, priority: "urgent" })}>
-            Tarefas urgentes
-          </OperationalShortcut>
+          <Info label="Início" value={formatDate(client.start_date)} />
+          <Info label="Duração" value={client.contract_duration ?? "-"} />
         </div>
       </section>
 
@@ -146,10 +127,6 @@ export default async function ClientDetailPage({ params }: Props) {
         client={client}
         tasks={tasks}
         content={content}
-        canEdit={canEdit}
-        updateChecklistAction={updateClientSetupChecklistAction}
-        createChecklistAction={createDefaultClientChecklistAction}
-        updateLinksAction={updateClientLinksAction}
       />
 
       <Panel>
@@ -165,7 +142,7 @@ export default async function ClientDetailPage({ params }: Props) {
                   <th className="px-5 py-4 font-extrabold">Tarefa</th>
                   <th className="px-4 py-4 font-extrabold">Estado</th>
                   <th className="px-4 py-4 font-extrabold">Prioridade</th>
-                  <th className="px-4 py-4 font-extrabold">Owner</th>
+                  <th className="px-4 py-4 font-extrabold">Responsável</th>
                   <th className="px-4 py-4 font-extrabold">Prazo</th>
                   <th className="px-4 py-4 font-extrabold">Link</th>
                   <th className="bb-actions-col sticky right-0 px-2 py-4 font-extrabold">Ações</th>
@@ -216,10 +193,10 @@ export default async function ClientDetailPage({ params }: Props) {
 
       <Panel>
         <div className="flex flex-col gap-3 border-b border-[var(--bb-border)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <PanelHeader title="Conteúdos" />
+          <PanelHeader title="Conteúdos ativos" />
           <SecondaryLink href={newContentHref}>Novo conteúdo</SecondaryLink>
         </div>
-        {content.length ? (
+        {activeContent.length ? (
           <TableWrap>
             <table className="bb-sticky-actions-table w-full min-w-[820px] table-auto text-left text-sm">
               <thead className="bg-[rgba(246,248,250,0.9)] text-xs uppercase text-[var(--bb-muted)]">
@@ -229,12 +206,12 @@ export default async function ClientDetailPage({ params }: Props) {
                   <th className="px-4 py-4 font-extrabold">Formato</th>
                   <th className="px-4 py-4 font-extrabold">Título</th>
                   <th className="px-4 py-4 font-extrabold">Estado</th>
-                  <th className="px-4 py-4 font-extrabold">Owner</th>
+                  <th className="px-4 py-4 font-extrabold">Responsável</th>
                   <th className="bb-actions-col sticky right-0 px-2 py-4 font-extrabold">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--bb-border)]">
-                {content.map((item) => (
+                {activeContent.map((item) => (
                   <tr key={item.id} className={item.is_blocked ? "bg-[var(--bb-red-soft)]" : ""}>
                     <td className="px-5 py-4 font-medium whitespace-nowrap text-[var(--bb-muted)]">{compactDate(item.publish_date)}</td>
                     <td className="px-4 py-4 font-medium text-[var(--bb-muted)]">{displayContentPlatform(item.platform)}</td>
@@ -262,7 +239,7 @@ export default async function ClientDetailPage({ params }: Props) {
             </table>
           </TableWrap>
         ) : (
-          <EmptyState title="Sem conteúdos associados a este cliente." />
+          <EmptyState title="Sem conteúdos ativos para este cliente." />
         )}
       </Panel>
     </div>
@@ -281,17 +258,6 @@ function Info({ label, value }: { label: string; value: React.ReactNode }) {
         {value}
       </div>
     </div>
-  );
-}
-
-function OperationalShortcut({ href, children }: { href: string; children: React.ReactNode }) {
-  return (
-    <Link
-      href={href}
-      className="inline-flex min-h-8 items-center rounded-full border border-[var(--bb-border)] bg-white/58 px-3 text-xs font-extrabold text-[var(--bb-charcoal)] transition hover:border-[rgba(83,183,223,0.42)] hover:bg-[var(--bb-primary-soft)]"
-    >
-      {children}
-    </Link>
   );
 }
 

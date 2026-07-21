@@ -6,9 +6,16 @@ import { useFormStatus } from "react-dom";
 import { DatePicker, MonthPicker, TimePicker } from "@/components/date-picker";
 import { LinksEditor } from "@/components/links";
 import { ClientLogoEditor, type PrepareClientLogo } from "@/components/client-logo-editor";
+import {
+  ClientColorField,
+  ClientFormSection,
+  ClientLinkFields,
+  ClientPlatformsField,
+  ClientServicesField,
+} from "@/components/client-fields";
 import { SelectField, type SelectOption } from "@/components/select-field";
 import { getClientLabel } from "@/lib/client-display";
-import { clientColorLabels, getClientVisualToken } from "@/lib/client-visuals";
+import { getEffectiveClientStatus } from "@/lib/client-profile";
 import {
   clientStatusLabels,
   clientTypeLabels,
@@ -19,8 +26,6 @@ import {
 import {
   clientStatuses,
   clientTypes,
-  clientColorKeys,
-  serviceTypes,
   contentStatuses,
   taskStatuses,
   type Client,
@@ -40,19 +45,6 @@ const inputClass =
 const labelClass = "grid gap-2 text-sm font-bold text-[var(--bb-charcoal)]";
 const textAreaClass =
   "bb-textarea text-sm font-medium placeholder:text-[var(--bb-muted)]";
-
-const clientPlatformOptions = [
-  "Website",
-  "Instagram",
-  "Facebook",
-  "LinkedIn",
-  "TikTok",
-  "YouTube",
-  "Meta Business Suite",
-  "Metricool",
-  "CRM / Newsletter",
-  "Outro",
-];
 
 const contentPlatformOptions = ["Instagram", "Facebook", "LinkedIn", "TikTok"];
 const contentFormatOptions = ["Post", "Carousel", "Story", "Reels", "Newsletter"];
@@ -286,209 +278,115 @@ export function ClientForm({
         if (preparedLogo) formData.set("logo_file", preparedLogo);
         await action(formData);
       }}
-      className="grid gap-4"
+      className="grid gap-5"
     >
-      <div className="grid gap-4 md:grid-cols-2">
-        <label className={labelClass}>
-          Código cliente
-          <input name="client_code" defaultValue={client?.client_code ?? ""} placeholder="02_I2030" className={inputClass} />
-        </label>
-        <label className={labelClass}>
-          Nome curto
-          <input name="short_name" defaultValue={client?.short_name ?? ""} placeholder="I2030" className={inputClass} />
-        </label>
-      </div>
-      <div className="grid gap-4 md:grid-cols-3">
-        <label className={labelClass}>
-          Nome
-          <input name="name" required defaultValue={client?.name} className={inputClass} />
-        </label>
-        <label className={labelClass}>
-          Tipo
-          <SelectField name="type" defaultValue={client?.type ?? "external"} options={optionList(clientTypes, clientTypeLabels)} />
-        </label>
-        <label className={labelClass}>
-          Estado
-          <SelectField name="status" defaultValue={client?.status ?? "active"} options={optionList(clientStatuses, clientStatusLabels)} />
-        </label>
-      </div>
-      <ClientLogoEditor currentLogoUrl={client?.logo_url} prepareRef={prepareLogoRef} />
-      <div className={labelClass}>
-        Cor operacional
-        <div className="grid gap-2 rounded-[18px] border border-[var(--bb-border)] bg-white/35 p-3 sm:grid-cols-2 lg:grid-cols-4">
-          {clientColorKeys.map((colorKey) => {
-            const token = getClientVisualToken({ colorKey });
+      <nav className="sticky top-[92px] z-10 flex max-w-full gap-2 overflow-x-auto rounded-full border border-[var(--bb-border)] bg-[rgba(255,255,255,0.92)] p-2 shadow-[0_12px_30px_rgba(0,0,0,0.08)] backdrop-blur-xl">
+        {[
+          ["identidade", "Identidade"],
+          ["marca", "Marca"],
+          ["contrato", "Contrato"],
+          ["recursos", "Plataformas e recursos"],
+          ["notas", "Notas"],
+        ].map(([href, label]) => (
+          <a
+            key={href}
+            href={`#${href}`}
+            className="shrink-0 rounded-full px-3 py-2 text-xs font-extrabold text-[var(--bb-muted)] transition hover:bg-[var(--bb-primary-soft)] hover:text-[var(--bb-black)]"
+          >
+            {label}
+          </a>
+        ))}
+      </nav>
 
-            return (
-              <label key={colorKey} className="group cursor-pointer">
-                <input
-                  name="color_key"
-                  type="radio"
-                  value={colorKey}
-                  defaultChecked={(client?.color_key ?? "slate") === colorKey}
-                  className="peer sr-only"
-                />
-                <span className={`flex min-h-10 items-center gap-2 rounded-full border px-3 text-xs font-extrabold transition duration-200 ${token.bg} ${token.border} ${token.text} peer-checked:border-[var(--bb-black)] peer-checked:ring-2 peer-checked:ring-[var(--bb-black)]/10 group-hover:bg-white`}>
-                  <span className={`size-2.5 rounded-full ${token.dot}`} />
-                  {clientColorLabels[colorKey]}
-                </span>
-              </label>
-            );
-          })}
-        </div>
-      </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <label className={labelClass}>
-          Responsável interno
-          {teamMembers.length ? (
-            <SelectField name="owner_name" defaultValue={client?.owner_name ?? ""} options={ownerOptions} />
-          ) : (
-            <input name="owner_name" defaultValue={client?.owner_name ?? ""} className={inputClass} />
-          )}
-        </label>
-        <div className={labelClass}>
-          Serviço contratado
-          <input type="hidden" name="service_type" value={serviceValues[0] ?? ""} />
-          <div className="grid gap-2 rounded-[18px] border border-[var(--bb-border)] bg-white/35 p-3 md:grid-cols-2">
-            {serviceTypes.map((serviceType) => (
-              <label key={serviceType} className="flex items-center gap-2 text-sm font-bold text-[var(--bb-charcoal)]">
-                <input
-                  name="service_types"
-                  type="checkbox"
-                  value={serviceType}
-                  defaultChecked={serviceValues.includes(serviceType)}
-                  className="size-4 accent-[var(--bb-primary)]"
-                />
-                {serviceType}
-              </label>
-            ))}
-          </div>
-        </div>
-      </div>
-      <div className="grid gap-4 md:grid-cols-3">
-        <label className={labelClass}>
-          Valor contratado
-          <input
-            name="contract_value"
-            defaultValue={client?.contract_value ?? (client?.monthly_value ? `${client.monthly_value.toLocaleString("pt-PT")} €` : "")}
-            placeholder="Ex.: 400€/mês, 1.200€ projeto único, sob orçamento"
-            className={inputClass}
-          />
-        </label>
-        <label className={labelClass}>
-          Data de início
-          <DatePicker name="start_date" defaultValue={client?.start_date ?? ""} ariaLabel="Data de início" />
-        </label>
-        <label className={labelClass}>
-          Duração contrato
-          <input name="contract_duration" defaultValue={client?.contract_duration ?? ""} placeholder="6 meses, projeto único..." className={inputClass} />
-        </label>
-      </div>
-      <div className="grid gap-4 md:grid-cols-1">
-        <div className={labelClass}>
-          Plataformas
-          <div className="grid gap-2 rounded-[18px] border border-[var(--bb-border)] bg-white/35 p-3 md:grid-cols-2">
-            {clientPlatformOptions.map((platform) => (
-              <label key={platform} className="flex items-center gap-2 text-sm font-bold text-[var(--bb-charcoal)]">
-                <input
-                  name="platforms"
-                  type="checkbox"
-                  value={platform}
-                  defaultChecked={Boolean(client?.platforms?.includes(platform))}
-                  className="size-4 accent-[var(--bb-primary)]"
-                />
-                {platform}
-              </label>
-            ))}
-          </div>
-        </div>
-      </div>
-      <div className="grid gap-4 md:grid-cols-3">
-        <label className={labelClass}>
-          Drive geral
-          <input name="drive_url" type="url" defaultValue={client?.drive_url ?? ""} className={inputClass} />
-        </label>
-        <label className={labelClass}>
-          Figma
-          <input name="figma_url" type="url" defaultValue={client?.figma_url ?? ""} className={inputClass} />
-        </label>
-        <label className={labelClass}>
-          Meta
-          <input name="meta_url" type="url" defaultValue={client?.meta_url ?? ""} className={inputClass} />
-        </label>
-      </div>
-      <div className="rounded-[20px] border border-[var(--bb-border)] bg-white/35 p-4">
-        <h3 className="mb-4 text-sm font-extrabold text-[var(--bb-charcoal)]">
-          Links principais
-        </h3>
+      <ClientFormSection id="identidade" title="Identidade" description="Dados que identificam e classificam o cliente.">
         <div className="grid gap-4 md:grid-cols-2">
           <label className={labelClass}>
-            Website
-            <input name="website_url" type="url" defaultValue={client?.website_url ?? ""} className={inputClass} />
+            Nome
+            <input name="name" required defaultValue={client?.name} className={inputClass} />
           </label>
           <label className={labelClass}>
-            Instagram
-            <input name="instagram_url" type="url" defaultValue={client?.instagram_url ?? ""} className={inputClass} />
-          </label>
-          <label className={labelClass}>
-            Facebook
-            <input name="facebook_url" type="url" defaultValue={client?.facebook_url ?? ""} className={inputClass} />
-          </label>
-          <label className={labelClass}>
-            LinkedIn
-            <input name="linkedin_url" type="url" defaultValue={client?.linkedin_url ?? ""} className={inputClass} />
-          </label>
-          <label className={labelClass}>
-            Google Drive
-            <input name="google_drive_url" type="url" defaultValue={client?.google_drive_url ?? ""} className={inputClass} />
-          </label>
-          <label className={labelClass}>
-            OneDrive
-            <input name="onedrive_url" type="url" defaultValue={client?.onedrive_url ?? ""} className={inputClass} />
-          </label>
-          <label className={labelClass}>
-            Figma
-            <input name="figma_project_url" type="url" defaultValue={client?.figma_project_url ?? ""} className={inputClass} />
-          </label>
-          <label className={labelClass}>
-            Calendário de conteúdos
-            <input name="content_calendar_url" type="url" defaultValue={client?.content_calendar_url ?? ""} className={inputClass} />
-          </label>
-          <label className={labelClass}>
-            Pasta de entregáveis aprovados
-            <input name="final_deliverables_url" type="url" defaultValue={client?.final_deliverables_url ?? ""} className={inputClass} />
-          </label>
-          <label className={labelClass}>
-            Proposta
-            <input name="proposal_url" type="url" defaultValue={client?.proposal_url ?? ""} className={inputClass} />
-          </label>
-          <label className={labelClass}>
-            Contrato
-            <input name="contract_url" type="url" defaultValue={client?.contract_url ?? ""} className={inputClass} />
-          </label>
-          <label className={labelClass}>
-            Adjudicação
-            <input name="adjudication_url" type="url" defaultValue={client?.adjudication_url ?? ""} className={inputClass} />
-          </label>
-          <label className={labelClass}>
-            Orçamento
-            <input name="budget_url" type="url" defaultValue={client?.budget_url ?? ""} className={inputClass} />
-          </label>
-          <label className={labelClass}>
-            Outros documentos
-            <input name="other_documents_url" type="url" defaultValue={client?.other_documents_url ?? ""} className={inputClass} />
-          </label>
-          <label className={`${labelClass} md:col-span-2`}>
-            Brand Assets
-            <input name="brand_assets_url" type="url" defaultValue={client?.brand_assets_url ?? ""} className={inputClass} />
+            Formato
+            <input
+              name="short_name"
+              required
+              maxLength={3}
+              defaultValue={client?.short_name ?? ""}
+              placeholder="ABC"
+              className={inputClass}
+            />
           </label>
         </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <label className={labelClass}>
+            Código
+            <input value={client?.client_code ?? ""} readOnly className={`${inputClass} bg-black/5`} />
+            <span className="text-xs font-semibold text-[var(--bb-muted)]">O código permanece estável.</span>
+          </label>
+          <label className={labelClass}>
+            Tipo
+            <SelectField name="type" defaultValue={client?.type ?? "external"} options={optionList(clientTypes, clientTypeLabels)} />
+          </label>
+          <label className={labelClass}>
+            Estado
+            <SelectField name="status" defaultValue={client ? getEffectiveClientStatus(client) : "active"} options={optionList(clientStatuses, clientStatusLabels)} />
+          </label>
+        </div>
+      </ClientFormSection>
+
+      <ClientFormSection id="marca" title="Marca" description="Identidade visual e referências oficiais.">
+        <ClientLogoEditor currentLogoUrl={client?.logo_url} prepareRef={prepareLogoRef} />
+        <ClientColorField defaultValue={client?.color_key} />
+        <ClientLinkFields client={client} groupIds={["brand"]} />
+      </ClientFormSection>
+
+      <ClientFormSection id="contrato" title="Contrato e serviços" description="Responsabilidade, âmbito e duração do trabalho.">
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className={labelClass}>
+            Responsável interno
+            {teamMembers.length ? (
+              <SelectField name="owner_name" defaultValue={client?.owner_name ?? ""} options={ownerOptions} />
+            ) : (
+              <input name="owner_name" defaultValue={client?.owner_name ?? ""} className={inputClass} />
+            )}
+          </label>
+          <ClientServicesField defaultValues={serviceValues} />
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <label className={labelClass}>
+            Valor contratado
+            <input
+              name="contract_value"
+              defaultValue={client?.contract_value ?? (client?.monthly_value ? `${client.monthly_value.toLocaleString("pt-PT")} €` : "")}
+              placeholder="Ex.: 400€/mês, projeto único, sob orçamento"
+              className={inputClass}
+            />
+          </label>
+          <label className={labelClass}>
+            Data de início
+            <DatePicker name="start_date" defaultValue={client?.start_date ?? ""} ariaLabel="Data de início" />
+          </label>
+          <label className={labelClass}>
+            Duração do contrato
+            <input name="contract_duration" defaultValue={client?.contract_duration ?? ""} placeholder="6 meses, projeto único..." className={inputClass} />
+          </label>
+        </div>
+      </ClientFormSection>
+
+      <ClientFormSection id="recursos" title="Plataformas e recursos" description="Canais, ferramentas, pastas e documentos do cliente.">
+        <ClientPlatformsField defaultValues={client?.platforms ?? []} />
+        <ClientLinkFields client={client} groupIds={["work", "publishing", "channels", "documents"]} />
+      </ClientFormSection>
+
+      <ClientFormSection id="notas" title="Notas" description="Contexto geral que deve permanecer visível no perfil.">
+        <label className={labelClass}>
+          Notas do cliente
+          <textarea name="notes" defaultValue={client?.notes ?? ""} className={textAreaClass} />
+        </label>
+      </ClientFormSection>
+
+      <div className="sticky bottom-4 z-10 rounded-[20px] border border-[var(--bb-border)] bg-[rgba(255,255,255,0.94)] p-3 shadow-[0_16px_40px_rgba(0,0,0,0.12)] backdrop-blur-xl">
+        <FormButtons submitLabel={submitLabel} cancelHref={client ? `/clients/${client.id}` : "/clients"} />
       </div>
-      <label className={labelClass}>
-        Notas
-        <textarea name="notes" defaultValue={client?.notes ?? ""} className={textAreaClass} />
-      </label>
-      <FormButtons submitLabel={submitLabel} cancelHref={client ? `/clients/${client.id}` : "/clients"} />
     </form>
   );
 }

@@ -1,11 +1,22 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useRef, useState, type FormEvent } from "react";
-import { ArrowLeft, ArrowRight, CheckCircle2, ChevronDown } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { DatePicker } from "@/components/date-picker";
+import { ClientLogoEditor, type PrepareClientLogo } from "@/components/client-logo-editor";
+import {
+  ClientColorField,
+  ClientFormSection,
+  ClientLinkFields,
+  ClientPlatformsField,
+  ClientServicesField,
+} from "@/components/client-fields";
 import { SelectField } from "@/components/select-field";
-import { getChecklistLabels, getSuggestedSetupTasks } from "@/lib/onboarding";
-import { clientStatuses, clientTypes, serviceTypes, type TeamMember } from "@/lib/types";
+import { buildClientCode, clientLinkGroups, normalizeClientShortName } from "@/lib/client-profile";
+import { getSuggestedSetupTasks } from "@/lib/onboarding";
+import { clientStatuses, clientTypes, type TeamMember } from "@/lib/types";
 import { clientStatusLabels, clientTypeLabels } from "@/lib/labels";
 
 type ClientCreationResult =
@@ -13,89 +24,47 @@ type ClientCreationResult =
   | { ok: false; message: string; clientId?: string };
 
 type FormAction = (formData: FormData) => Promise<ClientCreationResult>;
-type LinkField = {
-  name: string;
-  label: string;
-  placeholder?: string;
-};
-type PlatformField = LinkField & {
-  platform: string;
-  other?: boolean;
-};
 
 const inputClass = "bb-input text-sm font-medium placeholder:text-[var(--bb-muted)]";
-const compactInputClass =
-  "bb-input min-h-10 px-3 py-2 text-sm font-medium placeholder:text-[var(--bb-muted)]";
 const labelClass = "grid gap-2 text-sm font-bold text-[var(--bb-charcoal)]";
-const steps = [
-  "Dados principais",
-  "Plataformas e links",
-  "Checklist inicial",
-  "Resumo e criação",
-];
-
-const internalLinks: LinkField[] = [
-  { name: "google_drive_url", label: "Google Drive" },
-  { name: "onedrive_url", label: "OneDrive" },
-  { name: "figma_project_url", label: "Figma" },
-  { name: "brand_assets_url", label: "Brand assets" },
-  { name: "content_calendar_url", label: "Calendário de conteúdos" },
-  { name: "final_deliverables_url", label: "Pasta de entregáveis aprovados" },
-];
-
-const platformLinks: PlatformField[] = [
-  { platform: "Website", name: "website_url", label: "Website" },
-  { platform: "Instagram", name: "instagram_url", label: "Instagram" },
-  { platform: "Facebook", name: "facebook_url", label: "Facebook" },
-  { platform: "LinkedIn", name: "linkedin_url", label: "LinkedIn" },
-  { platform: "TikTok", name: "tiktok_url", label: "TikTok" },
-  { platform: "YouTube", name: "youtube_url", label: "YouTube" },
-  { platform: "Meta Business Suite", name: "meta_url", label: "Meta Business Suite" },
-  { platform: "Metricool", name: "metricool_url", label: "Metricool" },
-  { platform: "CRM / Newsletter", name: "crm_newsletter_url", label: "CRM / Newsletter" },
-  { platform: "Outro", name: "platform_other_url", label: "Outro", other: true },
-];
-
-const commercialLinks: LinkField[] = [
-  { name: "proposal_url", label: "Proposta" },
-  { name: "contract_url", label: "Contrato" },
-  { name: "adjudication_url", label: "Adjudicação" },
-  { name: "budget_url", label: "Orçamento" },
-  { name: "other_documents_url", label: "Outros documentos" },
-];
+const steps = ["Dados principais", "Marca e recursos", "Resumo e criação"];
 
 export function ClientSetupFlow({
   action,
   teamMembers,
+  nextDisplayOrder,
 }: {
   action: FormAction;
   teamMembers: TeamMember[];
+  nextDisplayOrder: number;
 }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
+  const prepareLogoRef = useRef<PrepareClientLogo | null>(null);
   const submittingRef = useRef(false);
   const [step, setStep] = useState(0);
+  const [maximumStep, setMaximumStep] = useState(0);
+  const [clientName, setClientName] = useState("");
+  const [shortName, setShortName] = useState("");
+  const [shortNameEdited, setShortNameEdited] = useState(false);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
-  const [selectedChecklist, setSelectedChecklist] = useState<string[]>([]);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [createInitialTasks, setCreateInitialTasks] = useState(false);
   const [selectedTaskTitles, setSelectedTaskTitles] = useState<string[]>(() => getSuggestedSetupTasks([]));
   const [formSnapshot, setFormSnapshot] = useState<Record<string, string>>({});
-  const [activePlatforms, setActivePlatforms] = useState<Record<string, boolean>>({});
-  const [openBlocks, setOpenBlocks] = useState({
-    platforms: true,
-    internal: false,
-    legal: false,
-  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formMessage, setFormMessage] = useState<string | null>(null);
   const [partialClientId, setPartialClientId] = useState<string | null>(null);
-  const checklist = useMemo(() => getChecklistLabels(selectedServices), [selectedServices]);
   const setupTasks = useMemo(() => getSuggestedSetupTasks(selectedServices), [selectedServices]);
-  const pendingChecklist = checklist.filter((item) => !selectedChecklist.includes(item));
   const ownerOptions = [
     { value: "", label: "Por definir" },
     ...teamMembers.map((member) => ({ value: member.name, label: member.name })),
   ];
+  const previewCode = shortName ? buildClientCode(nextDisplayOrder, shortName) : `${String(nextDisplayOrder).padStart(2, "0")}_—`;
+  const filledLinkCount = clientLinkGroups.reduce(
+    (count, group) => count + group.fields.filter((field) => Boolean(formSnapshot[field.key])).length,
+    0,
+  );
 
   function stopImplicitSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -106,23 +75,54 @@ export function ClientSetupFlow({
       if (!formRef.current) return;
       const next: Record<string, string> = {};
       for (const [key, value] of new FormData(formRef.current).entries()) {
-        if (typeof value === "string" && value.trim().length > 0) {
-          next[key] = value.trim();
-        }
+        if (typeof value === "string" && value.trim().length > 0) next[key] = value.trim();
       }
       setFormSnapshot(next);
     });
   }
 
+  function validateIdentity() {
+    const form = formRef.current;
+    if (!form) return false;
+    const nameInput = form.elements.namedItem("name") as HTMLInputElement | null;
+    const shortNameInput = form.elements.namedItem("short_name") as HTMLInputElement | null;
+
+    if (!nameInput?.value.trim()) {
+      nameInput?.setCustomValidity("Preenche o nome do cliente.");
+      nameInput?.reportValidity();
+      nameInput?.setCustomValidity("");
+      return false;
+    }
+    if (!shortNameInput?.value.trim()) {
+      shortNameInput?.setCustomValidity("Confirma o formato do cliente.");
+      shortNameInput?.reportValidity();
+      shortNameInput?.setCustomValidity("");
+      return false;
+    }
+    return true;
+  }
+
+  function goToNextStep() {
+    if (step === 0 && !validateIdentity()) return;
+    const nextStep = Math.min(steps.length - 1, step + 1);
+    setFormMessage(null);
+    setMaximumStep((current) => Math.max(current, nextStep));
+    setStep(nextStep);
+    syncFormSnapshot();
+  }
+
   async function createClient() {
-    if (!formRef.current || submittingRef.current || partialClientId) return;
+    if (!formRef.current || submittingRef.current || partialClientId || !validateIdentity()) return;
 
     submittingRef.current = true;
     setIsSubmitting(true);
     setFormMessage(null);
 
     try {
-      const result = await action(new FormData(formRef.current));
+      const formData = new FormData(formRef.current);
+      const preparedLogo = await prepareLogoRef.current?.();
+      if (preparedLogo) formData.set("logo_file", preparedLogo);
+      const result = await action(formData);
 
       if (result.ok) {
         router.push(`/clients/${result.clientId}`);
@@ -133,9 +133,6 @@ export function ClientSetupFlow({
       setPartialClientId(result.clientId ?? null);
       setFormMessage(result.message);
     } catch (error) {
-      console.error("Erro inesperado no fluxo de criação de cliente", {
-        message: error instanceof Error ? error.message : "Erro desconhecido",
-      });
       setFormMessage(error instanceof Error ? error.message : "Não foi possível criar o cliente.");
     } finally {
       submittingRef.current = false;
@@ -143,35 +140,15 @@ export function ClientSetupFlow({
     }
   }
 
-  function toggleService(service: string, checked: boolean) {
-    setSelectedServices((current) => {
-      if (checked) return Array.from(new Set([...current, service]));
-      return current.filter((item) => item !== service);
-    });
+  function toggleValue(
+    setter: React.Dispatch<React.SetStateAction<string[]>>,
+    value: string,
+    checked: boolean,
+  ) {
+    setter((current) => checked
+      ? Array.from(new Set([...current, value]))
+      : current.filter((item) => item !== value));
     syncFormSnapshot();
-  }
-
-  function toggleChecklistItem(item: string, checked: boolean) {
-    setSelectedChecklist((current) => {
-      if (checked) return Array.from(new Set([...current, item]));
-      return current.filter((currentItem) => currentItem !== item);
-    });
-  }
-
-  function toggleSetupTask(task: string, checked: boolean) {
-    setSelectedTaskTitles((current) => {
-      if (checked) return Array.from(new Set([...current, task]));
-      return current.filter((currentTask) => currentTask !== task);
-    });
-  }
-
-  function togglePlatform(platform: string, checked: boolean) {
-    setActivePlatforms((current) => ({ ...current, [platform]: checked }));
-    syncFormSnapshot();
-  }
-
-  function toggleBlock(block: keyof typeof openBlocks) {
-    setOpenBlocks((current) => ({ ...current, [block]: !current[block] }));
   }
 
   return (
@@ -183,21 +160,22 @@ export function ClientSetupFlow({
       className="grid gap-6"
     >
       <div className="rounded-[24px] border border-[var(--bb-border)] bg-[var(--bb-surface)] p-4 shadow-[0_22px_62px_rgba(0,0,0,0.08)] backdrop-blur-xl">
-        <div className="grid gap-2 md:grid-cols-4">
+        <div className="grid gap-2 md:grid-cols-3">
           {steps.map((label, index) => (
             <button
               key={label}
               type="button"
               onClick={() => {
+                if (index > maximumStep) return;
                 setFormMessage(null);
                 setStep(index);
               }}
-              disabled={isSubmitting}
+              disabled={isSubmitting || index > maximumStep}
               className={`rounded-full px-4 py-2 text-sm font-extrabold transition ${
                 step === index
                   ? "bg-[var(--bb-primary)] text-[var(--bb-black)]"
                   : "bg-white/50 text-[var(--bb-muted)] hover:bg-[var(--bb-primary-hover)]"
-              } disabled:cursor-not-allowed disabled:opacity-50`}
+              } disabled:cursor-not-allowed disabled:opacity-45`}
             >
               {index + 1}. {label}
             </button>
@@ -205,204 +183,110 @@ export function ClientSetupFlow({
         </div>
       </div>
 
-      <section className="rounded-[24px] border border-[var(--bb-border)] bg-[var(--bb-surface)] p-6 shadow-[0_22px_62px_rgba(0,0,0,0.08)] backdrop-blur-xl">
-        <div className={step === 0 ? "grid gap-4" : "hidden"}>
-          <SectionTitle title="Dados principais" />
-          <div className="grid gap-4 md:grid-cols-3">
-            <label className={labelClass}>
-              Código cliente
-              <input name="client_code" placeholder="02_I2030" className={inputClass} />
-            </label>
-            <label className={labelClass}>
-              Nome curto
-              <input name="short_name" placeholder="I2030" className={inputClass} />
-            </label>
-            <label className={labelClass}>
-              Estado do cliente
-              <SelectField
-                name="status"
-                defaultValue="setup"
-                options={clientStatuses.map((status) => ({ value: status, label: clientStatusLabels[status] }))}
-              />
-            </label>
-          </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            <label className={labelClass}>
-              Nome do cliente
-              <input name="name" className={inputClass} />
-            </label>
-            <label className={labelClass}>
-              Tipo de cliente
-              <SelectField
-                name="type"
-                defaultValue="external"
-                options={clientTypes.map((type) => ({ value: type, label: clientTypeLabels[type] }))}
-              />
-            </label>
-            <label className={labelClass}>
-              Responsável interno
-              <SelectField name="owner_name" options={ownerOptions} />
-            </label>
-          </div>
-          <label className={labelClass}>
-            Logo URL
-            <input name="logo_url" type="url" className={inputClass} />
-            <span className="text-xs font-semibold text-[var(--bb-muted)]">
-              Upload de logo será suportado numa fase seguinte.
-            </span>
-          </label>
-          <div className="grid gap-4 md:grid-cols-[1.4fr_1fr_1fr]">
-            <div className={labelClass}>
-              Serviços contratados
-              <input type="hidden" name="service_type" value={selectedServices[0] ?? ""} />
-              <div className="grid gap-2 rounded-[18px] border border-[var(--bb-border)] bg-white/35 p-3 md:grid-cols-2">
-                {serviceTypes.map((service) => (
-                  <label key={service} className="flex items-center gap-2 text-sm font-bold text-[var(--bb-charcoal)]">
-                    <input
-                      name="service_types"
-                      type="checkbox"
-                      value={service}
-                      checked={selectedServices.includes(service)}
-                      onChange={(event) => toggleService(service, event.target.checked)}
-                      className="size-4 accent-[var(--bb-primary)]"
-                    />
-                    {service}
-                  </label>
-                ))}
-              </div>
-            </div>
-            <label className={labelClass}>
-              Valor contratado
-              <input
-                name="contract_value"
-                placeholder="Ex.: 400€/mês, 1.200€ projeto único, sob orçamento"
-                className={inputClass}
-              />
-            </label>
-          </div>
-        </div>
-
-        <div className={step === 1 ? "grid gap-3" : "hidden"}>
-          <SectionTitle title="Canais, pastas e documentos" />
-          <div className="rounded-[18px] border border-[rgba(236,254,84,0.5)] bg-[var(--bb-yellow-soft)] px-4 py-3 text-sm font-bold text-[var(--bb-charcoal)]">
-            Acessos e passwords devem ser recolhidos através de canal seguro, não na app.
-          </div>
-          <AccordionBlock
-            title="Plataformas do cliente"
-            description="Canais públicos, ferramentas de publicação e plataformas do cliente."
-            open={openBlocks.platforms}
-            onToggle={() => toggleBlock("platforms")}
-          >
-            <div className="grid gap-1.5 md:grid-cols-2 md:gap-x-5">
-              {platformLinks.map((field) => (
-                <PlatformRow
-                  key={field.platform}
-                  field={field}
-                  active={Boolean(activePlatforms[field.platform])}
-                  onToggle={togglePlatform}
-                />
-              ))}
-            </div>
-          </AccordionBlock>
-          <AccordionBlock
-            title="Trabalho interno"
-            description="Pastas e ficheiros usados pela equipa BlendByte."
-            open={openBlocks.internal}
-            onToggle={() => toggleBlock("internal")}
-          >
-            <FieldsGrid fields={internalLinks} />
-          </AccordionBlock>
-          <AccordionBlock
-            title="Documentos comerciais e legais"
-            description="Propostas, contratos, adjudicações e documentos comerciais."
-            open={openBlocks.legal}
-            onToggle={() => toggleBlock("legal")}
-          >
-            <FieldsGrid fields={commercialLinks} />
-          </AccordionBlock>
-        </div>
-
-        <div className={step === 2 ? "grid gap-4" : "hidden"}>
-          <SectionTitle title="Checklist inicial" />
-          <p className="text-sm font-semibold text-[var(--bb-muted)]">
-            Itens a fazer no arranque. Não são marcados como concluídos por defeito.
-          </p>
-          <div className="grid gap-2 md:grid-cols-2">
-            {checklist.map((item) => (
-              <label
-                key={item}
-                className="flex items-center gap-3 rounded-[16px] border border-[var(--bb-border)] bg-white/45 px-4 py-3 text-sm font-bold text-[var(--bb-charcoal)]"
-              >
+      <section className="rounded-[24px] border border-[var(--bb-border)] bg-[var(--bb-surface)] p-5 shadow-[0_22px_62px_rgba(0,0,0,0.08)] backdrop-blur-xl md:p-6">
+        <div className={step === 0 ? "grid gap-5" : "hidden"}>
+          <ClientFormSection id="novo-identidade" title="Dados principais" description="O formato e o código são preparados automaticamente a partir do nome.">
+            <div className="grid gap-4 md:grid-cols-[1.4fr_0.6fr_0.7fr]">
+              <label className={labelClass}>
+                Nome do cliente
                 <input
-                  name="setup_checklist"
-                  type="checkbox"
-                  value={item}
-                  checked={selectedChecklist.includes(item)}
-                  onChange={(event) => toggleChecklistItem(item, event.target.checked)}
-                  className="size-4 accent-[var(--bb-primary)]"
+                  name="name"
+                  required
+                  value={clientName}
+                  onChange={(event) => {
+                    const value = event.currentTarget.value;
+                    setClientName(value);
+                    if (!shortNameEdited) setShortName(normalizeClientShortName(value));
+                  }}
+                  className={inputClass}
                 />
-                {item}
               </label>
-            ))}
-          </div>
+              <label className={labelClass}>
+                Formato
+                <input
+                  name="short_name"
+                  required
+                  maxLength={3}
+                  value={shortName}
+                  onChange={(event) => {
+                    setShortNameEdited(true);
+                    setShortName(normalizeClientShortName(event.currentTarget.value));
+                  }}
+                  placeholder="ABC"
+                  className={inputClass}
+                />
+              </label>
+              <label className={labelClass}>
+                Código
+                <input value={previewCode} readOnly className={`${inputClass} bg-black/5`} />
+              </label>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              <label className={labelClass}>
+                Tipo de cliente
+                <SelectField name="type" defaultValue="external" options={clientTypes.map((type) => ({ value: type, label: clientTypeLabels[type] }))} />
+              </label>
+              <label className={labelClass}>
+                Estado
+                <SelectField name="status" defaultValue="active" options={clientStatuses.map((status) => ({ value: status, label: clientStatusLabels[status] }))} />
+              </label>
+              <label className={labelClass}>
+                Responsável interno
+                <SelectField name="owner_name" options={ownerOptions} />
+              </label>
+            </div>
+          </ClientFormSection>
+
+          <ClientFormSection id="novo-contrato" title="Contrato e serviços">
+            <ClientServicesField
+              selectedValues={selectedServices}
+              onChange={(service, checked) => toggleValue(setSelectedServices, service, checked)}
+            />
+            <div className="grid gap-4 md:grid-cols-3">
+              <label className={labelClass}>
+                Valor contratado
+                <input name="contract_value" placeholder="Ex.: 400€/mês, projeto único, sob orçamento" className={inputClass} />
+              </label>
+              <label className={labelClass}>
+                Data de início
+                <DatePicker name="start_date" defaultValue="" ariaLabel="Data de início" />
+              </label>
+              <label className={labelClass}>
+                Duração do contrato
+                <input name="contract_duration" placeholder="6 meses, projeto único..." className={inputClass} />
+              </label>
+            </div>
+          </ClientFormSection>
         </div>
 
-        <div className={step === 3 ? "grid gap-5" : "hidden"}>
-          <SectionTitle title="Resumo e criação" />
+        <div className={step === 1 ? "grid gap-5" : "hidden"}>
+          <ClientFormSection id="novo-marca" title="Marca" description="Logótipo, cor e referências oficiais da identidade.">
+            <ClientLogoEditor prepareRef={prepareLogoRef} />
+            <ClientColorField />
+            <ClientLinkFields groupIds={["brand"]} />
+          </ClientFormSection>
 
-          <div className="grid gap-3">
-            <h3 className="text-sm font-extrabold text-[var(--bb-charcoal)]">Resumo do cliente</h3>
-            <div className="grid gap-2 rounded-[18px] border border-[var(--bb-border)] bg-white/45 p-4 sm:grid-cols-2 lg:grid-cols-4">
-              <SummaryValue label="Nome" value={formSnapshot.name} />
-              <SummaryValue label="Código" value={formSnapshot.client_code} />
-              <SummaryValue label="Nome curto" value={formSnapshot.short_name} />
-              <SummaryValue label="Tipo" value={clientTypeLabels[(formSnapshot.type as keyof typeof clientTypeLabels) || "external"]} />
-              <SummaryValue label="Responsável interno" value={formSnapshot.owner_name} />
-              <SummaryValue label="Estado" value={clientStatusLabels[(formSnapshot.status as keyof typeof clientStatusLabels) || "setup"]} />
-              <SummaryValue label="Serviços contratados" value={selectedServices.join(", ")} />
-              <SummaryValue label="Valor contratado" value={formSnapshot.contract_value} />
-            </div>
-          </div>
+          <ClientFormSection id="novo-recursos" title="Plataformas e recursos" description="Canais, ferramentas, pastas e documentos do cliente.">
+            <ClientPlatformsField
+              selectedValues={selectedPlatforms}
+              onChange={(platform, checked) => toggleValue(setSelectedPlatforms, platform, checked)}
+            />
+            <ClientLinkFields groupIds={["work", "publishing", "channels", "documents"]} />
+          </ClientFormSection>
+        </div>
 
-          <div className="grid gap-3">
-            <h3 className="text-sm font-extrabold text-[var(--bb-charcoal)]">Resumo de links</h3>
-            <div className="grid gap-3 lg:grid-cols-3">
-              <LinkSummary
-                title="Plataformas do cliente"
-                links={filledLinks(platformLinks, formSnapshot, activePlatforms)}
-              />
-              <LinkSummary title="Trabalho interno" links={filledLinks(internalLinks, formSnapshot)} />
-              <LinkSummary
-                title="Documentos comerciais e legais"
-                links={filledLinks(commercialLinks, formSnapshot)}
-              />
-            </div>
-          </div>
-
-          <div className="grid gap-3">
-            <h3 className="text-sm font-extrabold text-[var(--bb-charcoal)]">Resumo da checklist</h3>
-            <div className="rounded-[18px] border border-[var(--bb-border)] bg-white/45 p-4">
-              <p className="text-sm font-bold text-[var(--bb-charcoal)]">
-                {selectedChecklist.length} de {checklist.length} itens marcados
-              </p>
-              <div className="mt-3 grid gap-2 md:grid-cols-2">
-                {pendingChecklist.length ? (
-                  pendingChecklist.map((item) => (
-                    <span
-                      key={item}
-                      className="rounded-full bg-white/70 px-3 py-2 text-xs font-bold text-[var(--bb-muted)]"
-                    >
-                      Pendente: {item}
-                    </span>
-                  ))
-                ) : (
-                  <span className="inline-flex items-center gap-2 rounded-full bg-[var(--bb-primary-soft)] px-3 py-2 text-xs font-extrabold text-[var(--bb-black)]">
-                    <CheckCircle2 className="size-4" aria-hidden="true" />
-                    Checklist completa
-                  </span>
-                )}
-              </div>
-            </div>
+        <div className={step === 2 ? "grid gap-5" : "hidden"}>
+          <h2 className="text-lg font-extrabold text-[var(--bb-charcoal)]">Resumo e criação</h2>
+          <div className="grid gap-3 rounded-[20px] border border-[var(--bb-border)] bg-white/45 p-4 sm:grid-cols-2 lg:grid-cols-4">
+            <SummaryValue label="Nome" value={clientName} />
+            <SummaryValue label="Formato" value={shortName} />
+            <SummaryValue label="Código" value={previewCode} />
+            <SummaryValue label="Tipo" value={clientTypeLabels[(formSnapshot.type as keyof typeof clientTypeLabels) || "external"]} />
+            <SummaryValue label="Estado" value={clientStatusLabels[(formSnapshot.status as keyof typeof clientStatusLabels) || "active"]} />
+            <SummaryValue label="Responsável" value={formSnapshot.owner_name} />
+            <SummaryValue label="Serviços" value={selectedServices.join(", ")} />
+            <SummaryValue label="Plataformas" value={selectedPlatforms.join(", ")} />
+            <SummaryValue label="Links preenchidos" value={String(filledLinkCount)} />
           </div>
 
           <div className="grid gap-3">
@@ -412,7 +296,7 @@ export function ClientSetupFlow({
                 name="generate_initial_tasks"
                 type="checkbox"
                 checked={createInitialTasks}
-                onChange={(event) => setCreateInitialTasks(event.target.checked)}
+                onChange={(event) => setCreateInitialTasks(event.currentTarget.checked)}
                 className="size-5 accent-[var(--bb-primary)]"
               />
               Criar tarefas iniciais
@@ -420,21 +304,22 @@ export function ClientSetupFlow({
             {createInitialTasks ? (
               <div className="grid gap-2 md:grid-cols-2">
                 {setupTasks.map((task) => (
-                  <label
-                    key={task}
-                    className="flex items-center gap-3 rounded-[16px] border border-[var(--bb-border)] bg-white/45 px-4 py-3 text-sm font-bold text-[var(--bb-charcoal)]"
-                  >
+                  <label key={task} className="flex items-center gap-3 rounded-[16px] border border-[var(--bb-border)] bg-white/45 px-4 py-3 text-sm font-bold text-[var(--bb-charcoal)]">
                     <input
                       name="setup_tasks"
                       type="checkbox"
                       value={task}
                       checked={selectedTaskTitles.includes(task)}
-                      onChange={(event) => toggleSetupTask(task, event.target.checked)}
+                      onChange={(event) => toggleValue(setSelectedTaskTitles, task, event.currentTarget.checked)}
                       className="size-4 accent-[var(--bb-primary)]"
                     />
                     {task}
                   </label>
                 ))}
+                <p className="flex items-center gap-2 text-xs font-bold text-[var(--bb-muted)] md:col-span-2">
+                  <CheckCircle2 className="size-4" aria-hidden="true" />
+                  Serão criadas {selectedTaskTitles.length} tarefas associadas ao cliente.
+                </p>
               </div>
             ) : null}
           </div>
@@ -447,40 +332,38 @@ export function ClientSetupFlow({
       </section>
 
       {formMessage ? (
-        <div
-          role="alert"
-          className="rounded-[18px] border border-[rgba(232,76,49,0.28)] bg-[var(--bb-red-soft)] px-4 py-3 text-sm font-bold text-[#8f2415]"
-        >
+        <div role="alert" className="rounded-[18px] border border-[rgba(232,76,49,0.28)] bg-[var(--bb-red-soft)] px-4 py-3 text-sm font-bold text-[#8f2415]">
           {formMessage}
-          {partialClientId ? (
-            <span className="mt-1 block text-xs">
-              O cliente já existe. Revê as tarefas iniciais antes de avançar para o perfil.
-            </span>
-          ) : null}
+          {partialClientId ? <span className="mt-1 block text-xs">O cliente já existe. Revê as tarefas iniciais antes de abrir o perfil.</span> : null}
         </div>
       ) : null}
 
-      <div className="flex flex-wrap justify-between gap-3">
-        <button
-          type="button"
-          onClick={() => {
-            setFormMessage(null);
-            setStep((current) => Math.max(0, current - 1));
-          }}
-          disabled={step === 0 || isSubmitting}
-          className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--bb-border)] bg-[var(--bb-surface)] px-5 text-sm font-bold text-[var(--bb-charcoal)] transition hover:bg-[var(--bb-primary-hover)] disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          <ArrowLeft className="size-4" aria-hidden="true" />
-          Anterior
-        </button>
-
-        {step < steps.length - 1 ? (
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => {
               setFormMessage(null);
-              setStep((current) => Math.min(steps.length - 1, current + 1));
+              setStep((current) => Math.max(0, current - 1));
             }}
+            disabled={step === 0 || isSubmitting}
+            className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--bb-border)] bg-[var(--bb-surface)] px-5 text-sm font-bold text-[var(--bb-charcoal)] transition hover:bg-[var(--bb-primary-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <ArrowLeft className="size-4" aria-hidden="true" />
+            Anterior
+          </button>
+          <Link
+            href="/clients"
+            className="inline-flex min-h-11 items-center rounded-full border border-[var(--bb-border)] bg-white/55 px-5 text-sm font-bold text-[var(--bb-charcoal)] transition hover:bg-[var(--bb-primary-hover)]"
+          >
+            Cancelar
+          </Link>
+        </div>
+
+        {step < steps.length - 1 ? (
+          <button
+            type="button"
+            onClick={goToNextStep}
             disabled={isSubmitting}
             className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[var(--bb-black)] px-5 text-sm font-bold text-white transition hover:bg-[var(--bb-primary)] hover:text-[var(--bb-black)] disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -506,164 +389,7 @@ function SummaryValue({ label, value }: { label: string; value?: string | null }
   return (
     <div className="min-w-0">
       <p className="text-xs font-extrabold uppercase text-[var(--bb-muted)]">{label}</p>
-      <p className="mt-1 truncate text-sm font-bold text-[var(--bb-charcoal)]">{value || "-"}</p>
-    </div>
-  );
-}
-
-function filledLinks(
-  fields: Array<LinkField | PlatformField>,
-  values: Record<string, string>,
-  activePlatforms?: Record<string, boolean>,
-) {
-  return fields
-    .filter((field) => {
-      const platform = "platform" in field ? field.platform : null;
-      if (!platform || !activePlatforms) return Boolean(values[field.name]);
-      return Boolean(activePlatforms[platform] && values[field.name]);
-    })
-    .map((field) => ({
-      label:
-        "other" in field && field.other && values.platform_other_name
-          ? values.platform_other_name
-          : field.label,
-      url: values[field.name],
-    }));
-}
-
-function LinkSummary({ title, links }: { title: string; links: { label: string; url: string }[] }) {
-  return (
-    <div className="rounded-[18px] border border-[var(--bb-border)] bg-white/45 p-4">
-      <p className="text-sm font-extrabold text-[var(--bb-charcoal)]">{title}</p>
-      {links.length ? (
-        <div className="mt-3 grid gap-2">
-          {links.map((link) => (
-            <a
-              key={`${link.label}-${link.url}`}
-              href={link.url}
-              target="_blank"
-              rel="noreferrer"
-              className="truncate rounded-full bg-white/70 px-3 py-2 text-xs font-bold text-[var(--bb-charcoal)] transition hover:bg-[var(--bb-primary-soft)]"
-            >
-              {link.label}
-            </a>
-          ))}
-        </div>
-      ) : (
-        <p className="mt-3 text-sm font-semibold text-[var(--bb-muted)]">Sem links preenchidos.</p>
-      )}
-    </div>
-  );
-}
-
-function SectionTitle({ title }: { title: string }) {
-  return <h2 className="text-lg font-extrabold text-[var(--bb-charcoal)]">{title}</h2>;
-}
-
-function AccordionBlock({
-  title,
-  description,
-  open,
-  onToggle,
-  children,
-}: {
-  title: string;
-  description: string;
-  open: boolean;
-  onToggle: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      className={`rounded-[18px] border bg-white/35 transition ${
-        open ? "border-[rgba(83,183,223,0.42)] shadow-[0_12px_32px_rgba(0,0,0,0.04)]" : "border-[var(--bb-border)]"
-      }`}
-    >
-      <button
-        type="button"
-        onClick={onToggle}
-        className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition hover:bg-white/35 ${
-          open ? "bg-[rgba(83,183,223,0.08)]" : ""
-        }`}
-        aria-expanded={open}
-      >
-        <span>
-          <span className="block text-sm font-extrabold text-[var(--bb-charcoal)]">{title}</span>
-          <span className="mt-0.5 block text-xs font-semibold text-[var(--bb-muted)]">{description}</span>
-        </span>
-        <ChevronDown
-          className={`size-4 shrink-0 text-[var(--bb-muted)] transition ${open ? "rotate-180 text-[var(--bb-charcoal)]" : ""}`}
-          aria-hidden="true"
-        />
-      </button>
-      <div className={`border-t border-[var(--bb-border)] bg-white/25 px-4 pb-3 pt-3 ${open ? "block" : "hidden"}`}>
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function FieldsGrid({ fields }: { fields: LinkField[] }) {
-  return (
-    <div className="grid gap-2.5 md:grid-cols-2">
-      {fields.map((field) => (
-        <label key={field.name} className="grid gap-1.5 text-xs font-extrabold uppercase text-[var(--bb-muted)]">
-          {field.label}
-          <input
-            name={field.name}
-            type="url"
-            placeholder="Colar link"
-            className={`${compactInputClass} w-full md:max-w-[380px]`}
-          />
-        </label>
-      ))}
-    </div>
-  );
-}
-
-function PlatformRow({
-  field,
-  active,
-  onToggle,
-}: {
-  field: PlatformField;
-  active: boolean;
-  onToggle: (platform: string, checked: boolean) => void;
-}) {
-  return (
-    <div
-      className={`rounded-[14px] border px-3 py-1.5 transition hover:bg-white/50 ${
-        active ? "border-[rgba(83,183,223,0.44)] bg-white/70" : "border-transparent bg-transparent"
-      }`}
-    >
-      <div className="flex min-h-9 flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-        <label className="flex min-h-8 min-w-0 flex-[0_0_170px] items-center gap-2 text-sm font-extrabold text-[var(--bb-charcoal)]">
-          <input
-            name="platforms"
-            type="checkbox"
-            value={field.platform}
-            checked={active}
-            onChange={(event) => onToggle(field.platform, event.target.checked)}
-            className="size-4 accent-[var(--bb-primary)]"
-          />
-          <span className="truncate">{field.platform}</span>
-        </label>
-        {active ? (
-          field.other ? (
-            <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-[minmax(90px,130px)_minmax(0,180px)]">
-              <input name="platform_other_name" placeholder="Nome" className={`${compactInputClass} w-full`} />
-              <input name={field.name} type="url" placeholder="Colar link" className={`${compactInputClass} w-full`} />
-            </div>
-          ) : (
-            <input
-              name={field.name}
-              type="url"
-              placeholder="Colar link"
-              className={`${compactInputClass} min-w-0 flex-1 sm:max-w-[220px] lg:max-w-[260px]`}
-            />
-          )
-        ) : null}
-      </div>
+      <p className="mt-1 break-words text-sm font-bold text-[var(--bb-charcoal)]">{value || "-"}</p>
     </div>
   );
 }

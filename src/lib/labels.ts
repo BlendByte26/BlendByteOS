@@ -15,10 +15,8 @@ export const clientTypeLabels: Record<ClientType, string> = {
 };
 
 export const clientStatusLabels: Record<ClientStatus, string> = {
-  setup: "Em setup",
   active: "Ativo",
-  paused: "Pausado",
-  archived: "Arquivado",
+  inactive: "Inativo",
 };
 
 export const contentStatusLabels: Record<ContentStatus, string> = {
@@ -61,9 +59,8 @@ export const statusTone: Record<string, string> = {
   delivered: "bg-[var(--bb-gray-blue-soft)] text-[var(--bb-black)] ring-[rgba(0,0,0,0.08)]",
   archived: "bg-[rgba(0,0,0,0.06)] text-[var(--bb-muted)] ring-[rgba(0,0,0,0.08)]",
   blocked: "bg-[var(--bb-red-soft)] text-[#8f2415] ring-[rgba(232,76,49,0.24)]",
-  setup: "bg-[var(--bb-yellow-soft)] text-[var(--bb-black)] ring-[rgba(236,254,84,0.5)]",
   active: "bg-[var(--bb-primary-soft)] text-[var(--bb-black)] ring-[rgba(83,183,223,0.28)]",
-  paused: "bg-[var(--bb-orange-soft)] text-[var(--bb-black)] ring-[rgba(254,112,35,0.22)]",
+  inactive: "bg-[rgba(0,0,0,0.06)] text-[var(--bb-muted)] ring-[rgba(0,0,0,0.08)]",
   done: "bg-[var(--bb-gray-blue-soft)] text-[var(--bb-black)] ring-[rgba(0,0,0,0.08)]",
   urgent: "bg-[var(--bb-red-soft)] text-[#8f2415] ring-[rgba(232,76,49,0.24)]",
   normal: "bg-[rgba(0,0,0,0.05)] text-[var(--bb-black)] ring-[rgba(0,0,0,0.08)]",

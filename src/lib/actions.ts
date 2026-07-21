@@ -19,7 +19,7 @@ import {
 import { buildInvest2030TaskSummary } from "./invest2030-notes";
 import { invest2030PublicHref, isInvest2030PublicAccessToken } from "./invest2030-public";
 import { parseLinksFormData } from "./links";
-import { baseChecklist } from "./onboarding";
+import { buildClientCode, normalizeClientShortName } from "./client-profile";
 import {
   getDesignProfile,
   isOperationalProfileKey,
@@ -52,7 +52,6 @@ import type {
   QuickTodoItemType,
   QuickTodoView,
   ServiceType,
-  SetupChecklistItem,
   Task,
   TaskComment,
   TaskPriority,
@@ -199,26 +198,6 @@ function serviceTypesValue(formData: FormData) {
   return Array.from(new Set([...selected, ...(fallback ? [fallback] : [])]));
 }
 
-function setupChecklistValue(formData: FormData): SetupChecklistItem[] {
-  const completed = new Set(
-    formData
-      .getAll("setup_checklist")
-      .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
-      .map((value) => value.trim()),
-  );
-
-  return baseChecklist.map((label) => ({ label, done: completed.has(label) }));
-}
-
-function sanitizeChecklist(items: SetupChecklistItem[]) {
-  return items
-    .map((item) => ({
-      label: typeof item.label === "string" ? item.label.trim() : "",
-      done: Boolean(item.done),
-    }))
-    .filter((item) => item.label.length > 0);
-}
-
 function checked(formData: FormData, key: string) {
   return formData.get(key) === "on";
 }
@@ -257,13 +236,6 @@ function initialTaskPriority(title: string): TaskPriority {
   if (title === "Criar primeira tarefa de reporting") return "low";
 
   return "normal";
-}
-
-function numberValue(formData: FormData, key: string) {
-  const value = text(formData, key);
-  if (!value) return null;
-  const normalized = Number(value.replace(",", "."));
-  return Number.isFinite(normalized) ? normalized : null;
 }
 
 type SupabaseClient = NonNullable<Awaited<ReturnType<typeof getSupabase>>>;
@@ -410,20 +382,30 @@ export async function createClientAction(formData: FormData): Promise<CreateClie
   }
 
   try {
+    const clientId = randomUUID();
+    const name = requiredText(formData, "name");
+    const shortName = normalizeClientShortName(text(formData, "short_name") ?? name);
+    const displayOrder = await getNextClientDisplayOrder(supabase);
+    if (!shortName) throw new Error("Não foi possível gerar o formato do cliente.");
+    if (!displayOrder) throw new Error("Não foi possível calcular o código do cliente.");
+
+    const file = clientLogoFile(formData);
+    const uploadedLogo = file ? await uploadClientLogo(supabase, clientId, file) : null;
     const payload = {
-      name: requiredText(formData, "name"),
-      client_code: text(formData, "client_code"),
-      short_name: text(formData, "short_name"),
-      display_order: await getNextClientDisplayOrder(supabase),
-      logo_url: text(formData, "logo_url"),
+      id: clientId,
+      name,
+      client_code: buildClientCode(displayOrder, shortName),
+      short_name: shortName,
+      display_order: displayOrder,
+      logo_url: uploadedLogo?.publicUrl ?? null,
       color_key: clientColorKeyValue(formData),
       type: requiredText(formData, "type") as ClientType,
-      status: requiredText(formData, "status") as ClientStatus,
+      status: (text(formData, "status") ?? "active") as ClientStatus,
       owner_name: text(formData, "owner_name"),
       service_type: (serviceTypesValue(formData)[0] ?? null) as ServiceType | null,
       service_types: serviceTypesValue(formData),
-      monthly_value: numberValue(formData, "monthly_value"),
       contract_value: text(formData, "contract_value"),
+      monthly_value: null,
       start_date: text(formData, "start_date"),
       contract_duration: text(formData, "contract_duration"),
       platforms: platforms(formData),
@@ -437,11 +419,11 @@ export async function createClientAction(formData: FormData): Promise<CreateClie
       crm_newsletter_url: text(formData, "crm_newsletter_url"),
       platform_other_url: text(formData, "platform_other_url"),
       drive_url: text(formData, "drive_url"),
+      google_drive_url: null,
+      onedrive_url: null,
       figma_url: text(formData, "figma_url"),
+      figma_project_url: null,
       meta_url: text(formData, "meta_url"),
-      google_drive_url: text(formData, "google_drive_url"),
-      onedrive_url: text(formData, "onedrive_url"),
-      figma_project_url: text(formData, "figma_project_url"),
       content_calendar_url: text(formData, "content_calendar_url"),
       final_deliverables_url: text(formData, "final_deliverables_url"),
       proposal_url: text(formData, "proposal_url"),
@@ -449,12 +431,13 @@ export async function createClientAction(formData: FormData): Promise<CreateClie
       adjudication_url: text(formData, "adjudication_url"),
       budget_url: text(formData, "budget_url"),
       other_documents_url: text(formData, "other_documents_url"),
+      brand_guidelines_url: text(formData, "brand_guidelines_url"),
       brand_assets_url: text(formData, "brand_assets_url"),
-      setup_checklist: setupChecklistValue(formData),
       reporting_url: text(formData, "reporting_url"),
       initial_briefing_url: text(formData, "initial_briefing_url"),
       conditions_url: text(formData, "conditions_url"),
       linkedin_campaign_manager_url: text(formData, "linkedin_campaign_manager_url"),
+      setup_checklist: null,
       notes: text(formData, "notes"),
     };
     const { data, error } = await supabase
@@ -465,6 +448,9 @@ export async function createClientAction(formData: FormData): Promise<CreateClie
 
     if (error) {
       console.error("Erro ao criar cliente", { code: error.code });
+      if (uploadedLogo) {
+        await supabase.storage.from(CLIENT_LOGOS_BUCKET).remove([uploadedLogo.path]);
+      }
       return { ok: false, message: error.message };
     }
 
@@ -483,11 +469,7 @@ export async function createClientAction(formData: FormData): Promise<CreateClie
             priority: initialTaskPriority(title),
             assignee_name: data.owner_name,
             due_date: null,
-            related_url:
-              payload.google_drive_url ??
-              payload.onedrive_url ??
-              payload.figma_project_url ??
-              null,
+            related_url: payload.drive_url ?? payload.figma_url ?? null,
             is_blocked: false,
             blocker_reason: null,
             notes: "Gerada no fluxo Novo Cliente.",
@@ -530,13 +512,13 @@ export async function updateClientAction(id: string, formData: FormData) {
   const removeLogo = checked(formData, "remove_logo");
   const uploadedLogo = file ? await uploadClientLogo(supabase, id, file) : null;
   const nextLogoUrl = uploadedLogo?.publicUrl ?? (removeLogo ? null : currentLogoUrl);
+  const shortName = normalizeClientShortName(requiredText(formData, "short_name"));
+  if (!shortName) throw new Error("O formato do cliente é obrigatório.");
   const { error } = await supabase
     .from("clients")
     .update({
       name: requiredText(formData, "name"),
-      client_code: text(formData, "client_code"),
-      short_name: text(formData, "short_name"),
-      display_order: numberValue(formData, "display_order"),
+      short_name: shortName,
       logo_url: nextLogoUrl,
       color_key: clientColorKeyValue(formData),
       type: requiredText(formData, "type") as ClientType,
@@ -544,7 +526,6 @@ export async function updateClientAction(id: string, formData: FormData) {
       owner_name: text(formData, "owner_name"),
       service_type: (serviceTypesValue(formData)[0] ?? null) as ServiceType | null,
       service_types: serviceTypesValue(formData),
-      monthly_value: numberValue(formData, "monthly_value"),
       contract_value: text(formData, "contract_value"),
       start_date: text(formData, "start_date"),
       contract_duration: text(formData, "contract_duration"),
@@ -561,9 +542,6 @@ export async function updateClientAction(id: string, formData: FormData) {
       drive_url: text(formData, "drive_url"),
       figma_url: text(formData, "figma_url"),
       meta_url: text(formData, "meta_url"),
-      google_drive_url: text(formData, "google_drive_url"),
-      onedrive_url: text(formData, "onedrive_url"),
-      figma_project_url: text(formData, "figma_project_url"),
       content_calendar_url: text(formData, "content_calendar_url"),
       final_deliverables_url: text(formData, "final_deliverables_url"),
       proposal_url: text(formData, "proposal_url"),
@@ -571,6 +549,7 @@ export async function updateClientAction(id: string, formData: FormData) {
       adjudication_url: text(formData, "adjudication_url"),
       budget_url: text(formData, "budget_url"),
       other_documents_url: text(formData, "other_documents_url"),
+      brand_guidelines_url: text(formData, "brand_guidelines_url"),
       brand_assets_url: text(formData, "brand_assets_url"),
       reporting_url: text(formData, "reporting_url"),
       initial_briefing_url: text(formData, "initial_briefing_url"),
@@ -597,65 +576,6 @@ export async function updateClientAction(id: string, formData: FormData) {
   refreshAll();
   revalidatePath(`/clients/${id}`);
   redirect(`/clients/${id}`);
-}
-
-export async function updateClientSetupChecklistAction(
-  id: string,
-  checklist: SetupChecklistItem[],
-) {
-  await requireRole(["admin", "marketing"]);
-  const supabase = await supabaseOrError();
-  const payload = sanitizeChecklist(checklist);
-  const { error } = await supabase
-    .from("clients")
-    .update({ setup_checklist: payload })
-    .eq("id", id);
-
-  if (error) throw new Error(error.message);
-  revalidatePath(`/clients/${id}`);
-  revalidatePath("/clients");
-  return payload;
-}
-
-export async function createDefaultClientChecklistAction(id: string) {
-  return updateClientSetupChecklistAction(
-    id,
-    baseChecklist.map((label) => ({ label, done: false })),
-  );
-}
-
-export async function updateClientLinksAction(id: string, formData: FormData) {
-  await requireRole(["admin", "marketing"]);
-  const supabase = await supabaseOrError();
-  const payload = {
-    google_drive_url: text(formData, "google_drive_url"),
-    onedrive_url: text(formData, "onedrive_url"),
-    figma_project_url: text(formData, "figma_project_url"),
-    final_deliverables_url: text(formData, "final_deliverables_url"),
-    content_calendar_url: text(formData, "content_calendar_url"),
-    reporting_url: text(formData, "reporting_url"),
-    proposal_url: text(formData, "proposal_url"),
-    contract_url: text(formData, "contract_url"),
-    adjudication_url: text(formData, "adjudication_url"),
-    brand_assets_url: text(formData, "brand_assets_url"),
-    initial_briefing_url: text(formData, "initial_briefing_url"),
-    conditions_url: text(formData, "conditions_url"),
-    website_url: text(formData, "website_url"),
-    instagram_url: text(formData, "instagram_url"),
-    facebook_url: text(formData, "facebook_url"),
-    linkedin_url: text(formData, "linkedin_url"),
-    tiktok_url: text(formData, "tiktok_url"),
-    youtube_url: text(formData, "youtube_url"),
-    meta_url: text(formData, "meta_url"),
-    linkedin_campaign_manager_url: text(formData, "linkedin_campaign_manager_url"),
-    crm_newsletter_url: text(formData, "crm_newsletter_url"),
-  };
-  const { error } = await supabase.from("clients").update(payload).eq("id", id);
-
-  if (error) throw new Error(error.message);
-  revalidatePath(`/clients/${id}`);
-  revalidatePath("/clients");
-  return payload;
 }
 
 export async function deleteClientAction(id: string) {

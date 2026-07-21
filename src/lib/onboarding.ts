@@ -55,9 +55,8 @@ export function getClientMissingSetup(client: Client) {
   if (!client.service_types?.length && !client.service_type) missing.push("serviço contratado");
   if (!client.start_date) missing.push("data de início");
   if (!client.platforms?.length) missing.push("canais/plataformas");
-  if (!client.google_drive_url) missing.push("Google Drive");
-  if (!client.onedrive_url) missing.push("OneDrive");
-  if (!client.figma_project_url) missing.push("Figma");
+  if (!client.drive_url) missing.push("Drive de materiais");
+  if (!client.figma_url) missing.push("Figma");
   if (!client.proposal_url) missing.push("proposta");
   if (!client.contract_url && !client.adjudication_url) missing.push("contrato/adjudicação");
   if (!client.brand_assets_url) missing.push("brand assets");
@@ -82,8 +81,8 @@ export function getClientChecklist(client: Client, tasks: Task[], contentCount: 
 export function getDerivedClientChecklist(client: Client, tasks: Task[], contentCount: number) {
   return getChecklistLabels(client.service_types?.length ? client.service_types : client.service_type).map((label): ChecklistItem => {
     const completed =
-      (label === "Criar pasta Drive/OneDrive" && Boolean(client.google_drive_url || client.onedrive_url)) ||
-      (label === "Criar ficheiro/projeto Figma" && Boolean(client.figma_project_url)) ||
+      (label === "Criar pasta Drive/OneDrive" && Boolean(client.drive_url)) ||
+      (label === "Criar ficheiro/projeto Figma" && Boolean(client.figma_url)) ||
       (label === "Guardar proposta" && Boolean(client.proposal_url)) ||
       (label === "Guardar contrato/adjudicação" && Boolean(client.contract_url || client.adjudication_url)) ||
       (label === "Recolher brand assets" && Boolean(client.brand_assets_url)) ||

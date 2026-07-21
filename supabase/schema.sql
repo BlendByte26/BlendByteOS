@@ -14,11 +14,9 @@ alter type client_type add value if not exists 'grupo_investe';
 alter type client_type add value if not exists 'partner';
 
 do $$ begin
-  create type client_status as enum ('setup', 'active', 'paused', 'archived');
+  create type client_status as enum ('active', 'inactive');
 exception when duplicate_object then null;
 end $$;
-
-alter type client_status add value if not exists 'setup';
 
 do $$ begin
   create type content_status as enum (
@@ -62,7 +60,7 @@ create table if not exists public.clients (
   logo_url text,
   color_key text,
   type client_type not null default 'external',
-  status client_status not null default 'setup',
+  status client_status not null default 'active',
   owner_name text,
   service_type text,
   service_types text[] not null default '{}',
@@ -93,6 +91,7 @@ create table if not exists public.clients (
   adjudication_url text,
   budget_url text,
   other_documents_url text,
+  brand_guidelines_url text,
   brand_assets_url text,
   setup_checklist jsonb,
   reporting_url text,
@@ -287,6 +286,7 @@ alter table public.clients add column if not exists contract_url text;
 alter table public.clients add column if not exists adjudication_url text;
 alter table public.clients add column if not exists budget_url text;
 alter table public.clients add column if not exists other_documents_url text;
+alter table public.clients add column if not exists brand_guidelines_url text;
 alter table public.clients add column if not exists brand_assets_url text;
 alter table public.clients add column if not exists setup_checklist jsonb;
 alter table public.clients add column if not exists reporting_url text;
@@ -773,7 +773,7 @@ values
   ('Esportzy', '03_ESP', 'ESP', 3, null, 'violet', 'external', 'active', 'Rita', 'Gestão de Redes Sociais', 900, date '2026-07-07', '6 meses', array['Instagram', 'TikTok'], null, null, null, null, null, null, null, null, null, null, null),
   ('Leões de Porto Salvo', '04_LPS', 'LPS', 4, null, 'emerald', 'external', 'active', 'João', 'Evento / Cobertura', null, date '2026-07-08', 'Projeto', array['Instagram', 'Facebook'], null, null, null, null, null, null, null, null, null, null, null),
   ('Junta de Freguesia de Porto Salvo', '05_JFPS', 'JFPS', 5, null, 'orange', 'external', 'active', 'Marta', 'Comunicação Interna Grupo', null, date '2026-07-09', 'Projeto', array['Facebook', 'Instagram'], null, null, null, null, null, null, null, null, null, null, null),
-  ('Safe Vanguard', '06_SVG', 'SVG', 6, null, 'red', 'external', 'paused', 'João', 'Branding', null, date '2026-07-05', 'Projeto', array['LinkedIn'], null, null, null, null, null, null, null, null, null, null, 'Cliente pausado para exemplo.'),
+  ('Safe Vanguard', '06_SVG', 'SVG', 6, null, 'red', 'external', 'inactive', 'João', 'Branding', null, date '2026-07-05', 'Projeto', array['LinkedIn'], null, null, null, null, null, null, null, null, null, null, 'Cliente inativo para exemplo.'),
   ('ROOTKey', '07_RK', 'RK', 7, null, 'cyan', 'external', 'active', 'Sofia', 'Landing Page', null, date '2026-07-06', 'Projeto', array['LinkedIn', 'Instagram'], null, null, null, null, null, 'https://figma.com/file/rootkey', null, null, null, null, null),
   ('CAT Power Tools', '08_CAT', 'CAT', 8, null, 'yellow', 'external', 'active', 'Rita', 'Gestão de Redes Sociais', 1200, date '2026-07-04', '6 meses', array['Instagram', 'Meta'], null, null, null, null, null, null, null, null, null, null, null)
 on conflict do nothing;
