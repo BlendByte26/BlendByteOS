@@ -361,6 +361,31 @@ export async function getQuickNotes(view: QuickTodoView, profileKey: Operational
   return data as QuickNote[];
 }
 
+export async function getPersonalQuickTodos(profileKey: OperationalProfileKey) {
+  const [marketing, design] = await Promise.all([
+    getQuickTodos("marketing", profileKey),
+    getQuickTodos("design", profileKey),
+  ]);
+
+  return Array.from(new Map([...marketing, ...design].map((todo) => [todo.id, todo])).values()).sort(
+    (first, second) => {
+      if (first.done !== second.done) return Number(first.done) - Number(second.done);
+      return second.created_at.localeCompare(first.created_at);
+    },
+  );
+}
+
+export async function getPersonalQuickNotes(profileKey: OperationalProfileKey) {
+  const [marketing, design] = await Promise.all([
+    getQuickNotes("marketing", profileKey),
+    getQuickNotes("design", profileKey),
+  ]);
+
+  return Array.from(new Map([...marketing, ...design].map((note) => [note.id, note])).values()).sort(
+    (first, second) => second.updated_at.localeCompare(first.updated_at),
+  );
+}
+
 export async function getContentItems(filters: ContentFilters = {}) {
   const supabase = await getSupabase();
   const filteredMonth = isValidContentMonth(filters.month) ? filters.month : "";

@@ -10,33 +10,43 @@ import {
   updateQuickTodoAction,
 } from "@/lib/actions";
 import type { OperationalProfile } from "@/lib/operational-profiles";
-import type { QuickNote, QuickTodo, QuickTodoItemType, QuickTodoView } from "@/lib/types";
-import { EmptyState, Panel } from "@/components/ui";
+import type { QuickNote, QuickTodo } from "@/lib/types";
+import { Panel } from "@/components/ui";
 
-function ModalShell({
+const CANONICAL_PERSONAL_VIEW = "marketing" as const;
+
+function formData(profile: OperationalProfile, values: { text?: string; done?: boolean } = {}) {
+  const data = new FormData();
+  data.set("view", CANONICAL_PERSONAL_VIEW);
+  data.set("profile_key", profile.key);
+  data.set("item_type", "todo");
+  if (typeof values.text === "string") data.set("text", values.text);
+  if (values.done) data.set("done", "on");
+  return data;
+}
+
+function sortTodos(items: QuickTodo[]) {
+  return [...items].sort((first, second) => {
+    if (first.done !== second.done) return Number(first.done) - Number(second.done);
+    return second.created_at.localeCompare(first.created_at);
+  });
+}
+
+function Modal({
   title,
-  children,
   onClose,
-  disabled = false,
+  children,
 }: {
   title: string;
-  children: React.ReactNode;
   onClose: () => void;
-  disabled?: boolean;
+  children: React.ReactNode;
 }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/28 px-4 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-[20px] border border-[var(--bb-border)] bg-white p-4 shadow-[0_24px_70px_rgba(0,0,0,0.18)]">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/30 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label={title}>
+      <div className="max-h-[86vh] w-full max-w-2xl overflow-y-auto rounded-[22px] border border-[var(--bb-border)] bg-[var(--bb-bg)] p-4 shadow-[0_28px_80px_rgba(0,0,0,0.22)]">
         <div className="mb-3 flex items-center justify-between gap-3">
-          <h3 className="text-sm font-extrabold text-[var(--bb-charcoal)]">{title}</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={disabled}
-            aria-label="Fechar"
-            title="Fechar"
-            className="grid size-8 place-items-center rounded-full border border-[var(--bb-border)] bg-white/70 transition hover:bg-[var(--bb-primary-soft)] disabled:cursor-not-allowed disabled:opacity-55"
-          >
+          <h3 className="text-base font-extrabold">{title}</h3>
+          <button type="button" onClick={onClose} className="grid size-8 place-items-center rounded-full border border-[var(--bb-border)] bg-white" aria-label="Fechar">
             <X className="size-4" aria-hidden="true" />
           </button>
         </div>
@@ -46,529 +56,265 @@ function ModalShell({
   );
 }
 
-function getDayMoment(hour: number) {
-  if (hour >= 5 && hour < 12) {
-    return { greeting: "Bom dia", emoji: "☀️", tone: "bg-[var(--bb-yellow-soft)]" };
+function QuickNotePanel({ profile, notes }: { profile: OperationalProfile; notes: QuickNote[] }) {
+  const initialNote = notes[0] ?? null;
+  const [noteId, setNoteId] = useState<string | null>(initialNote?.id ?? null);
+  const [text, setText] = useState(initialNote?.text ?? "");
+  const [savedText, setSavedText] = useState(initialNote?.text ?? "");
+  const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
+
+  async function save() {
+    if (saving || text === savedText) return;
+    const normalized = text.trim();
+    if (!noteId && !normalized) {
+      setSavedText("");
+      return;
+    }
+    setSaving(true);
+    setFeedback(null);
+    const data = formData(profile, { text });
+    if (noteId) data.set("note_id", noteId);
+    const result = await saveQuickNoteAction(data);
+    setSaving(false);
+    if (!result.ok) {
+      setFeedback(result.message ?? "Não foi possível guardar a nota.");
+      return;
+    }
+    setNoteId(normalized ? result.note?.id ?? noteId : null);
+    setText(normalized);
+    setSavedText(normalized);
   }
-
-  if (hour >= 12 && hour < 20) {
-    return { greeting: "Boa tarde", emoji: "🌤️", tone: "bg-[var(--bb-primary-soft)]" };
-  }
-
-  return { greeting: "Boa noite", emoji: "🌙", tone: "bg-[var(--bb-secondary-soft)]" };
-}
-
-function capitalize(value: string) {
-  return value.charAt(0).toUpperCase() + value.slice(1);
-}
-
-function TodayPanel({ profile }: { profile: OperationalProfile }) {
-  const now = new Date();
-  const weekday = capitalize(new Intl.DateTimeFormat("pt-PT", { weekday: "long" }).format(now));
-  const date = new Intl.DateTimeFormat("pt-PT", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(now);
-  const dayMoment = getDayMoment(now.getHours());
 
   return (
-    <Panel className="overflow-hidden bg-[linear-gradient(135deg,rgba(255,255,255,0.95),rgba(83,183,223,0.14)_52%,rgba(236,254,84,0.18))] p-4">
-      <div className="flex h-full min-h-28 items-start justify-between gap-4">
-        <div className="min-w-0 self-center">
-          <p className="text-xl font-extrabold text-[var(--bb-charcoal)] md:text-2xl">
-            {dayMoment.greeting}, {profile.name} {dayMoment.emoji}
-          </p>
-          <p className="mt-3 text-sm font-extrabold text-[var(--bb-charcoal)]">{weekday}</p>
-          <p className="text-sm font-semibold leading-6 text-[var(--bb-muted)]">{date}</p>
+    <Panel className="p-3.5">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div>
+          <h2 className="text-sm font-extrabold">Nota rápida</h2>
+          <p className="text-[11px] font-bold text-[var(--bb-muted)]">Privada para {profile.name}</p>
         </div>
-        <span
-          className={`grid size-10 shrink-0 place-items-center rounded-full border border-white/72 text-lg shadow-[0_12px_26px_rgba(0,0,0,0.08)] ${dayMoment.tone}`}
-          aria-hidden="true"
+        <button
+          type="button"
+          onClick={save}
+          disabled={saving || text === savedText}
+          className="grid size-8 place-items-center rounded-full border border-[var(--bb-border)] bg-white/75 transition hover:bg-[var(--bb-primary-soft)] disabled:opacity-45"
+          aria-label="Guardar nota"
         >
-          {dayMoment.emoji}
-        </span>
+          {saving ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <Save className="size-3.5" aria-hidden="true" />}
+        </button>
       </div>
+      <textarea
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+        onBlur={save}
+        placeholder="Escreve aqui livremente..."
+        style={{ minHeight: "10rem" }}
+        className="bb-input w-full resize-none py-2.5 text-sm font-semibold leading-5"
+      />
+      {feedback ? <p className="mt-1.5 text-xs font-bold text-[#a73522]" role="status">{feedback}</p> : null}
     </Panel>
   );
 }
 
-function sortQuickTodos(items: QuickTodo[]) {
-  return [...items].sort((first, second) => {
-    if (first.done !== second.done) return Number(first.done) - Number(second.done);
-    return new Date(second.created_at).getTime() - new Date(first.created_at).getTime();
-  });
-}
-
-function quickTodoFormData({
-  view,
-  profileKey,
-  text,
-  itemType,
-  done,
+function TodoRow({
+  todo,
+  busy,
+  onToggle,
+  onEdit,
+  onDelete,
+  full = false,
 }: {
-  view: QuickTodoView;
-  profileKey: OperationalProfile["key"];
-  text?: string;
-  itemType?: QuickTodoItemType;
-  done?: boolean;
-}) {
-  const formData = new FormData();
-  formData.set("view", view);
-  formData.set("profile_key", profileKey);
-
-  if (typeof text === "string") formData.set("text", text);
-  if (itemType) formData.set("item_type", itemType);
-  if (done) formData.set("done", "on");
-
-  return formData;
-}
-
-function makePendingTodo({
-  view,
-  profileKey,
-  text,
-}: {
-  view: QuickTodoView;
-  profileKey: OperationalProfile["key"];
-  text: string;
-}): QuickTodo {
-  const now = new Date().toISOString();
-
-  return {
-    id: `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    view,
-    profile_key: profileKey,
-    text,
-    item_type: "todo",
-    done: false,
-    created_at: now,
-    updated_at: now,
-  };
-}
-
-function actionErrorMessage(result: { ok: boolean; message?: string }, fallback: string) {
-  if (result.message?.includes("constraint")) return fallback;
-  return result.ok ? fallback : result.message ?? fallback;
-}
-
-export function QuickTodosPanel({
-  view,
-  profile,
-  todos,
-  notes,
-}: {
-  view: QuickTodoView;
-  profile: OperationalProfile;
-  todos: QuickTodo[];
-  notes: QuickNote[];
+  todo: QuickTodo;
+  busy: boolean;
+  onToggle: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  full?: boolean;
 }) {
   return (
-    <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-      <TodayPanel profile={profile} />
-      <QuickTodosList
-        key={`${view}-${profile.key}`}
-        view={view}
-        profile={profile}
-        todos={todos}
-        notes={notes}
-        expanded
-      />
+    <div className={`flex min-h-9 w-full max-w-full items-center gap-2 overflow-hidden rounded-[12px] border border-[var(--bb-border)] bg-white/65 px-2 py-1 ${todo.done ? "opacity-60" : ""}`}>
+      <button
+        type="button"
+        onClick={onToggle}
+        disabled={busy}
+        role="checkbox"
+        aria-checked={todo.done}
+        aria-label={todo.done ? "Reabrir to-do" : "Concluir to-do"}
+        className={`grid size-7 shrink-0 place-items-center rounded-lg border ${todo.done ? "border-[var(--bb-primary)] bg-[var(--bb-primary)]" : "border-[var(--bb-border)] bg-white"}`}
+      >
+        {busy ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <Check className={`size-4 ${todo.done ? "opacity-100" : "opacity-0"}`} aria-hidden="true" />}
+      </button>
+      <button type="button" onClick={onEdit} disabled={busy} className={`block min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-left text-sm font-bold ${todo.done ? "line-through" : ""}`}>
+        <span className="block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{todo.text}</span>
+      </button>
+      {full ? (
+        <>
+          <button type="button" onClick={onEdit} disabled={busy} className="grid size-7 place-items-center rounded-full hover:bg-[var(--bb-primary-soft)]" aria-label="Editar to-do">
+            <Pencil className="size-3.5" aria-hidden="true" />
+          </button>
+          <button type="button" onClick={onDelete} disabled={busy} className="grid size-7 place-items-center rounded-full text-[#a73522] hover:bg-[var(--bb-red-soft)]" aria-label="Apagar to-do">
+            <Trash2 className="size-3.5" aria-hidden="true" />
+          </button>
+        </>
+      ) : null}
     </div>
   );
 }
 
-function QuickTodosList({
-  view,
-  profile,
-  todos,
-  notes,
-  expanded = false,
-}: {
-  view: QuickTodoView;
-  profile: OperationalProfile;
-  todos: QuickTodo[];
-  notes: QuickNote[];
-  expanded?: boolean;
-}) {
-  const initialNote = notes[0] ?? null;
-  const [localTodos, setLocalTodos] = useState(() => sortQuickTodos(todos.filter((todo) => todo.item_type === "todo")));
-  const [editingReminder, setEditingReminder] = useState<QuickTodo | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
-  const [isSavingEdit, setIsSavingEdit] = useState(false);
-  const [isSavingNote, setIsSavingNote] = useState(false);
-  const [noteId, setNoteId] = useState<string | null>(initialNote?.id ?? null);
-  const [noteText, setNoteText] = useState(initialNote?.text ?? "");
-  const [savedNoteText, setSavedNoteText] = useState(initialNote?.text ?? "");
-  const [togglingIds, setTogglingIds] = useState<Set<string>>(() => new Set());
-  const [deletingIds, setDeletingIds] = useState<Set<string>>(() => new Set());
+function QuickTodosList({ profile, todos }: { profile: OperationalProfile; todos: QuickTodo[] }) {
+  const [items, setItems] = useState(() => sortTodos(todos.filter((todo) => todo.item_type === "todo")));
+  const [busyIds, setBusyIds] = useState<Set<string>>(() => new Set());
+  const [creating, setCreating] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+  const [editing, setEditing] = useState<QuickTodo | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const pending = useMemo(() => items.filter((todo) => !todo.done), [items]);
+  const dashboardItems = pending.slice(0, 5);
 
-  const visibleTodos = useMemo(() => sortQuickTodos(localTodos), [localTodos]);
-  const noteIsSaved = noteText === savedNoteText;
-  const noteSaveLabel = isSavingNote ? "A guardar notas" : noteIsSaved ? "Notas guardadas" : "Guardar notas";
-  const expandedPanelClasses =
-    "rounded-[24px] border border-[rgba(0,0,0,0.11)] bg-[rgba(255,255,255,0.86)] p-3.5 shadow-[0_18px_52px_rgba(0,0,0,0.08)] backdrop-blur-xl transition duration-200 hover:-translate-y-0.5 hover:border-[rgba(0,0,0,0.15)] hover:shadow-[0_24px_64px_rgba(0,0,0,0.11)]";
-
-  function setItemPending(setter: React.Dispatch<React.SetStateAction<Set<string>>>, id: string, isPending: boolean) {
-    setter((current) => {
+  function setBusy(id: string, busy: boolean) {
+    setBusyIds((current) => {
       const next = new Set(current);
-      if (isPending) {
-        next.add(id);
-      } else {
-        next.delete(id);
-      }
+      if (busy) next.add(id); else next.delete(id);
       return next;
     });
   }
 
-  async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
+  async function create(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (isCreating) return;
-
+    if (creating) return;
     const form = event.currentTarget;
-    const formData = new FormData(form);
-    const text = String(formData.get("text") ?? "").trim();
-
+    const data = new FormData(form);
+    const text = String(data.get("text") ?? "").trim();
     if (!text) return;
-
-    const pendingTodo = makePendingTodo({
-      view,
-      profileKey: profile.key,
-      text,
-    });
-
+    setCreating(true);
     setFeedback(null);
-    setIsCreating(true);
-    setLocalTodos((current) => sortQuickTodos([pendingTodo, ...current]));
+    const result = await createQuickTodoAction(formData(profile, { text }));
+    setCreating(false);
+    if (!result.ok || !result.todo) {
+      setFeedback(result.message ?? "Não foi possível adicionar o to-do.");
+      return;
+    }
+    setItems((current) => sortTodos([result.todo!, ...current]));
     form.reset();
-
-    const result = await createQuickTodoAction(
-      quickTodoFormData({
-        view,
-        profileKey: profile.key,
-        text,
-        itemType: "todo",
-      }),
-    );
-
-    setIsCreating(false);
-
-    if (!result.ok || !result.todo) {
-      setLocalTodos((current) => current.filter((todo) => todo.id !== pendingTodo.id));
-      setFeedback(actionErrorMessage(result, "Não foi possível guardar. Tenta novamente."));
-      return;
-    }
-
-    setLocalTodos((current) =>
-      sortQuickTodos(current.map((todo) => (todo.id === pendingTodo.id ? result.todo : todo))),
-    );
   }
 
-  async function handleToggle(todo: QuickTodo) {
-    if (todo.id.startsWith("temp-") || togglingIds.has(todo.id) || deletingIds.has(todo.id)) return;
-
+  async function toggle(todo: QuickTodo) {
+    if (busyIds.has(todo.id)) return;
+    setBusy(todo.id, true);
     const nextDone = !todo.done;
-    const previousTodo = todo;
-
-    setFeedback(null);
-    setItemPending(setTogglingIds, todo.id, true);
-    setLocalTodos((current) =>
-      sortQuickTodos(current.map((item) => (item.id === todo.id ? { ...item, done: nextDone } : item))),
-    );
-
-    const result = await toggleQuickTodoAction(
-      todo.id,
-      quickTodoFormData({
-        view,
-        profileKey: profile.key,
-        done: nextDone,
-      }),
-    );
-
-    setItemPending(setTogglingIds, todo.id, false);
-
+    setItems((current) => sortTodos(current.map((item) => item.id === todo.id ? { ...item, done: nextDone } : item)));
+    const result = await toggleQuickTodoAction(todo.id, formData(profile, { done: nextDone }));
+    setBusy(todo.id, false);
     if (!result.ok || !result.todo) {
-      setLocalTodos((current) =>
-        sortQuickTodos(current.map((item) => (item.id === previousTodo.id ? previousTodo : item))),
-      );
-      setFeedback(actionErrorMessage(result, "Não foi possível atualizar. Tenta novamente."));
+      setItems((current) => sortTodos(current.map((item) => item.id === todo.id ? todo : item)));
+      setFeedback(result.message ?? "Não foi possível atualizar o to-do.");
       return;
     }
-
-    setLocalTodos((current) =>
-      sortQuickTodos(current.map((item) => (item.id === todo.id ? result.todo : item))),
-    );
+    setItems((current) => sortTodos(current.map((item) => item.id === todo.id ? result.todo! : item)));
   }
 
-  async function handleDelete(todo: QuickTodo) {
-    if (todo.id.startsWith("temp-") || deletingIds.has(todo.id)) return;
-    if (
-      !window.confirm(
-        `Apagar definitivamente este to-do?\n\n"${todo.text}"\n\nEsta ação não pode ser anulada.`,
-      )
-    ) {
-      return;
-    }
-
-    const deletedTodo = todo;
-
-    setFeedback(null);
-    setItemPending(setDeletingIds, todo.id, true);
-    setLocalTodos((current) => current.filter((item) => item.id !== todo.id));
-
-    const result = await deleteQuickTodoAction(
-      todo.id,
-      quickTodoFormData({
-        view,
-        profileKey: profile.key,
-      }),
-    );
-
-    setItemPending(setDeletingIds, todo.id, false);
-
+  async function remove(todo: QuickTodo) {
+    if (!window.confirm(`Apagar definitivamente este to-do?\n\n“${todo.text}”`)) return;
+    setBusy(todo.id, true);
+    const result = await deleteQuickTodoAction(todo.id, formData(profile));
+    setBusy(todo.id, false);
     if (!result.ok) {
-      setLocalTodos((current) =>
-        current.some((item) => item.id === deletedTodo.id)
-          ? current
-          : sortQuickTodos([deletedTodo, ...current]),
-      );
-      setFeedback(actionErrorMessage(result, "Não foi possível apagar. Tenta novamente."));
+      setFeedback(result.message ?? "Não foi possível apagar o to-do.");
+      return;
     }
+    setItems((current) => current.filter((item) => item.id !== todo.id));
   }
 
-  async function handleUpdate(event: React.FormEvent<HTMLFormElement>) {
+  async function update(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!editingReminder || isSavingEdit) return;
-
-    const formData = new FormData(event.currentTarget);
-    const text = String(formData.get("text") ?? "").trim();
-    const originalTodo = editingReminder;
-
+    if (!editing) return;
+    const text = String(new FormData(event.currentTarget).get("text") ?? "").trim();
     if (!text) return;
-
-    setFeedback(null);
-    setIsSavingEdit(true);
-    setLocalTodos((current) =>
-      sortQuickTodos(current.map((todo) => (todo.id === originalTodo.id ? { ...todo, text } : todo))),
-    );
-
-    const result = await updateQuickTodoAction(
-      originalTodo.id,
-      quickTodoFormData({
-        view,
-        profileKey: profile.key,
-        text,
-      }),
-    );
-
-    setIsSavingEdit(false);
-
+    const original = editing;
+    setBusy(original.id, true);
+    const result = await updateQuickTodoAction(original.id, formData(profile, { text }));
+    setBusy(original.id, false);
     if (!result.ok || !result.todo) {
-      setLocalTodos((current) =>
-        sortQuickTodos(current.map((todo) => (todo.id === originalTodo.id ? originalTodo : todo))),
-      );
-      setFeedback(actionErrorMessage(result, "Não foi possível guardar. Tenta novamente."));
+      setFeedback(result.message ?? "Não foi possível editar o to-do.");
       return;
     }
-
-    setLocalTodos((current) =>
-      sortQuickTodos(current.map((todo) => (todo.id === originalTodo.id ? result.todo : todo))),
-    );
-    setEditingReminder(null);
+    setItems((current) => sortTodos(current.map((item) => item.id === original.id ? result.todo! : item)));
+    setEditing(null);
   }
-
-  async function handleSaveNote() {
-    if (isSavingNote || noteText === savedNoteText) return;
-
-    const normalizedNoteText = noteText.trim();
-
-    if (!noteId && !normalizedNoteText) {
-      setFeedback(null);
-      setSavedNoteText("");
-      return;
-    }
-
-    setFeedback(null);
-    setIsSavingNote(true);
-
-    const formData = quickTodoFormData({
-      view,
-      profileKey: profile.key,
-      text: noteText,
-    });
-
-    if (noteId) formData.set("note_id", noteId);
-
-    const result = await saveQuickNoteAction(formData);
-
-    setIsSavingNote(false);
-
-    if (!result.ok) {
-      setFeedback(actionErrorMessage(result, "Não foi possível guardar as notas."));
-      return;
-    }
-
-    if (result.note) setNoteId(result.note.id);
-    if (!normalizedNoteText) setNoteId(null);
-    setSavedNoteText(normalizedNoteText);
-    setNoteText(normalizedNoteText);
-  }
-
-  const panelContent = (
-    <>
-        {feedback ? (
-          <div className="mb-2 flex justify-end">
-            <p className="rounded-full bg-[var(--bb-red-soft)] px-3 py-1 text-xs font-extrabold text-[#8f2415]" role="status">
-              {feedback}
-            </p>
-          </div>
-        ) : null}
-
-        <div className={expanded ? "contents" : "grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"}>
-          <section className={`min-w-0 ${expanded ? `order-2 lg:col-span-2 ${expandedPanelClasses}` : ""}`}>
-            <form onSubmit={handleCreate} className="mb-2.5 flex gap-2">
-              <input
-                name="text"
-                required
-                disabled={isCreating}
-                placeholder="Novo to-do"
-                className="bb-input h-10 min-w-0 flex-1 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-70"
-              />
-              <button
-                type="submit"
-                disabled={isCreating}
-                aria-label={isCreating ? "A adicionar" : "Adicionar to-do"}
-                title={isCreating ? "A adicionar" : "Adicionar to-do"}
-                className="grid size-10 shrink-0 place-items-center rounded-full bg-[var(--bb-black)] text-white shadow-[0_10px_22px_rgba(0,0,0,0.12)] transition hover:bg-[var(--bb-primary)] hover:text-[var(--bb-black)] focus:outline-none focus:ring-4 focus:ring-[var(--bb-primary-soft)] disabled:cursor-wait disabled:opacity-65"
-              >
-                {isCreating ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Plus className="size-4" aria-hidden="true" />}
-              </button>
-            </form>
-
-            {visibleTodos.length ? (
-              <div className="grid gap-1">
-                {visibleTodos.map((todo) => {
-                  const isTemporary = todo.id.startsWith("temp-");
-                  const isDeleting = deletingIds.has(todo.id);
-                  const isToggling = togglingIds.has(todo.id);
-
-                  return (
-                    <div
-                      key={todo.id}
-                      className={`flex min-h-9 items-center gap-2 rounded-[12px] border border-[var(--bb-border)] bg-white/58 px-2.5 py-1 transition ${
-                        todo.done ? "opacity-68" : ""
-                      } ${isTemporary || isDeleting ? "opacity-60" : ""}`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => handleToggle(todo)}
-                        disabled={isTemporary || isToggling || isDeleting}
-                        role="checkbox"
-                        aria-checked={todo.done}
-                        aria-label={todo.done ? "Marcar por fazer" : "Marcar como feito"}
-                        title={todo.done ? "Marcar por fazer" : "Marcar como feito"}
-                        className={`grid size-7 shrink-0 place-items-center rounded-lg border transition focus:outline-none focus:ring-4 focus:ring-[var(--bb-primary-soft)] disabled:cursor-wait disabled:opacity-65 ${
-                          todo.done
-                            ? "border-[rgba(83,183,223,0.42)] bg-[var(--bb-primary)] text-[var(--bb-black)]"
-                            : "border-[var(--bb-border)] bg-white/70 text-transparent hover:border-[rgba(83,183,223,0.42)] hover:text-[var(--bb-muted)]"
-                        }`}
-                      >
-                        {isToggling ? <Loader2 className="size-3.5 animate-spin text-[var(--bb-muted)]" aria-hidden="true" /> : <Check className="size-4" aria-hidden="true" />}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setEditingReminder(todo)}
-                        disabled={isTemporary || isDeleting}
-                        className={`min-w-0 flex-1 truncate text-left text-sm font-bold text-[var(--bb-charcoal)] transition hover:text-[var(--bb-black)] disabled:cursor-wait ${
-                          todo.done ? "line-through decoration-2" : ""
-                        }`}
-                      >
-                        {todo.text}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setEditingReminder(todo)}
-                        disabled={isTemporary || isDeleting}
-                        aria-label="Editar to-do"
-                        title="Editar to-do"
-                        className="grid size-7 shrink-0 place-items-center rounded-full border border-[var(--bb-border)] bg-white/60 text-[var(--bb-charcoal)] transition hover:bg-[var(--bb-primary-soft)] focus:outline-none focus:ring-4 focus:ring-[var(--bb-primary-soft)] disabled:cursor-wait disabled:opacity-55"
-                      >
-                        <Pencil className="size-3.5" aria-hidden="true" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(todo)}
-                        disabled={isTemporary || isDeleting}
-                        aria-label="Apagar to-do"
-                        title="Apagar to-do"
-                        className="grid size-7 shrink-0 place-items-center rounded-full border border-[var(--bb-border)] bg-white/60 text-[#a73522] transition hover:border-[rgba(232,76,49,0.32)] hover:bg-[var(--bb-red-soft)] focus:outline-none focus:ring-4 focus:ring-[var(--bb-primary-soft)] disabled:cursor-wait disabled:opacity-55"
-                      >
-                        {isDeleting ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <Trash2 className="size-3.5" aria-hidden="true" />}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <EmptyState title="Sem to-dos." />
-            )}
-          </section>
-
-          <section className={`relative flex min-w-0 flex-col ${expanded ? `order-1 ${expandedPanelClasses}` : ""}`}>
-            <button
-              type="button"
-              onClick={handleSaveNote}
-              disabled={isSavingNote || noteIsSaved}
-              aria-label={noteSaveLabel}
-              title={noteSaveLabel}
-              className="absolute right-2 top-2 z-10 grid size-8 place-items-center rounded-full border border-[var(--bb-border)] bg-white/82 text-[var(--bb-charcoal)] shadow-[0_8px_18px_rgba(0,0,0,0.06)] transition hover:bg-[var(--bb-primary-soft)] focus:outline-none focus:ring-4 focus:ring-[var(--bb-primary-soft)] disabled:cursor-not-allowed disabled:opacity-55"
-            >
-              {isSavingNote ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <Save className="size-3.5" aria-hidden="true" />}
-            </button>
-            <textarea
-              value={noteText}
-              onChange={(event) => setNoteText(event.target.value)}
-              onBlur={handleSaveNote}
-              placeholder="Escreve aqui livremente..."
-              className="bb-input min-h-40 flex-1 resize-none py-3 pl-3 pr-12 text-sm font-semibold leading-6"
-            />
-          </section>
-        </div>
-    </>
-  );
 
   return (
     <>
-      <Panel className={expanded ? "contents" : "p-3.5"}>{panelContent}</Panel>
+      <Panel className="overflow-hidden p-3.5">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <div>
+            <h2 className="text-sm font-extrabold">To-dos</h2>
+            <p className="text-[11px] font-bold text-[var(--bb-muted)]">{pending.length} pendente{pending.length === 1 ? "" : "s"}</p>
+          </div>
+          {items.length > 5 || items.some((todo) => todo.done) ? (
+            <button type="button" onClick={() => setShowAll(true)} className="min-h-8 rounded-full border border-[var(--bb-border)] bg-white/70 px-3 text-xs font-extrabold hover:bg-[var(--bb-primary-soft)]">
+              Ver todos
+            </button>
+          ) : null}
+        </div>
+        <form onSubmit={create} className="mb-2 flex gap-1.5">
+          <input name="text" required placeholder="Novo to-do" className="bb-input min-w-0 flex-1 text-sm font-semibold" />
+          <button type="submit" disabled={creating} className="grid size-11 shrink-0 place-items-center rounded-full bg-[var(--bb-black)] text-white hover:bg-[var(--bb-primary)] hover:text-black" aria-label="Adicionar to-do">
+            {creating ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Plus className="size-4" aria-hidden="true" />}
+          </button>
+        </form>
+        {dashboardItems.length ? (
+          <div className="grid min-w-0 gap-1 overflow-hidden">
+            {dashboardItems.map((todo) => (
+              <TodoRow key={todo.id} todo={todo} busy={busyIds.has(todo.id)} onToggle={() => toggle(todo)} onEdit={() => setEditing(todo)} onDelete={() => remove(todo)} />
+            ))}
+          </div>
+        ) : <p className="py-2 text-sm font-bold text-[var(--bb-muted)]">Sem to-dos pendentes.</p>}
+        {feedback ? <p className="mt-2 text-xs font-bold text-[#a73522]" role="status">{feedback}</p> : null}
+      </Panel>
 
-      {editingReminder ? (
-        <ModalShell
-          title="To-do"
-          onClose={() => setEditingReminder(null)}
-          disabled={isSavingEdit}
-        >
-          <form onSubmit={handleUpdate} className="grid gap-3">
-            <textarea
-              name="text"
-              required
-              defaultValue={editingReminder.text}
-              disabled={isSavingEdit}
-              className="bb-input min-h-32 resize-y py-3 text-sm font-semibold leading-6 disabled:cursor-wait disabled:opacity-70"
-            />
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                disabled={isSavingEdit}
-                className="inline-flex min-h-10 items-center gap-2 rounded-full bg-[var(--bb-black)] px-4 text-sm font-extrabold text-white shadow-[0_12px_26px_rgba(0,0,0,0.12)] transition hover:bg-[var(--bb-primary)] hover:text-[var(--bb-black)] focus:outline-none focus:ring-4 focus:ring-[var(--bb-primary-soft)] disabled:cursor-wait disabled:opacity-65"
-              >
-                {isSavingEdit ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
-                {isSavingEdit ? "A guardar" : "Guardar"}
-              </button>
-            </div>
+      {showAll ? (
+        <Modal title="Todos os to-dos" onClose={() => setShowAll(false)}>
+          <form onSubmit={create} className="mb-3 flex gap-2">
+            <input name="text" required placeholder="Novo to-do" className="bb-input min-w-0 flex-1 text-sm font-semibold" />
+            <button type="submit" disabled={creating} className="rounded-full bg-black px-4 text-sm font-extrabold text-white">Adicionar</button>
           </form>
-        </ModalShell>
+          {items.length ? (
+            <div className="grid gap-1.5">
+              {items.map((todo) => (
+                <TodoRow key={todo.id} todo={todo} busy={busyIds.has(todo.id)} onToggle={() => toggle(todo)} onEdit={() => setEditing(todo)} onDelete={() => remove(todo)} full />
+              ))}
+            </div>
+          ) : <p className="py-4 text-sm font-bold text-[var(--bb-muted)]">Sem to-dos.</p>}
+        </Modal>
+      ) : null}
+
+      {editing ? (
+        <Modal title="Editar to-do" onClose={() => setEditing(null)}>
+          <form onSubmit={update} className="grid gap-3">
+            <textarea name="text" required defaultValue={editing.text} className="bb-input min-h-28 resize-y py-3 text-sm font-semibold" />
+            <button type="submit" disabled={busyIds.has(editing.id)} className="ml-auto min-h-10 rounded-full bg-black px-4 text-sm font-extrabold text-white">
+              Guardar
+            </button>
+          </form>
+        </Modal>
       ) : null}
     </>
+  );
+}
+
+export function QuickTodosPanel({
+  profile,
+  todos,
+  notes,
+}: {
+  profile: OperationalProfile;
+  todos: QuickTodo[];
+  notes: QuickNote[];
+}) {
+  return (
+    <aside className="grid content-start gap-3">
+      <QuickNotePanel profile={profile} notes={notes} />
+      <QuickTodosList profile={profile} todos={todos} />
+    </aside>
   );
 }
