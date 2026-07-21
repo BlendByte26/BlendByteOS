@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { DatePicker, MonthPicker, TimePicker } from "@/components/date-picker";
 import { LinksEditor } from "@/components/links";
@@ -39,6 +39,67 @@ const inputClass =
 const labelClass = "grid gap-2 text-sm font-bold text-[var(--bb-charcoal)]";
 const textAreaClass =
   "bb-textarea text-sm font-medium placeholder:text-[var(--bb-muted)]";
+
+function ClientLogoField({ currentLogoUrl }: { currentLogoUrl?: string | null }) {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(currentLogoUrl ?? null);
+  const [objectUrl, setObjectUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [objectUrl]);
+
+  return (
+    <fieldset className="grid gap-3 rounded-[18px] border border-[var(--bb-border)] bg-white/35 p-4">
+      <legend className="px-1 text-sm font-bold text-[var(--bb-charcoal)]">Logótipo</legend>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+        <div className="grid size-24 shrink-0 place-items-center overflow-hidden rounded-2xl border border-dashed border-[var(--bb-border)] bg-white text-xs font-bold text-[var(--bb-muted)]">
+          {previewUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={previewUrl} alt="Pré-visualização do logótipo" className="h-full w-full object-contain p-2" />
+          ) : (
+            <span>Sem logo</span>
+          )}
+        </div>
+        <div className="grid flex-1 gap-2">
+          <input type="hidden" name="logo_url" value={currentLogoUrl ?? ""} />
+          <input
+            name="logo_file"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className={`${inputClass} cursor-pointer file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--bb-black)] file:px-3 file:py-1.5 file:text-xs file:font-extrabold file:text-white`}
+            onChange={(event) => {
+              const file = event.currentTarget.files?.[0];
+              if (objectUrl) URL.revokeObjectURL(objectUrl);
+              const nextObjectUrl = file ? URL.createObjectURL(file) : null;
+              setObjectUrl(nextObjectUrl);
+              setPreviewUrl(nextObjectUrl ?? currentLogoUrl ?? null);
+            }}
+          />
+          {currentLogoUrl ? (
+            <label className="flex items-center gap-2 text-xs font-bold text-[var(--bb-muted)]">
+              <input
+                name="remove_logo"
+                type="checkbox"
+                className="size-4 accent-[var(--bb-black)]"
+                onChange={(event) => {
+                  if (event.currentTarget.checked) setPreviewUrl(null);
+                  else setPreviewUrl(objectUrl ?? currentLogoUrl);
+                }}
+              />
+              Remover o logótipo atual
+            </label>
+          ) : null}
+        </div>
+      </div>
+      <div className="grid gap-1 text-xs font-semibold text-[var(--bb-muted)]">
+        <span>Uso na aplicação: avatares quadrados de 32–64 px. Uso no PDF: 44 × 44 pt.</span>
+        <span>Recomendado: PNG ou WebP com fundo transparente, tela quadrada de 1024 × 1024 px (mínimo 512 × 512 px), até 2 MB.</span>
+      </div>
+    </fieldset>
+  );
+}
 
 const clientPlatformOptions = [
   "Website",
@@ -303,13 +364,7 @@ export function ClientForm({
           <SelectField name="status" defaultValue={client?.status ?? "active"} options={optionList(clientStatuses, clientStatusLabels)} />
         </label>
       </div>
-      <label className={labelClass}>
-        Logo URL
-        <input name="logo_url" type="url" defaultValue={client?.logo_url ?? ""} className={inputClass} />
-        <span className="text-xs font-semibold text-[var(--bb-muted)]">
-          Upload de logo será suportado numa fase seguinte.
-        </span>
-      </label>
+      <ClientLogoField currentLogoUrl={client?.logo_url} />
       <div className={labelClass}>
         Cor operacional
         <div className="grid gap-2 rounded-[18px] border border-[var(--bb-border)] bg-white/35 p-3 sm:grid-cols-2 lg:grid-cols-4">

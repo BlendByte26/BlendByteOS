@@ -73,14 +73,14 @@ export default async function ClientsPage() {
                     clientName: client.name,
                     shortName: client.short_name,
                   });
-                  const staticLogoPath = getStaticClientLogoPath(client.client_code);
+                  const logoPath = client.logo_url ?? getStaticClientLogoPath(client.client_code);
 
                   return (
                     <tr key={client.id} className="odd:bg-white/18">
                       <td className={`border-l-4 px-5 py-4 ${clientToken.borderStrong}`}>
                         <div className="flex items-center gap-3">
                           <ClientLogo
-                            logoPath={staticLogoPath}
+                            logoPath={logoPath}
                             fallback={displayCode}
                             className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-xl border border-[var(--bb-border)] bg-white/60 text-xs font-extrabold text-[var(--bb-charcoal)] shadow-[0_10px_24px_rgba(0,0,0,0.06)]"
                             imageClassName="h-full w-full object-contain p-1.5"
@@ -90,6 +90,7 @@ export default async function ClientsPage() {
                             clientCode={client.client_code}
                             clientName={client.name}
                             shortName={client.short_name}
+                            logoUrl={client.logo_url}
                             colorKey={client.color_key}
                             href={`/clients/${client.id}`}
                             variant="default"

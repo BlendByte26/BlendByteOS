@@ -340,6 +340,55 @@ function clientColorKeyValue(formData: FormData): ClientColorKey {
   return clientColorKeys.includes(value as ClientColorKey) ? (value as ClientColorKey) : "slate";
 }
 
+const CLIENT_LOGOS_BUCKET = "client-logos";
+const CLIENT_LOGO_MAX_BYTES = 2 * 1024 * 1024;
+const clientLogoExtensions: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+};
+
+function clientLogoFile(formData: FormData) {
+  const value = formData.get("logo_file");
+  return value instanceof File && value.size > 0 ? value : null;
+}
+
+function storedClientLogoPath(logoUrl: string | null) {
+  if (!logoUrl) return null;
+  const marker = `/storage/v1/object/public/${CLIENT_LOGOS_BUCKET}/`;
+  const markerIndex = logoUrl.indexOf(marker);
+  return markerIndex >= 0 ? decodeURIComponent(logoUrl.slice(markerIndex + marker.length)) : null;
+}
+
+async function uploadClientLogo(
+  supabase: SupabaseClient,
+  clientId: string,
+  file: File,
+) {
+  if (file.size > CLIENT_LOGO_MAX_BYTES) {
+    throw new Error("O logótipo não pode exceder 2 MB.");
+  }
+
+  const extension = clientLogoExtensions[file.type];
+  if (!extension) {
+    throw new Error("Formato inválido. Use PNG, JPG ou WebP.");
+  }
+
+  const path = `${clientId}/${randomUUID()}.${extension}`;
+  const { error } = await supabase.storage.from(CLIENT_LOGOS_BUCKET).upload(path, file, {
+    contentType: file.type,
+    cacheControl: "31536000",
+    upsert: false,
+  });
+
+  if (error) throw new Error(`Não foi possível carregar o logótipo: ${error.message}`);
+
+  return {
+    path,
+    publicUrl: supabase.storage.from(CLIENT_LOGOS_BUCKET).getPublicUrl(path).data.publicUrl,
+  };
+}
+
 export async function createClientAction(formData: FormData): Promise<CreateClientResult> {
   await requireRole(["admin"]);
   const supabase = await getSupabase();
@@ -467,6 +516,11 @@ export async function createClientAction(formData: FormData): Promise<CreateClie
 export async function updateClientAction(id: string, formData: FormData) {
   await requireRole(["admin"]);
   const supabase = await supabaseOrRedirect(`/clients/${id}`);
+  const currentLogoUrl = text(formData, "logo_url");
+  const file = clientLogoFile(formData);
+  const removeLogo = checked(formData, "remove_logo");
+  const uploadedLogo = file ? await uploadClientLogo(supabase, id, file) : null;
+  const nextLogoUrl = uploadedLogo?.publicUrl ?? (removeLogo ? null : currentLogoUrl);
   const { error } = await supabase
     .from("clients")
     .update({
@@ -474,7 +528,7 @@ export async function updateClientAction(id: string, formData: FormData) {
       client_code: text(formData, "client_code"),
       short_name: text(formData, "short_name"),
       display_order: numberValue(formData, "display_order"),
-      logo_url: text(formData, "logo_url"),
+      logo_url: nextLogoUrl,
       color_key: clientColorKeyValue(formData),
       type: requiredText(formData, "type") as ClientType,
       status: requiredText(formData, "status") as ClientStatus,
@@ -517,7 +571,20 @@ export async function updateClientAction(id: string, formData: FormData) {
     })
     .eq("id", id);
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (uploadedLogo) {
+      await supabase.storage.from(CLIENT_LOGOS_BUCKET).remove([uploadedLogo.path]);
+    }
+    throw new Error(error.message);
+  }
+
+  const oldStoredPath = storedClientLogoPath(currentLogoUrl);
+  if (oldStoredPath && oldStoredPath !== uploadedLogo?.path && (uploadedLogo || removeLogo)) {
+    const { error: cleanupError } = await supabase.storage
+      .from(CLIENT_LOGOS_BUCKET)
+      .remove([oldStoredPath]);
+    if (cleanupError) console.error("Erro ao remover logótipo anterior", { code: cleanupError.message });
+  }
   refreshAll();
   revalidatePath(`/clients/${id}`);
   redirect(`/clients/${id}`);
