@@ -286,7 +286,6 @@ export async function createContentReviewAction(formData: FormData): Promise<Rev
         .neq("id", roundId)
         .in("status", ["draft", "open", "submitted", "changes_requested"]);
 
-      revalidatePath("/content");
       revalidatePath("/content/validations");
       return { ok: true, path: contentReviewPublicPath(token), roundId };
     } catch (error) {

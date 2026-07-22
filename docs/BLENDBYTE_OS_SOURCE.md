@@ -159,7 +159,7 @@ O módulo de Conteúdos é o calendário editorial e pipeline de produção. Tem
 
 Permite filtrar por cliente, mês, ano, responsável, estado e plataforma. Também permite criação em lote, exportação de um plano de conteúdos em PDF e preparação de uma validação privada por link.
 
-Na validação por link, Guilherme ou Marketing selecionam o cliente e o mês, confirmam os conteúdos incluídos, agrupam livremente variantes que partilham o mesmo visual e carregam imagens PNG, JPEG ou WebP. A preparação tem uma pré-visualização integral antes da publicação. Design não participa neste fluxo nem tem acesso ao histórico de validações.
+Na validação por link, Guilherme ou Marketing selecionam o cliente e o mês, confirmam os conteúdos incluídos, agrupam livremente variantes que partilham o mesmo visual e carregam imagens PNG, JPEG ou WebP. A preparação tem uma pré-visualização integral antes da publicação. Depois da criação, o modal mantém-se aberto e apresenta o link para copiar ou abrir; a lista de conteúdos só é atualizada quando a pessoa fecha o modal. Design não participa neste fluxo nem tem acesso ao histórico de validações.
 
 A página do cliente apresenta os logótipos BlendByte e do cliente, uma tabela mensal simples com informação prévia dos blocos e, depois, os blocos de conteúdos. Em cada bloco, o cliente aprova ou pede alterações e deixa um comentário. O link contém um token aleatório; a base de dados guarda apenas o hash desse token. Por isso, o histórico não revela o link já emitido: admin ou marketing podem gerar um novo, invalidando imediatamente o anterior.
 

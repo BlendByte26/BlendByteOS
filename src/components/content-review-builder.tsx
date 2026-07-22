@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -19,6 +20,8 @@ import {
   X,
 } from "lucide-react";
 import { ContentReviewPresentation } from "@/components/content-review-presentation";
+import { DatePicker, MonthPicker } from "@/components/date-picker";
+import { SelectField } from "@/components/select-field";
 import { createContentReviewAction } from "@/lib/content-review-actions";
 import {
   contentReviewSourceItems,
@@ -45,8 +48,9 @@ type LocalBlock = {
   noVisualConfirmed: boolean;
 };
 
-const fieldClass = "min-h-11 w-full rounded-2xl border border-[var(--bb-border)] bg-white px-3.5 text-sm font-semibold text-[var(--bb-charcoal)] outline-none transition focus:border-[var(--bb-primary)] focus:ring-4 focus:ring-[var(--bb-primary-soft)]";
-const textareaClass = `${fieldClass} min-h-24 resize-y py-3 leading-6`;
+const inputClass = "bb-input text-sm font-medium placeholder:text-[var(--bb-muted)]";
+const textareaClass = "bb-textarea min-h-24 text-sm font-medium placeholder:text-[var(--bb-muted)]";
+const labelClass = "grid min-w-0 gap-2 text-sm font-bold text-[var(--bb-charcoal)]";
 
 function makeKey(prefix: string) {
   return `${prefix}-${crypto.randomUUID()}`;
@@ -189,6 +193,7 @@ export function ContentReviewBuilder({
   ownerName: string;
   canPersist: boolean;
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [preview, setPreview] = useState(false);
   const [clientId, setClientId] = useState(defaultClientId || clients[0]?.id || "");
@@ -228,6 +233,11 @@ export function ContentReviewBuilder({
     setPreview(false);
     reset(nextClientId, defaultMonth);
     setOpen(true);
+  }
+
+  function closeBuilder() {
+    setOpen(false);
+    if (created) router.refresh();
   }
 
   function changeClient(nextClientId: string) {
@@ -390,22 +400,40 @@ export function ContentReviewBuilder({
       </button>
       {open ? createPortal(
         <div className="fixed inset-0 z-[200] overflow-y-auto bg-black/55 p-3 backdrop-blur-sm md:p-6" role="dialog" aria-modal="true" aria-label="Preparar validação do cliente">
-          <div className={`mx-auto min-h-full rounded-[28px] border border-white/50 bg-[#f3f3ef] shadow-[0_30px_100px_rgba(0,0,0,0.3)] ${preview ? "max-w-6xl" : "max-w-5xl"}`}>
+          <div className={`mx-auto min-h-full rounded-[28px] border border-white/50 bg-[#f3f3ef] shadow-[0_30px_100px_rgba(0,0,0,0.3)] ${preview && !created ? "max-w-6xl" : "max-w-5xl"}`}>
             <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 rounded-t-[28px] border-b border-[var(--bb-border)] bg-[#f3f3ef]/95 px-4 py-3 backdrop-blur-xl md:px-6">
               <div>
                 <div className="text-xs font-extrabold uppercase tracking-[0.13em] text-[var(--bb-muted)]">Validação do cliente</div>
-                <h2 className="text-xl font-extrabold text-[var(--bb-charcoal)]">{preview ? "Pré-visualização final" : "Preparar planeamento"}</h2>
+                <h2 className="text-xl font-extrabold text-[var(--bb-charcoal)]">{created ? "Link pronto a partilhar" : preview ? "Pré-visualização final" : "Preparar planeamento"}</h2>
               </div>
               <div className="flex items-center gap-2">
-                {preview ? <button type="button" onClick={() => setPreview(false)} className="min-h-10 rounded-full border border-[var(--bb-border)] bg-white px-4 text-sm font-extrabold">Voltar à preparação</button> : null}
-                <button type="button" onClick={() => setOpen(false)} aria-label="Fechar" className="grid size-10 place-items-center rounded-full border border-[var(--bb-border)] bg-white"><X className="size-4" /></button>
+                {preview && !created ? <button type="button" onClick={() => setPreview(false)} className="min-h-10 rounded-full border border-[var(--bb-border)] bg-white px-4 text-sm font-extrabold">Voltar à preparação</button> : null}
+                <button type="button" onClick={closeBuilder} aria-label="Fechar" className="grid size-10 place-items-center rounded-full border border-[var(--bb-border)] bg-white"><X className="size-4" /></button>
               </div>
             </div>
 
-            {preview && previewReview ? (
+            {created ? (
+              <div className="grid gap-5 p-4 md:p-6">
+                <section className="rounded-[22px] border border-[#8fc7a1] bg-[#edf8ef] p-5 md:p-6">
+                  <div className="flex items-center gap-2 text-lg font-extrabold text-[#2f7650]"><Check className="size-5" />Link criado e pronto a partilhar</div>
+                  <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-[var(--bb-charcoal)]">A página do cliente já está disponível. Copia este link agora ou abre-o num novo separador para fazer uma última confirmação.</p>
+                  <div className="mt-5 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]">
+                    <input readOnly value={absoluteLink} aria-label="Link da validação do cliente" className={inputClass} />
+                    <button type="button" onClick={() => void copyText(absoluteLink).then(() => setMessage("Link copiado."))} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[var(--bb-black)] px-4 text-sm font-extrabold text-white"><Copy className="size-4" />Copiar link</button>
+                    <a href={created.path} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[var(--bb-border)] bg-white px-4 text-sm font-extrabold"><Eye className="size-4" />Abrir página</a>
+                  </div>
+                  {message ? <div role="status" className="mt-4 rounded-2xl border border-[#8fc7a1] bg-white/70 px-4 py-3 text-sm font-bold text-[#2f7650]">{message}</div> : null}
+                </section>
+                <div className="flex flex-wrap justify-end gap-2">
+                  <Link href={`/content/validations/${created.roundId}`} className="inline-flex min-h-11 items-center rounded-full border border-[var(--bb-border)] bg-white px-5 text-sm font-extrabold">Ver no histórico</Link>
+                  <button type="button" onClick={closeBuilder} className="min-h-11 rounded-full bg-[var(--bb-black)] px-5 text-sm font-extrabold text-white">Fechar e voltar aos conteúdos</button>
+                </div>
+              </div>
+            ) : preview && previewReview ? (
               <div className="grid gap-5 p-4 md:p-6">
                 <div className="rounded-2xl border border-[rgba(83,183,223,0.32)] bg-[var(--bb-primary-soft)] px-4 py-3 text-sm font-bold text-[var(--bb-charcoal)]">Esta é a página que o cliente verá. A tabela-resumo surge primeiro e a validação acontece depois, bloco a bloco.</div>
                 <ContentReviewPresentation review={previewReview} />
+                {message ? <div role="status" className="rounded-2xl border border-[var(--bb-border)] bg-[var(--bb-primary-soft)] px-4 py-3 text-sm font-bold text-[var(--bb-charcoal)]">{message}</div> : null}
                 <div className="flex flex-wrap justify-end gap-2 rounded-2xl border border-[var(--bb-border)] bg-white/90 p-3">
                   <button type="button" onClick={() => setPreview(false)} className="min-h-11 rounded-full border border-[var(--bb-border)] px-5 text-sm font-extrabold">Corrigir preparação</button>
                   <button type="button" onClick={createReview} disabled={isPending} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[var(--bb-black)] px-5 text-sm font-extrabold text-white disabled:opacity-50"><Send className="size-4" />{isPending ? "A criar..." : "Criar link para o cliente"}</button>
@@ -414,22 +442,22 @@ export function ContentReviewBuilder({
             ) : (
               <div className="grid gap-5 p-4 md:p-6">
                 <section className="grid gap-4 rounded-[22px] border border-[var(--bb-border)] bg-white/75 p-4 md:grid-cols-2">
-                  <label className="grid gap-2 text-sm font-extrabold">Cliente
-                    <select value={clientId} onChange={(event) => changeClient(event.currentTarget.value)} className={fieldClass}>{clients.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
+                  <div className={labelClass}><span>Cliente</span>
+                    <SelectField name="content_review_client" value={clientId} onValueChange={changeClient} ariaLabel="Cliente da validação" options={clients.map((item) => ({ value: item.id, label: item.name }))} />
+                  </div>
+                  <div className={labelClass}><span>Mês</span>
+                    <MonthPicker name="content_review_month" value={month} onValueChange={changeMonth} ariaLabel="Mês do planeamento" />
+                  </div>
+                  <label className={labelClass}>Contacto do cliente
+                    <input value={recipientName} onChange={(event) => setRecipientName(event.currentTarget.value)} className={inputClass} placeholder="Nome" />
                   </label>
-                  <label className="grid gap-2 text-sm font-extrabold">Mês
-                    <input type="month" value={month} onChange={(event) => changeMonth(event.currentTarget.value)} className={fieldClass} />
+                  <label className={labelClass}>Email do cliente
+                    <input type="email" value={recipientEmail} onChange={(event) => setRecipientEmail(event.currentTarget.value)} className={inputClass} placeholder="email@cliente.pt" />
                   </label>
-                  <label className="grid gap-2 text-sm font-extrabold">Contacto do cliente
-                    <input value={recipientName} onChange={(event) => setRecipientName(event.currentTarget.value)} className={fieldClass} placeholder="Nome" />
-                  </label>
-                  <label className="grid gap-2 text-sm font-extrabold">Email do cliente
-                    <input type="email" value={recipientEmail} onChange={(event) => setRecipientEmail(event.currentTarget.value)} className={fieldClass} placeholder="email@cliente.pt" />
-                  </label>
-                  <label className="grid gap-2 text-sm font-extrabold">Data limite
-                    <input type="date" value={approvalDeadline} onChange={(event) => setApprovalDeadline(event.currentTarget.value)} className={fieldClass} />
-                  </label>
-                  <label className="grid gap-2 text-sm font-extrabold md:col-span-2">Introdução
+                  <div className={labelClass}><span>Data limite</span>
+                    <DatePicker name="content_review_deadline" value={approvalDeadline} onValueChange={setApprovalDeadline} initialMonth={month} ariaLabel="Data limite de resposta" />
+                  </div>
+                  <label className={`${labelClass} md:col-span-2`}>Introdução
                     <textarea value={introduction} onChange={(event) => setIntroduction(event.currentTarget.value)} className={textareaClass} />
                   </label>
                 </section>
@@ -452,7 +480,7 @@ export function ContentReviewBuilder({
                     <div className="flex flex-wrap items-start gap-3">
                       <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--bb-black)] text-xs font-extrabold text-white">{blockIndex + 1}</div>
                       <label className="grid min-w-52 flex-1 gap-1 text-xs font-extrabold uppercase tracking-[0.1em] text-[var(--bb-muted)]">Título do bloco
-                        <input value={block.title} onChange={(event) => updateBlock(block.key, { title: event.currentTarget.value })} className={fieldClass} />
+                        <input value={block.title} onChange={(event) => updateBlock(block.key, { title: event.currentTarget.value })} className={inputClass} />
                       </label>
                       <div className="flex gap-1">
                         <button type="button" onClick={() => moveBlock(block.key, -1)} disabled={!blockIndex} aria-label="Subir bloco" className="grid size-9 place-items-center rounded-full border border-[var(--bb-border)] bg-white disabled:opacity-30"><ArrowUp className="size-4" /></button>
@@ -482,7 +510,6 @@ export function ContentReviewBuilder({
                 {excludedItems.length ? <section className="rounded-[22px] border border-dashed border-[var(--bb-border)] bg-white/45 p-4"><h3 className="text-sm font-extrabold">Conteúdos retirados desta validação</h3><div className="mt-3 flex flex-wrap gap-2">{excludedItems.map((item) => <button key={item.id} type="button" onClick={() => addExcluded(item)} className="inline-flex items-center gap-1 rounded-full border border-[var(--bb-border)] bg-white px-3 py-2 text-xs font-extrabold"><Plus className="size-3" />{cleanPrefixedTitle(item.title, item.clients)}</button>)}</div></section> : null}
 
                 {message ? <div role="status" className="rounded-2xl border border-[var(--bb-border)] bg-[var(--bb-primary-soft)] px-4 py-3 text-sm font-bold text-[var(--bb-charcoal)]">{message}</div> : null}
-                {created ? <section className="rounded-[22px] border border-[#8fc7a1] bg-[#edf8ef] p-4"><div className="flex items-center gap-2 font-extrabold text-[#2f7650]"><Check className="size-4" />Link pronto</div><div className="mt-3 flex flex-wrap gap-2"><input readOnly value={absoluteLink} className={`${fieldClass} min-w-64 flex-1`} /><button type="button" onClick={() => void copyText(absoluteLink).then(() => setMessage("Link copiado."))} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[var(--bb-black)] px-4 text-sm font-extrabold text-white"><Copy className="size-4" />Copiar link</button><a href={created.path} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--bb-border)] bg-white px-4 text-sm font-extrabold"><Eye className="size-4" />Abrir página</a></div></section> : null}
                 <div className="sticky bottom-3 flex flex-wrap justify-end gap-2 rounded-2xl border border-[var(--bb-border)] bg-white/95 p-3 shadow-xl backdrop-blur-xl"><Link href="/content/validations" className="inline-flex min-h-11 items-center rounded-full border border-[var(--bb-border)] px-5 text-sm font-extrabold">Histórico</Link><button type="button" onClick={showPreview} disabled={!blocks.length} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[var(--bb-black)] px-5 text-sm font-extrabold text-white disabled:opacity-40"><Eye className="size-4" />Rever página do cliente</button></div>
               </div>
             )}
