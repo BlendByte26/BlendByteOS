@@ -360,7 +360,7 @@ O histórico externo permite pesquisar e filtrar por tipo de ação, requerente,
 ### 6.10 Newsletter ou webinar Invest2030
 
 1. A tarefa Invest2030 contém o briefing original estruturado nas notas.
-2. Se o tipo de ação incluir Newsletter, a tarefa pode abrir o workspace de newsletter.
+2. Se o tipo de ação incluir Newsletter ou Campanha para reuniões, a tarefa pode abrir o workspace de newsletter.
 3. Se incluir Webinar, pode abrir o workspace de página de webinar.
 4. O workspace analisa o pedido e cria conteúdo inicial, ou aceita conteúdo JSON gerado/importado.
 5. O utilizador revê e edita conteúdo, CTA, benefícios, público, métricas, agenda ou oradores, conforme a variante.

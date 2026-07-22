@@ -194,7 +194,10 @@ function splitInvest2030ActionTypes(value: string) {
     .filter(Boolean);
 }
 
-export function invest2030ActionTypeIncludes(value: string | null | undefined, actionType: "Newsletter" | "Webinar" | "Redes Sociais") {
+export function invest2030ActionTypeIncludes(
+  value: string | null | undefined,
+  actionType: "Newsletter" | "Webinar" | "Campanha para reuniões" | "Redes Sociais",
+) {
   const normalizedAction = normalizeHeading(actionType);
   return splitInvest2030ActionTypes(value ?? "").some((item) => normalizeHeading(item) === normalizedAction);
 }
@@ -210,10 +213,18 @@ export function isInvest2030NewsletterTask(
 
   if (!isInvestClient) return false;
   const parsed = parseInvest2030TaskNotes(task.notes);
-  if (parsed.actionTypes.trim()) return invest2030ActionTypeIncludes(parsed.actionTypes, "Newsletter");
+  if (parsed.actionTypes.trim()) {
+    return (
+      invest2030ActionTypeIncludes(parsed.actionTypes, "Newsletter") ||
+      invest2030ActionTypeIncludes(parsed.actionTypes, "Campanha para reuniões")
+    );
+  }
 
   const words = normalizeSearchText(task.notes ?? "").split(" ");
-  return words.includes("newsletter") && !words.includes("webinar");
+  return (
+    (words.includes("newsletter") && !words.includes("webinar")) ||
+    (words.includes("campanha") && words.includes("reunioes"))
+  );
 }
 
 export function isInvest2030WebinarTask(

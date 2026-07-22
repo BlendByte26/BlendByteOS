@@ -350,6 +350,8 @@ function assertWebinarIdentificationAndBriefing() {
   const socialFirst = webinarBriefing.replace("Webinar, Redes Sociais", "Redes Sociais, Webinar");
   const socialAnd = webinarBriefing.replace("Webinar, Redes Sociais", "Webinar e Redes Sociais");
   const newsletterOnly = webinarBriefing.replace("Webinar, Redes Sociais", "Newsletter");
+  const meetingsOnly = webinarBriefing.replace("Webinar, Redes Sociais", "Campanha para reuniões");
+  const meetingsAndSocial = webinarBriefing.replace("Webinar, Redes Sociais", "Campanha para reuniões, Redes Sociais");
 
   assert(isInvest2030WebinarTask({ client_id: "invest", clients: investClient, notes: webinarOnly }), "Pedido Webinar deve mostrar Preparar webinar.");
   assert(isInvest2030WebinarTask({ client_id: "invest", clients: investClient, notes: socialFirst }), "Pedido Redes Sociais, Webinar deve mostrar Preparar webinar.");
@@ -357,6 +359,8 @@ function assertWebinarIdentificationAndBriefing() {
   assert(isInvest2030SocialContentTask({ client_id: "invest", clients: investClient, notes: socialAnd }), "Pedido Webinar e Redes Sociais deve manter Criar conteúdo.");
   assert(!isInvest2030NewsletterTask({ client_id: "invest", clients: investClient, notes: webinarOnly }), "Pedido apenas Webinar não deve mostrar Preparar newsletter.");
   assert(isInvest2030NewsletterTask({ client_id: "invest", clients: investClient, notes: newsletterOnly }), "Pedido Newsletter não deve regredir.");
+  assert(isInvest2030NewsletterTask({ client_id: "invest", clients: investClient, notes: meetingsOnly }), "Pedido Campanha para reuniões deve mostrar Preparar newsletter.");
+  assert(isInvest2030NewsletterTask({ client_id: "invest", clients: investClient, notes: meetingsAndSocial }), "Pedido Campanha para reuniões, Redes Sociais deve mostrar Preparar newsletter.");
 
   const parsed = parseInvest2030TaskNotes(webinarBriefing);
   const copied = buildInvest2030GptBriefing(parsed, "webinar");
