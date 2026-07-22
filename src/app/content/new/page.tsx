@@ -1,7 +1,6 @@
 import { createContentAction } from "@/lib/actions";
 import { getClients, getTask, getTeamMembers } from "@/lib/data";
 import { ContentForm, FormFrame } from "@/components/forms";
-import { PageHeader } from "@/components/ui";
 import { requireRole } from "@/lib/auth";
 
 type Props = {
@@ -25,20 +24,17 @@ export default async function NewContentPage({ searchParams }: Props) {
   const defaultClientId = sourceTask?.client_id ?? valueOf(params, "client");
 
   return (
-    <>
-      <PageHeader title="Novo conteúdo" description="Criar item de calendário editorial." />
-      <FormFrame title="Dados do conteúdo">
-        <ContentForm
-          action={createContentAction}
-          clients={clients}
-          teamMembers={teamMembers}
-          defaultClientId={defaultClientId}
-          defaultTitle={sourceTask?.title}
-          defaultCreativeBrief={sourceTask?.notes ?? undefined}
-          sourceTaskId={sourceTask?.id}
-          submitLabel="Criar conteúdo"
-        />
-      </FormFrame>
-    </>
+    <FormFrame title="Dados do conteúdo">
+      <ContentForm
+        action={createContentAction}
+        clients={clients}
+        teamMembers={teamMembers}
+        defaultClientId={defaultClientId}
+        defaultTitle={sourceTask?.title}
+        defaultCreativeBrief={sourceTask?.notes ?? undefined}
+        sourceTaskId={sourceTask?.id}
+        submitLabel="Criar conteúdo"
+      />
+    </FormFrame>
   );
 }
