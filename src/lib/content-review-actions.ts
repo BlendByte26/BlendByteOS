@@ -57,11 +57,11 @@ function tokenHash(token: string) {
 
 function parseBuilderPayload(formData: FormData): ContentReviewBuilderPayload {
   const raw = formData.get("payload");
-  if (typeof raw !== "string") throw new Error("A preparação da validação está incompleta.");
+  if (typeof raw !== "string") throw new Error("A preparação da aprovação está incompleta.");
   const parsed = JSON.parse(raw) as Partial<ContentReviewBuilderPayload>;
 
   if (!parsed.clientId || !parsed.month || !Array.isArray(parsed.blocks)) {
-    throw new Error("A preparação da validação está incompleta.");
+    throw new Error("A preparação da aprovação está incompleta.");
   }
 
   const blocks = parsed.blocks.map((block, blockIndex) => {
@@ -88,10 +88,10 @@ function parseBuilderPayload(formData: FormData): ContentReviewBuilderPayload {
     };
   });
 
-  if (!blocks.length) throw new Error("Adiciona pelo menos um bloco à validação.");
+  if (!blocks.length) throw new Error("Adiciona pelo menos um bloco à aprovação.");
   const allContentIds = blocks.flatMap((block) => block.contentIds);
   if (new Set(allContentIds).size !== allContentIds.length) {
-    throw new Error("Cada conteúdo só pode aparecer uma vez na mesma validação.");
+    throw new Error("Cada conteúdo só pode aparecer uma vez na mesma aprovação.");
   }
 
   return {
@@ -127,7 +127,7 @@ function reviewFiles(formData: FormData, payload: ContentReviewBuilderPayload) {
   });
 
   if (totalSize > CONTENT_REVIEW_TOTAL_MAX_BYTES) {
-    throw new Error("O conjunto de visuais não pode exceder 28 MB por validação.");
+    throw new Error("O conjunto de visuais não pode exceder 28 MB por aprovação.");
   }
 
   return files;
@@ -169,7 +169,7 @@ export async function createContentReviewAction(formData: FormData): Promise<Rev
       throw new Error("A seleção contém conteúdos fora do período escolhido.");
     }
     if (items.some((item) => item.status === "published" || item.status === "archived")) {
-      throw new Error("Conteúdos publicados ou arquivados não podem entrar numa nova validação.");
+      throw new Error("Conteúdos publicados ou arquivados não podem entrar numa nova aprovação.");
     }
 
     const { data: latestRound, error: latestError } = await supabase
@@ -286,7 +286,7 @@ export async function createContentReviewAction(formData: FormData): Promise<Rev
         .neq("id", roundId)
         .in("status", ["draft", "open", "submitted", "changes_requested"]);
 
-      revalidatePath("/content/validations");
+      revalidatePath("/approvals");
       return { ok: true, path: contentReviewPublicPath(token), roundId };
     } catch (error) {
       if (uploadedPaths.length) await supabase.storage.from(CONTENT_REVIEW_ASSETS_BUCKET).remove(uploadedPaths);
@@ -294,8 +294,8 @@ export async function createContentReviewAction(formData: FormData): Promise<Rev
       throw error;
     }
   } catch (error) {
-    console.error("Erro ao criar validação de conteúdos", error);
-    return { ok: false, message: error instanceof Error ? error.message : "Não foi possível criar a validação." };
+    console.error("Erro ao criar aprovação de conteúdos", error);
+    return { ok: false, message: error instanceof Error ? error.message : "Não foi possível criar a aprovação." };
   }
 }
 
@@ -322,19 +322,19 @@ function parseSubmission(formData: FormData): ReviewSubmission {
 
 export async function submitContentReviewAction(token: string, formData: FormData): Promise<ReviewSubmitResult> {
   try {
-    if (!isValidContentReviewToken(token)) throw new Error("O link de validação é inválido.");
+    if (!isValidContentReviewToken(token)) throw new Error("O link de aprovação é inválido.");
     const submission = parseSubmission(formData);
     const admin = getSupabaseAdmin();
-    if (!admin) throw new Error("O serviço de validação ainda não está configurado.");
+    if (!admin) throw new Error("O serviço de aprovação ainda não está configurado.");
 
     const { data: round, error: roundError } = await admin
       .from("content_review_rounds")
       .select("*")
       .eq("access_token_hash", tokenHash(token))
       .maybeSingle();
-    if (roundError || !round) throw new Error("Esta validação não está disponível.");
+    if (roundError || !round) throw new Error("Esta aprovação não está disponível.");
     if (["approved", "changes_requested"].includes(round.status)) return { ok: true, alreadySubmitted: true };
-    if (round.status !== "open") throw new Error("Esta validação já não aceita respostas.");
+    if (round.status !== "open") throw new Error("Esta aprovação já não aceita respostas.");
 
     const { data: blocks, error: blocksError } = await admin
       .from("content_review_blocks")
@@ -401,11 +401,11 @@ export async function submitContentReviewAction(token: string, formData: FormDat
     if (finalError) throw new Error(finalError.message);
 
     revalidatePath("/content");
-    revalidatePath("/content/validations");
+    revalidatePath("/approvals");
     revalidatePath(contentReviewPublicPath(token));
     return { ok: true };
   } catch (error) {
-    console.error("Erro ao submeter validação de conteúdos", error);
+    console.error("Erro ao submeter aprovação de conteúdos", error);
     return { ok: false, message: error instanceof Error ? error.message : "Não foi possível guardar a resposta." };
   }
 }
@@ -426,14 +426,14 @@ export async function startContentReviewRevisionAction(blockId: string): Promise
       supabase.from("content_review_rounds").select("*").eq("id", block.round_id).maybeSingle(),
       supabase.from("content_review_block_items").select("*").eq("block_id", block.id).order("position"),
     ]);
-    if (roundError || !round) throw new Error("A ronda de validação não está disponível.");
+    if (roundError || !round) throw new Error("A ronda de aprovação não está disponível.");
     if (itemsError) throw new Error(itemsError.message);
     const contentIds = (blockItems ?? []).flatMap((item) => item.content_item_id ? [item.content_item_id] : []);
     if (!contentIds.length) throw new Error("Os conteúdos originais já não estão disponíveis.");
     const dueDate = (blockItems ?? []).flatMap((item) => item.publish_date ? [item.publish_date] : []).sort()[0] ?? null;
-    const relatedUrl = `/content/validations/${round.id}`;
+    const relatedUrl = `/approvals/${round.id}`;
     const noteLines = [
-      `Feedback do cliente na validação v${round.version} de ${round.month}.`,
+      `Feedback do cliente na aprovação v${round.version} de ${round.month}.`,
       block.client_comment ? `\n${block.client_comment}` : null,
       `\nConteúdos relacionados: ${(blockItems ?? []).map((item) => item.title).join(", ")}.`,
     ].filter(Boolean);
@@ -483,7 +483,7 @@ export async function startContentReviewRevisionAction(blockId: string): Promise
 
     revalidatePath("/content");
     revalidatePath("/tasks");
-    revalidatePath(`/content/validations/${round.id}`);
+    revalidatePath(`/approvals/${round.id}`);
     return { ok: true, taskId: task.id };
   } catch (error) {
     console.error("Erro ao iniciar revisão de conteúdos", error);
@@ -495,15 +495,15 @@ export async function rotateContentReviewLinkAction(roundId: string): Promise<Re
   try {
     const { supabase } = await internalReviewContext();
     const cleanRoundId = cleanString(roundId, 80);
-    if (!cleanRoundId) throw new Error("A validação não está disponível.");
+    if (!cleanRoundId) throw new Error("A aprovação não está disponível.");
 
     const { data: round, error: roundError } = await supabase
       .from("content_review_rounds")
       .select("id, status")
       .eq("id", cleanRoundId)
       .maybeSingle();
-    if (roundError || !round) throw new Error("A validação não está disponível.");
-    if (round.status !== "open") throw new Error("Só é possível gerar um novo link enquanto a validação aguarda resposta.");
+    if (roundError || !round) throw new Error("A aprovação não está disponível.");
+    if (round.status !== "open") throw new Error("Só é possível gerar um novo link enquanto a aprovação aguarda resposta.");
 
     const token = randomBytes(32).toString("hex");
     const { error: updateError } = await supabase
@@ -513,10 +513,10 @@ export async function rotateContentReviewLinkAction(roundId: string): Promise<Re
       .eq("status", "open");
     if (updateError) throw new Error(updateError.message);
 
-    revalidatePath(`/content/validations/${round.id}`);
+    revalidatePath(`/approvals/${round.id}`);
     return { ok: true, path: contentReviewPublicPath(token) };
   } catch (error) {
-    console.error("Erro ao renovar link de validação", error);
+    console.error("Erro ao renovar link de aprovação", error);
     return { ok: false, message: error instanceof Error ? error.message : "Não foi possível gerar um novo link." };
   }
 }

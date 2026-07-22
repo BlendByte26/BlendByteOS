@@ -1,6 +1,6 @@
 # BlendByte OS — contexto canónico e fluxos operacionais
 
-Versão desta fonte: 22 de julho de 2026 — fluxo de validação de conteúdos
+Versão desta fonte: 22 de julho de 2026 — módulo de aprovações de conteúdos
 
 ## 1. Para que serve este documento
 
@@ -66,7 +66,7 @@ Guilherme pode pré-visualizar a aplicação como Sofia, Carlota ou Carolina. Du
 | Apagar tarefas | Sim | Sim | Não |
 | Criar e editar conteúdos | Sim | Sim | Sim |
 | Apagar conteúdos | Sim | Sim | Não |
-| Preparar e acompanhar validações de cliente | Sim | Sim | Não |
+| Preparar e acompanhar aprovações de cliente | Sim | Sim | Não |
 | Comentar e mencionar | Sim | Sim | Sim |
 | Criar links úteis | Sim | Sim | Sim |
 | Editar ou apagar links úteis | Sim, apenas Guilherme | Não | Não |
@@ -157,11 +157,7 @@ O módulo de Conteúdos é o calendário editorial e pipeline de produção. Tem
 - Pipeline;
 - Calendário.
 
-Permite filtrar por cliente, mês, ano, responsável, estado e plataforma. Também permite criação em lote, exportação de um plano de conteúdos em PDF e preparação de uma validação privada por link.
-
-Na validação por link, Guilherme ou Marketing selecionam o cliente e o mês, confirmam os conteúdos incluídos, agrupam livremente variantes que partilham o mesmo visual e carregam imagens PNG, JPEG ou WebP. A preparação tem uma pré-visualização integral antes da publicação. Depois da criação, o modal mantém-se aberto, apresenta o link para copiar ou abrir e sugere um email com assunto e mensagem editáveis para copiar. A lista de conteúdos só é atualizada quando a pessoa fecha o modal. Design não participa neste fluxo nem tem acesso ao histórico de validações.
-
-A página do cliente apresenta os logótipos BlendByte e do cliente, uma tabela mensal simples com informação prévia dos blocos e, depois, os blocos de conteúdos. Cada bloco abre na vista `Conteúdo`; quando existem imagens, disponibiliza também a vista `Visual`. Um bloco sem imagens não apresenta ao cliente avisos nem espaços vazios sobre essa ausência. Em cada bloco, o cliente aprova ou pede alterações e deixa um comentário. O link contém um token aleatório; a base de dados guarda apenas o hash desse token. Por isso, o histórico não revela o link já emitido: admin ou marketing podem gerar um novo, invalidando imediatamente o anterior.
+Permite filtrar por cliente, mês, ano, responsável, estado e plataforma. Também permite criação em lote e exportação de um plano de conteúdos em PDF. A preparação e o acompanhamento da decisão do cliente pertencem ao módulo Aprovações.
 
 Cada conteúdo pode guardar:
 
@@ -212,7 +208,17 @@ Na criação manual, a interface privilegia `normal` e `urgent`. A prioridade `l
 As vistas rápidas são: todas, hoje, esta semana, próximos sete dias e arquivadas. Por defeito, a lista abre filtrada para o utilizador atual.
 O filtro de estado permite selecionar vários estados em simultâneo, tal como no módulo de Conteúdos.
 
-### 5.5 BlendHub
+### 5.5 Aprovações
+
+Aprovações é um módulo próprio na navegação, imediatamente depois de Tarefas, e está disponível apenas a Guilherme e Marketing. Concentra a preparação de uma nova aprovação, os links enviados, as decisões recebidas, os pedidos de alteração, as revisões e o histórico de rondas. Design não participa neste fluxo nem vê o módulo.
+
+Na aprovação por link, Guilherme ou Marketing selecionam o cliente e o mês, confirmam os conteúdos incluídos, agrupam livremente variantes que partilham o mesmo visual e carregam imagens PNG, JPEG ou WebP. A preparação tem uma pré-visualização integral antes da partilha. Depois da criação, o modal mantém-se aberto, apresenta o link para copiar ou abrir e sugere um email com assunto e mensagem editáveis para copiar.
+
+A página do cliente apresenta os logótipos BlendByte e do cliente, uma tabela mensal simples com informação prévia dos blocos e, depois, os blocos de conteúdos. Cada bloco abre na vista `Conteúdo`; quando existem imagens, disponibiliza também a vista `Visual`. Um bloco sem imagens não apresenta ao cliente avisos nem espaços vazios sobre essa ausência. Em cada bloco, o cliente aprova ou pede alterações e deixa um comentário. O link contém um token aleatório; a base de dados guarda apenas o hash desse token. Por isso, o histórico não revela o link já emitido: admin ou marketing podem gerar um novo, invalidando imediatamente o anterior.
+
+Os novos links usam `/aprovar-conteudos/[token]`. As rotas anteriores de preparação, histórico e resposta redirecionam para o módulo novo para preservar favoritos internos e links já enviados.
+
+### 5.6 BlendHub
 
 O BlendHub reúne quatro áreas:
 
@@ -223,7 +229,7 @@ O BlendHub reúne quatro áreas:
 
 Todos os perfis ativos podem consultar. A gestão de equipa e contactos pertence a Guilherme. Todos podem criar um link útil, mas só Guilherme o pode editar ou apagar.
 
-### 5.6 Arquivo
+### 5.7 Arquivo
 
 O Arquivo apresenta:
 
@@ -232,7 +238,7 @@ O Arquivo apresenta:
 
 Conteúdo publicado com URL permite abrir diretamente a publicação; sem URL, abre a edição do conteúdo.
 
-### 5.7 Invest2030
+### 5.8 Invest2030
 
 O Invest2030 tem dois contextos:
 
@@ -331,12 +337,12 @@ Depois da criação:
 3. Atribuir responsável e prazos internos.
 4. Produzir brief, design e copy.
 5. Registar materiais e links de trabalho.
-6. Guilherme ou Marketing preparam a validação do cliente: escolhem o mês, agrupam os conteúdos por visual, adicionam as imagens e reveem a página final.
+6. Guilherme ou Marketing abrem Aprovações e preparam a decisão do cliente: escolhem o mês, agrupam os conteúdos por visual, adicionam as imagens e reveem a página final.
 7. O sistema cria uma ronda imutável de apresentação e um link privado; os conteúdos passam a aguardar o cliente.
-8. O cliente começa pela tabela mensal de resumo dos blocos e valida depois cada bloco, aprovando-o ou pedindo alterações com comentário obrigatório.
+8. O cliente começa pela tabela mensal de resumo dos blocos e decide depois cada bloco, aprovando-o ou pedindo alterações com comentário obrigatório.
 9. Uma resposta integralmente aprovada atualiza a aprovação dos conteúdos. Uma resposta com alterações identifica os blocos afetados no histórico interno.
 10. Em cada bloco com alterações, Guilherme ou Marketing podem iniciar uma revisão. O sistema reabre os conteúdos originais em `in_progress` e cria uma tarefa operacional `Revisão: nome do bloco`, atribuída ao responsável da ronda; não duplica os conteúdos nem cria trabalho para Design.
-11. Depois das correções, é criada uma nova versão da validação. A ronda anterior fica preservada no histórico e deixa de aceitar respostas quando é substituída.
+11. Depois das correções, é criada uma nova versão da aprovação. A ronda anterior fica preservada no histórico e deixa de aceitar respostas quando é substituída.
 12. Marcar bloqueio se faltar informação, material ou decisão.
 13. Passar para `ready_to_publish` quando tudo estiver aprovado.
 14. Registar o URL final e passar para `published` depois da publicação.
@@ -466,7 +472,7 @@ Tabelas atuais:
 
 O bucket `client-logos` aceita PNG, JPEG e WebP até 2 MB. Está configurado como bucket público para os URLs dos logótipos. Pela API autenticada, existe também uma política de leitura para utilizadores internos ativos; uploads e remoções são permitidos a admin e marketing.
 
-O bucket `content-review-assets` é privado, aceita PNG, JPEG e WebP até 8 MB por ficheiro e só pode ser gerido por admin e marketing autenticados. A página pública recebe URLs assinados de curta duração, gerados no servidor depois de validar o token da ronda. As tabelas da validação não dão acesso a `anon`; a leitura e escrita do cliente passam por ações servidor com service role e validação explícita do token.
+O bucket `content-review-assets` é privado, aceita PNG, JPEG e WebP até 8 MB por ficheiro e só pode ser gerido por admin e marketing autenticados. A página pública recebe URLs assinados de curta duração, gerados no servidor depois de validar o token da ronda. As tabelas da aprovação não dão acesso a `anon`; a leitura e escrita do cliente passam por ações servidor com service role e validação explícita do token.
 
 ## 8. Arquitetura e operação técnica
 
@@ -482,7 +488,7 @@ Variáveis de ambiente relevantes, sem valores:
 
 - `NEXT_PUBLIC_SUPABASE_URL`;
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` ou `NEXT_PUBLIC_SUPABASE_ANON_KEY`;
-- `SUPABASE_SERVICE_ROLE_KEY`, apenas no servidor para tarefas administrativas, Invest2030 e leitura/submissão dos links privados de validação;
+- `SUPABASE_SERVICE_ROLE_KEY`, apenas no servidor para tarefas administrativas, Invest2030 e leitura/submissão dos links privados de aprovação;
 - token de acesso público Invest2030.
 
 Uma chave de service role nunca deve aparecer em código de browser, commits ou documentação de projeto com valores reais.
@@ -509,7 +515,7 @@ Quando o repositório estiver disponível como Source, usar esta prioridade:
 - Alguns fluxos têm compatibilidade com colunas antigas de Supabase. Esses fallbacks não definem o modelo desejado; existem para tolerar ambientes ainda não migrados.
 - As sequências de estados neste documento são o fluxo recomendado. Nem todas são máquinas de estados rígidas na base de dados.
 - O sistema conhece o estado `in_review` de campanhas Invest2030, mas o guardar atual passa diretamente de rascunho para pronto a exportar quando não há bloqueios.
-- A migração de validações deve ser aplicada antes de gerar links reais. Sem as novas tabelas e o bucket privado, a interface local permite rever o desenho do fluxo, mas não publicar uma ronda.
+- A migração técnica das aprovações deve ser aplicada antes de gerar links reais. Sem as novas tabelas e o bucket privado, a interface local permite rever o desenho do fluxo, mas não publicar uma ronda.
 - Não inferir dados atuais de clientes, tarefas, conteúdos ou férias a partir deste documento.
 
 ## 11. Vocabulário recomendado
@@ -518,6 +524,7 @@ Quando o repositório estiver disponível como Source, usar esta prioridade:
 - “Cliente” para a conta ou organização acompanhada pela BlendByte.
 - “Tarefa” para uma unidade de trabalho operacional.
 - “Conteúdo” para uma peça de calendário editorial.
+- “Aprovação” para a preparação, partilha e decisão do cliente sobre um planeamento; evitar “validação” neste fluxo.
 - “Responsável” ou “owner” para a pessoa atribuída.
 - “Bloqueio” para um impedimento explícito com motivo.
 - “Passagem para Design” ou “handoff para Design” para a atribuição a Carlota ou Carolina.

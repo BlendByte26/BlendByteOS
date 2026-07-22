@@ -41,3 +41,14 @@ export function formatContentMonthLabel(month: string) {
   const monthIndex = Number(month.slice(5, 7)) - 1;
   return capitalize(monthLabelFormatter.format(new Date(year, monthIndex, 1)));
 }
+
+export function currentLisbonContentMonth(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Lisbon",
+    year: "numeric",
+    month: "2-digit",
+  }).formatToParts(date);
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  return year && month ? `${year}-${month}` : date.toISOString().slice(0, 7);
+}

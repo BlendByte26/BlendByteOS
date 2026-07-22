@@ -12,13 +12,15 @@ import {
   operationalProfiles,
   previewProfileKeys,
   type OperationalProfile,
+  type OperationalRole,
 } from "@/lib/operational-profiles";
 
-const navItems = [
+const navItems: Array<{ href: string; label: string; roles?: OperationalRole[] }> = [
   { href: "/", label: "Painel" },
   { href: "/clients", label: "Clientes" },
   { href: "/content", label: "Conteúdos" },
   { href: "/tasks", label: "Tarefas" },
+  { href: "/approvals", label: "Aprovações", roles: ["admin", "marketing"] },
   { href: "/team", label: "BlendHub" },
   { href: "/archive", label: "Arquivo" },
 ];
@@ -59,6 +61,7 @@ export function TopNav({ profile, realProfile, previewProfile }: Props) {
       : null;
   const showProfileControls = isDashboard && profile;
   const bulkContentHref = !isPreview && pathname === "/content" ? "/content?bulk=1" : null;
+  const visibleNavItems = navItems.filter((item) => !item.roles || (profile && item.roles.includes(profile.authRole)));
 
   function openBulkContent(event: MouseEvent<HTMLAnchorElement>) {
     if (typeof window === "undefined") return;
@@ -138,7 +141,7 @@ export function TopNav({ profile, realProfile, previewProfile }: Props) {
           </div>
 
           <nav className="hidden min-w-0 justify-self-center rounded-full border border-[var(--bb-border)] bg-[var(--bb-surface)] p-1.5 shadow-[0_18px_50px_rgba(0,0,0,0.08)] backdrop-blur-xl lg:flex">
-            {navItems.map((item) => {
+            {visibleNavItems.map((item) => {
               const active = isActive(pathname, item.href);
 
               return (
@@ -207,15 +210,15 @@ export function TopNav({ profile, realProfile, previewProfile }: Props) {
           </div>
         </div>
 
-        <nav className="mx-auto mt-3 grid max-w-[1280px] grid-cols-6 gap-1 rounded-full border border-[var(--bb-border)] bg-[var(--bb-surface)] p-1.5 shadow-[0_14px_34px_rgba(0,0,0,0.06)] backdrop-blur-xl lg:hidden">
-          {navItems.map((item) => {
+        <nav className="mx-auto mt-3 flex max-w-[1280px] gap-1 overflow-x-auto rounded-full border border-[var(--bb-border)] bg-[var(--bb-surface)] p-1.5 shadow-[0_14px_34px_rgba(0,0,0,0.06)] backdrop-blur-xl lg:hidden">
+          {visibleNavItems.map((item) => {
             const active = isActive(pathname, item.href);
 
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`min-w-0 truncate rounded-full px-1.5 py-2 text-center text-[12px] font-semibold transition duration-200 ${
+                className={`shrink-0 rounded-full px-3 py-2 text-center text-[12px] font-semibold transition duration-200 ${
                   active
                     ? "bg-[var(--bb-primary)] text-[var(--bb-black)]"
                     : "text-[var(--bb-muted)] hover:bg-[rgba(0,0,0,0.05)]"

@@ -22,7 +22,7 @@ export function ContentReviewOverviewTable({ month, blocks }: { month: string; b
           </span>
           <div>
             <h2 className="text-lg font-extrabold text-[var(--bb-charcoal)]">Resumo do planeamento</h2>
-            <p className="text-sm font-semibold text-[var(--bb-muted)]">{formatContentMonthLabel(month)} · visão rápida antes da validação</p>
+            <p className="text-sm font-semibold text-[var(--bb-muted)]">{formatContentMonthLabel(month)} · visão rápida antes da aprovação</p>
           </div>
         </div>
         <span className="rounded-full bg-[var(--bb-primary-soft)] px-3 py-1.5 text-xs font-extrabold text-[var(--bb-charcoal)]">

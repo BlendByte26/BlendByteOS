@@ -67,7 +67,7 @@ export const contentReviewStatusLabels: Record<ContentReviewRound["status"], str
 };
 
 export const contentReviewDecisionLabels: Record<ContentReviewBlock["decision"], string> = {
-  pending: "Por validar",
+  pending: "Por decidir",
   approved: "Aprovado",
   changes_requested: "Necessita de alterações",
 };
@@ -83,7 +83,7 @@ export function contentReviewSourceItems(items: ContentItem[], clientId: string,
 }
 
 export function defaultContentReviewIntroduction(client: Pick<Client, "name">, monthLabel: string) {
-  return `Partilhamos o planeamento de conteúdos da ${client.name} para ${monthLabel}. Comece pela tabela-resumo do planeamento e valide depois cada bloco de conteúdos.`;
+  return `Partilhamos o planeamento de conteúdos da ${client.name} para ${monthLabel}. Comece pela tabela-resumo do planeamento e indique depois a sua decisão em cada bloco de conteúdos.`;
 }
 
 export function contentReviewEmailSuggestion({
@@ -113,7 +113,7 @@ export function contentReviewEmailSuggestion({
 
   return {
     subject: `Planeamento de conteúdos — ${clientName} — ${monthLabel}`,
-    body: `${greeting}\n\nPartilhamos o planeamento de conteúdos da ${clientName} para ${monthLabel}.\n\nPode consultar e validar cada bloco através deste link:\n${link}\n${deadlineLine}\nSe tiver alguma questão, estou disponível.\n\nCom os melhores cumprimentos,\n${ownerName}\nBlendByte`,
+    body: `${greeting}\n\nPartilhamos o planeamento de conteúdos da ${clientName} para ${monthLabel}.\n\nPode consultar e aprovar cada bloco, ou pedir alterações, através deste link:\n${link}\n${deadlineLine}\nSe tiver alguma questão, estou disponível.\n\nCom os melhores cumprimentos,\n${ownerName}\nBlendByte`,
   };
 }
 
@@ -128,7 +128,7 @@ export function contentReviewDecisionSummary(blocks: Array<Pick<ContentReviewBlo
 }
 
 export function contentReviewPublicPath(token: string) {
-  return `/validar-conteudos/${encodeURIComponent(token)}`;
+  return `/aprovar-conteudos/${encodeURIComponent(token)}`;
 }
 
 export function isValidContentReviewToken(token: string | null | undefined) {

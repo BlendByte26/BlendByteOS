@@ -81,7 +81,7 @@ export async function getContentReviewSummaries(): Promise<ContentReviewSummary[
     .order("published_at", { ascending: false });
   if (roundsError) {
     if (isSupabaseSchemaError(roundsError)) return [];
-    console.error("Erro ao carregar validações", { code: roundsError.code });
+    console.error("Erro ao carregar aprovações", { code: roundsError.code });
     return [];
   }
   const rounds = (roundsData ?? []) as ContentReviewRound[];

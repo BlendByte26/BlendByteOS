@@ -40,7 +40,7 @@ export default async function RootLayout({
   const pathname = (await headers()).get("x-blendbyte-pathname") ?? "";
   const isAccessPage = pathname.startsWith("/access");
   const isInvest2030PublicPage = pathname.startsWith("/invest2030");
-  const isContentReviewPublicPage = pathname.startsWith("/validar-conteudos");
+  const isContentReviewPublicPage = pathname.startsWith("/validar-conteudos") || pathname.startsWith("/aprovar-conteudos");
 
   return (
     <html

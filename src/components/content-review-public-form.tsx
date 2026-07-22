@@ -84,7 +84,7 @@ export function ContentReviewPublicForm({ review, token }: { review: ContentRevi
       comment: responses[block.id]?.comment.trim() || null,
     }));
     if (decisions.some((decision) => decision.decision === "pending")) {
-      setMessage("Valide todos os blocos antes de enviar a resposta.");
+      setMessage("Indique a sua decisão em todos os blocos antes de enviar a resposta.");
       return;
     }
     if (decisions.some((decision) => decision.decision === "changes_requested" && !decision.comment)) {
@@ -111,7 +111,7 @@ export function ContentReviewPublicForm({ review, token }: { review: ContentRevi
         return;
       }
       window.localStorage.removeItem(storageKey);
-      setMessage(result.alreadySubmitted ? "Esta resposta já tinha sido registada." : "Resposta enviada. Obrigado pela validação.");
+      setMessage(result.alreadySubmitted ? "Esta resposta já tinha sido registada." : "Resposta enviada. Obrigado pela aprovação.");
       router.refresh();
     });
   }
@@ -144,8 +144,8 @@ export function ContentReviewPublicForm({ review, token }: { review: ContentRevi
       <section className="rounded-[26px] border border-[var(--bb-border)] bg-white/85 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.07)] md:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-xl font-extrabold text-[var(--bb-charcoal)]">Enviar validação</h2>
-            <p className="mt-1 text-sm font-semibold text-[var(--bb-muted)]">{summary.approved} aprovados · {summary.changes} com alterações · {summary.pending} por validar</p>
+            <h2 className="text-xl font-extrabold text-[var(--bb-charcoal)]">Enviar aprovação</h2>
+            <p className="mt-1 text-sm font-semibold text-[var(--bb-muted)]">{summary.approved} aprovados · {summary.changes} com alterações · {summary.pending} por decidir</p>
           </div>
           {summary.pending ? (
             <button type="button" onClick={approveRemaining} className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[var(--bb-border)] bg-white px-4 text-sm font-extrabold text-[var(--bb-charcoal)] transition hover:bg-[var(--bb-primary-soft)]">

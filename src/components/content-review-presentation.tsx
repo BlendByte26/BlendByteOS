@@ -1,5 +1,6 @@
 import { Check, MessageSquareText, RefreshCw } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
+import { ClientLogo } from "@/components/client-logo";
 import { ContentReviewBlockTabs } from "@/components/content-review-block-tabs";
 import { ContentReviewOverviewTable } from "@/components/content-review-overview-table";
 import { formatContentMonthLabel } from "@/lib/content-month";
@@ -55,7 +56,7 @@ function ReviewBlock({
         <section className="rounded-[20px] border border-[rgba(83,183,223,0.34)] bg-[var(--bb-primary-soft)] p-4">
           <div className="flex items-center gap-2 text-sm font-extrabold text-[var(--bb-charcoal)]">
             <MessageSquareText className="size-4" aria-hidden="true" />
-            Validação deste bloco
+            Aprovação deste bloco
           </div>
           {interactive ? (
             <div className="mt-3 grid gap-3">
@@ -127,17 +128,16 @@ export function ContentReviewPresentation({
               <div className="text-xs font-extrabold uppercase tracking-[0.14em] text-white/55">Planeamento de conteúdos</div>
               <div className="mt-1 text-sm font-extrabold">{formatContentMonthLabel(review.month)} · v{review.version}</div>
             </div>
-            <div className="grid size-14 place-items-center overflow-hidden rounded-2xl border border-white/20 bg-white text-sm font-extrabold text-[var(--bb-charcoal)]">
-              {review.client_logo_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={review.client_logo_url} alt={`Logótipo de ${review.client_name}`} className="h-full w-full object-contain p-1" />
-              ) : clientInitials(review.client_name)}
-            </div>
+            <ClientLogo
+              logoPath={review.client_logo_url}
+              fallback={clientInitials(review.client_name)}
+              className="grid size-14 place-items-center overflow-hidden rounded-2xl border border-white/20 bg-white text-sm font-extrabold text-[var(--bb-charcoal)]"
+              imageClassName="h-full w-full object-cover"
+            />
           </div>
         </div>
         <div className="border-t border-white/10 bg-white/[0.05] px-5 py-6 md:px-7">
-          <div className="text-xs font-extrabold uppercase tracking-[0.14em] text-[var(--bb-primary)]">{review.client_name}</div>
-          <h1 className="mt-2 max-w-3xl text-2xl font-extrabold leading-tight md:text-3xl">Revisão do planeamento de {formatContentMonthLabel(review.month)}</h1>
+          <h1 className="max-w-3xl text-2xl font-extrabold leading-tight md:text-3xl">Revisão do planeamento de {formatContentMonthLabel(review.month)}</h1>
           {review.introduction ? <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-white/72">{review.introduction}</p> : null}
           {review.approval_deadline ? <p className="mt-3 text-xs font-extrabold uppercase tracking-[0.1em] text-white/58">Responder até {formatDate(review.approval_deadline)}</p> : null}
         </div>

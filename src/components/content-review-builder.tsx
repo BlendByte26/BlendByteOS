@@ -412,14 +412,14 @@ export function ContentReviewBuilder({
     <>
       <button type="button" onClick={openBuilder} className="inline-flex min-h-10 items-center gap-2 rounded-full bg-[var(--bb-black)] px-4 text-sm font-extrabold text-white shadow-[0_12px_28px_rgba(0,0,0,0.14)] transition hover:bg-[var(--bb-primary)] hover:text-[var(--bb-black)]">
         <Link2 className="size-4" aria-hidden="true" />
-        Preparar validação
+        Preparar aprovação
       </button>
       {open ? createPortal(
-        <div className="fixed inset-0 z-[200] overflow-y-auto bg-black/55 p-3 backdrop-blur-sm md:p-6" role="dialog" aria-modal="true" aria-label="Preparar validação do cliente">
+        <div className="fixed inset-0 z-[200] overflow-y-auto bg-black/55 p-3 backdrop-blur-sm md:p-6" role="dialog" aria-modal="true" aria-label="Preparar aprovação do cliente">
           <div className={`mx-auto min-h-full rounded-[28px] border border-white/50 bg-[#f3f3ef] shadow-[0_30px_100px_rgba(0,0,0,0.3)] ${preview && !created ? "max-w-6xl" : "max-w-5xl"}`}>
             <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 rounded-t-[28px] border-b border-[var(--bb-border)] bg-[#f3f3ef]/95 px-4 py-3 backdrop-blur-xl md:px-6">
               <div>
-                <div className="text-xs font-extrabold uppercase tracking-[0.13em] text-[var(--bb-muted)]">Validação do cliente</div>
+                <div className="text-xs font-extrabold uppercase tracking-[0.13em] text-[var(--bb-muted)]">Aprovação do cliente</div>
                 <h2 className="text-xl font-extrabold text-[var(--bb-charcoal)]">{created ? "Link pronto a partilhar" : preview ? "Pré-visualização final" : "Preparar planeamento"}</h2>
               </div>
               <div className="flex items-center gap-2">
@@ -434,7 +434,7 @@ export function ContentReviewBuilder({
                   <div className="flex items-center gap-2 text-lg font-extrabold text-[#2f7650]"><Check className="size-5" />Link criado e pronto a partilhar</div>
                   <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-[var(--bb-charcoal)]">A página do cliente já está disponível. Copia este link agora ou abre-o num novo separador para fazer uma última confirmação.</p>
                   <div className="mt-5 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]">
-                    <input readOnly value={absoluteLink} aria-label="Link da validação do cliente" className={inputClass} />
+                    <input readOnly value={absoluteLink} aria-label="Link da aprovação do cliente" className={inputClass} />
                     <button type="button" onClick={() => void copyText(absoluteLink).then(() => setMessage("Link copiado."))} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[var(--bb-black)] px-4 text-sm font-extrabold text-white"><Copy className="size-4" />Copiar link</button>
                     <a href={created.path} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[var(--bb-border)] bg-white px-4 text-sm font-extrabold"><Eye className="size-4" />Abrir página</a>
                   </div>
@@ -461,13 +461,13 @@ export function ContentReviewBuilder({
                 </section>
                 {message ? <div role="status" className="rounded-2xl border border-[#8fc7a1] bg-[#edf8ef] px-4 py-3 text-sm font-bold text-[#2f7650]">{message}</div> : null}
                 <div className="flex flex-wrap justify-end gap-2">
-                  <Link href={`/content/validations/${created.roundId}`} className="inline-flex min-h-11 items-center rounded-full border border-[var(--bb-border)] bg-white px-5 text-sm font-extrabold">Ver no histórico</Link>
+                  <Link href={`/approvals/${created.roundId}`} className="inline-flex min-h-11 items-center rounded-full border border-[var(--bb-border)] bg-white px-5 text-sm font-extrabold">Ver aprovação</Link>
                   <button type="button" onClick={closeBuilder} className="min-h-11 rounded-full bg-[var(--bb-black)] px-5 text-sm font-extrabold text-white">Fechar e voltar aos conteúdos</button>
                 </div>
               </div>
             ) : preview && previewReview ? (
               <div className="grid gap-5 p-4 md:p-6">
-                <div className="rounded-2xl border border-[rgba(83,183,223,0.32)] bg-[var(--bb-primary-soft)] px-4 py-3 text-sm font-bold text-[var(--bb-charcoal)]">Esta é a página que o cliente verá. A tabela-resumo surge primeiro e a validação acontece depois, bloco a bloco.</div>
+                <div className="rounded-2xl border border-[rgba(83,183,223,0.32)] bg-[var(--bb-primary-soft)] px-4 py-3 text-sm font-bold text-[var(--bb-charcoal)]">Esta é a página que o cliente verá. A tabela-resumo surge primeiro e a aprovação acontece depois, bloco a bloco.</div>
                 <ContentReviewPresentation review={previewReview} />
                 {message ? <div role="status" className="rounded-2xl border border-[var(--bb-border)] bg-[var(--bb-primary-soft)] px-4 py-3 text-sm font-bold text-[var(--bb-charcoal)]">{message}</div> : null}
                 <div className="flex flex-wrap justify-end gap-2 rounded-2xl border border-[var(--bb-border)] bg-white/90 p-3">
@@ -479,7 +479,7 @@ export function ContentReviewBuilder({
               <div className="grid gap-5 p-4 md:p-6">
                 <section className="grid gap-4 rounded-[22px] border border-[var(--bb-border)] bg-white/75 p-4 md:grid-cols-2">
                   <div className={labelClass}><span>Cliente</span>
-                    <SelectField name="content_review_client" value={clientId} onValueChange={changeClient} ariaLabel="Cliente da validação" options={clients.map((item) => ({ value: item.id, label: item.name }))} />
+                    <SelectField name="content_review_client" value={clientId} onValueChange={changeClient} ariaLabel="Cliente da aprovação" options={clients.map((item) => ({ value: item.id, label: item.name }))} />
                   </div>
                   <div className={labelClass}><span>Mês</span>
                     <MonthPicker name="content_review_month" value={month} onValueChange={changeMonth} ariaLabel="Mês do planeamento" />
@@ -543,10 +543,10 @@ export function ContentReviewBuilder({
                   </section>
                 ))}</div>
 
-                {excludedItems.length ? <section className="rounded-[22px] border border-dashed border-[var(--bb-border)] bg-white/45 p-4"><h3 className="text-sm font-extrabold">Conteúdos retirados desta validação</h3><div className="mt-3 flex flex-wrap gap-2">{excludedItems.map((item) => <button key={item.id} type="button" onClick={() => addExcluded(item)} className="inline-flex items-center gap-1 rounded-full border border-[var(--bb-border)] bg-white px-3 py-2 text-xs font-extrabold"><Plus className="size-3" />{cleanPrefixedTitle(item.title, item.clients)}</button>)}</div></section> : null}
+                {excludedItems.length ? <section className="rounded-[22px] border border-dashed border-[var(--bb-border)] bg-white/45 p-4"><h3 className="text-sm font-extrabold">Conteúdos retirados desta aprovação</h3><div className="mt-3 flex flex-wrap gap-2">{excludedItems.map((item) => <button key={item.id} type="button" onClick={() => addExcluded(item)} className="inline-flex items-center gap-1 rounded-full border border-[var(--bb-border)] bg-white px-3 py-2 text-xs font-extrabold"><Plus className="size-3" />{cleanPrefixedTitle(item.title, item.clients)}</button>)}</div></section> : null}
 
                 {message ? <div role="status" className="rounded-2xl border border-[var(--bb-border)] bg-[var(--bb-primary-soft)] px-4 py-3 text-sm font-bold text-[var(--bb-charcoal)]">{message}</div> : null}
-                <div className="sticky bottom-3 flex flex-wrap justify-end gap-2 rounded-2xl border border-[var(--bb-border)] bg-white/95 p-3 shadow-xl backdrop-blur-xl"><Link href="/content/validations" className="inline-flex min-h-11 items-center rounded-full border border-[var(--bb-border)] px-5 text-sm font-extrabold">Histórico</Link><button type="button" onClick={showPreview} disabled={!blocks.length} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[var(--bb-black)] px-5 text-sm font-extrabold text-white disabled:opacity-40"><Eye className="size-4" />Rever página do cliente</button></div>
+                <div className="sticky bottom-3 flex flex-wrap justify-end gap-2 rounded-2xl border border-[var(--bb-border)] bg-white/95 p-3 shadow-xl backdrop-blur-xl"><Link href="/approvals" className="inline-flex min-h-11 items-center rounded-full border border-[var(--bb-border)] px-5 text-sm font-extrabold">Aprovações</Link><button type="button" onClick={showPreview} disabled={!blocks.length} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[var(--bb-black)] px-5 text-sm font-extrabold text-white disabled:opacity-40"><Eye className="size-4" />Rever página do cliente</button></div>
               </div>
             )}
           </div>
