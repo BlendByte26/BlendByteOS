@@ -4,6 +4,7 @@ import { calculateBalance, calculateVacationWorkingDays, getPortugalNationalHoli
 const holidays2026 = getPortugalNationalHolidays(2026);
 assert.equal(calculateVacationWorkingDays("2026-07-20", "2026-07-24", []), 5);
 assert.equal(calculateVacationWorkingDays("2026-07-17", "2026-07-20", []), 2);
+assert.equal(calculateVacationWorkingDays("2026-07-24", "2026-08-02", []), 6, "Um intervalo de 10 dias com dois fins de semana deve descontar apenas 6 dias");
 assert.equal(calculateVacationWorkingDays("2026-06-08", "2026-06-12", holidays2026), 4);
 assert.equal(calculateVacationWorkingDays("2026-07-20", "2026-07-24", [{ date: "2026-07-22" }]), 4);
 assert.equal(calculateVacationWorkingDays("2026-07-30", "2026-08-03", []), 3);
