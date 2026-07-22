@@ -1,6 +1,6 @@
 # BlendByte OS — contexto canónico e fluxos operacionais
 
-Versão desta fonte: 22 de julho de 2026
+Versão desta fonte: 22 de julho de 2026 — fluxo de validação de conteúdos
 
 ## 1. Para que serve este documento
 
@@ -15,6 +15,7 @@ O BlendByte OS é a aplicação interna de operações da agência BlendByte. Ce
 - clientes, contratos, marca, canais e documentos;
 - tarefas operacionais e passagem de trabalho para Design;
 - planeamento, produção, aprovação e publicação de conteúdos;
+- partilha privada do planeamento com o cliente, incluindo tabela-resumo mensal, visuais, comentários e decisões;
 - comentários e menções dentro de tarefas e conteúdos;
 - visão diária e semanal do trabalho de cada pessoa;
 - equipa, contactos da empresa e links úteis;
@@ -65,6 +66,7 @@ Guilherme pode pré-visualizar a aplicação como Sofia, Carlota ou Carolina. Du
 | Apagar tarefas | Sim | Sim | Não |
 | Criar e editar conteúdos | Sim | Sim | Sim |
 | Apagar conteúdos | Sim | Sim | Não |
+| Preparar e acompanhar validações de cliente | Sim | Sim | Não |
 | Comentar e mencionar | Sim | Sim | Sim |
 | Criar links úteis | Sim | Sim | Sim |
 | Editar ou apagar links úteis | Sim, apenas Guilherme | Não | Não |
@@ -155,7 +157,11 @@ O módulo de Conteúdos é o calendário editorial e pipeline de produção. Tem
 - Pipeline;
 - Calendário.
 
-Permite filtrar por cliente, mês, ano, responsável, estado e plataforma. Também permite criação em lote e exportação de um plano de conteúdos em PDF.
+Permite filtrar por cliente, mês, ano, responsável, estado e plataforma. Também permite criação em lote, exportação de um plano de conteúdos em PDF e preparação de uma validação privada por link.
+
+Na validação por link, Guilherme ou Marketing selecionam o cliente e o mês, confirmam os conteúdos incluídos, agrupam livremente variantes que partilham o mesmo visual e carregam imagens PNG, JPEG ou WebP. A preparação tem uma pré-visualização integral antes da publicação. Design não participa neste fluxo nem tem acesso ao histórico de validações.
+
+A página do cliente apresenta os logótipos BlendByte e do cliente, uma tabela mensal simples com informação prévia dos blocos e, depois, os blocos de conteúdos. Em cada bloco, o cliente aprova ou pede alterações e deixa um comentário. O link contém um token aleatório; a base de dados guarda apenas o hash desse token. Por isso, o histórico não revela o link já emitido: admin ou marketing podem gerar um novo, invalidando imediatamente o anterior.
 
 Cada conteúdo pode guardar:
 
@@ -325,11 +331,16 @@ Depois da criação:
 3. Atribuir responsável e prazos internos.
 4. Produzir brief, design e copy.
 5. Registar materiais e links de trabalho.
-6. Pedir aprovação ao cliente quando necessário.
-7. Marcar bloqueio se faltar informação, material ou decisão.
-8. Passar para `ready_to_publish` quando tudo estiver aprovado.
-9. Registar o URL final e passar para `published` depois da publicação.
-10. Arquivar quando o item deixar de ser necessário nas vistas correntes.
+6. Guilherme ou Marketing preparam a validação do cliente: escolhem o mês, agrupam os conteúdos por visual, adicionam as imagens e reveem a página final.
+7. O sistema cria uma ronda imutável de apresentação e um link privado; os conteúdos passam a aguardar o cliente.
+8. O cliente começa pela tabela mensal de resumo dos blocos e valida depois cada bloco, aprovando-o ou pedindo alterações com comentário obrigatório.
+9. Uma resposta integralmente aprovada atualiza a aprovação dos conteúdos. Uma resposta com alterações identifica os blocos afetados no histórico interno.
+10. Em cada bloco com alterações, Guilherme ou Marketing podem iniciar uma revisão. O sistema reabre os conteúdos originais em `in_progress` e cria uma tarefa operacional `Revisão: nome do bloco`, atribuída ao responsável da ronda; não duplica os conteúdos nem cria trabalho para Design.
+11. Depois das correções, é criada uma nova versão da validação. A ronda anterior fica preservada no histórico e deixa de aceitar respostas quando é substituída.
+12. Marcar bloqueio se faltar informação, material ou decisão.
+13. Passar para `ready_to_publish` quando tudo estiver aprovado.
+14. Registar o URL final e passar para `published` depois da publicação.
+15. Arquivar quando o item deixar de ser necessário nas vistas correntes.
 
 O sistema impede a duplicação exata de conteúdos com a mesma combinação de cliente, dia, título e plataforma. Linhas sem data de publicação podem coexistir como planeamento.
 
@@ -409,6 +420,11 @@ Auth user ──1:1── User profile
 
 Client ──1:N── Task
 Client ──1:N── Content item
+Client ──1:N── Content review round
+Content review round ──1:N── Content review block
+Content review block ──1:N── Content review block item
+Content review block ──1:N── Content review asset
+Content review asset ──N:N── Content review block item
 Task ──0:N── Content item (origem opcional)
 Task ──1:N── Task comment
 Content item ──1:N── Content comment
@@ -428,6 +444,11 @@ Tabelas atuais:
 - `clients`;
 - `content_items`;
 - `content_comments`;
+- `content_review_rounds`;
+- `content_review_blocks`;
+- `content_review_block_items`;
+- `content_review_assets`;
+- `content_review_asset_items`;
 - `tasks`;
 - `task_comments`;
 - `invest2030_requests`;
@@ -444,6 +465,8 @@ Tabelas atuais:
 
 O bucket `client-logos` aceita PNG, JPEG e WebP até 2 MB. Está configurado como bucket público para os URLs dos logótipos. Pela API autenticada, existe também uma política de leitura para utilizadores internos ativos; uploads e remoções são permitidos a admin e marketing.
 
+O bucket `content-review-assets` é privado, aceita PNG, JPEG e WebP até 8 MB por ficheiro e só pode ser gerido por admin e marketing autenticados. A página pública recebe URLs assinados de curta duração, gerados no servidor depois de validar o token da ronda. As tabelas da validação não dão acesso a `anon`; a leitura e escrita do cliente passam por ações servidor com service role e validação explícita do token.
+
 ## 8. Arquitetura e operação técnica
 
 - Framework: Next.js 16 com App Router.
@@ -458,7 +481,7 @@ Variáveis de ambiente relevantes, sem valores:
 
 - `NEXT_PUBLIC_SUPABASE_URL`;
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` ou `NEXT_PUBLIC_SUPABASE_ANON_KEY`;
-- `SUPABASE_SERVICE_ROLE_KEY`, apenas para scripts locais de administração e para o fluxo servidor Invest2030 quando explicitamente configurado;
+- `SUPABASE_SERVICE_ROLE_KEY`, apenas no servidor para tarefas administrativas, Invest2030 e leitura/submissão dos links privados de validação;
 - token de acesso público Invest2030.
 
 Uma chave de service role nunca deve aparecer em código de browser, commits ou documentação de projeto com valores reais.
@@ -485,6 +508,7 @@ Quando o repositório estiver disponível como Source, usar esta prioridade:
 - Alguns fluxos têm compatibilidade com colunas antigas de Supabase. Esses fallbacks não definem o modelo desejado; existem para tolerar ambientes ainda não migrados.
 - As sequências de estados neste documento são o fluxo recomendado. Nem todas são máquinas de estados rígidas na base de dados.
 - O sistema conhece o estado `in_review` de campanhas Invest2030, mas o guardar atual passa diretamente de rascunho para pronto a exportar quando não há bloqueios.
+- A migração de validações deve ser aplicada antes de gerar links reais. Sem as novas tabelas e o bucket privado, a interface local permite rever o desenho do fluxo, mas não publicar uma ronda.
 - Não inferir dados atuais de clientes, tarefas, conteúdos ou férias a partir deste documento.
 
 ## 11. Vocabulário recomendado

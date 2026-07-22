@@ -12,6 +12,7 @@
     "test:dashboard": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-dashboard.ts",
     "test:clients": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-clients.ts",
     "test:vacations": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-vacations.ts",
+    "test:content-reviews": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-content-reviews.ts",
     "tsx": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON"
   },
   "dependencies": {

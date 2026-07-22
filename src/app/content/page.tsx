@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BulkContentModal } from "@/components/bulk-content-modal";
 import { ContentPlanningExportModal } from "@/components/content-planning-export-modal";
+import { ContentReviewBuilder } from "@/components/content-review-builder";
 import { ContentTable } from "@/components/content-table";
 import { ContentCalendarView, ContentPipelineView } from "@/components/content-views";
 import { ContentFiltersBar } from "@/components/live-filters";
@@ -210,14 +211,31 @@ export default async function ContentPage({ searchParams }: Props) {
                 );
               })}
             </div>
-            <ContentPlanningExportModal
-              clients={clients}
-              items={itemsForOptions}
-              defaultClientId={filters.client}
-              defaultMonth={defaultContentMonth}
-              defaultPreparedByName={defaultPreparer.name}
-              defaultPreparedByEmail={defaultPreparer.email}
-            />
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {["admin", "marketing"].includes(activeProfile.authRole) ? (
+                <>
+                  <Link href="/content/validations" className="inline-flex min-h-10 items-center rounded-full border border-[var(--bb-border)] bg-white/65 px-4 text-sm font-extrabold text-[var(--bb-charcoal)] transition hover:bg-[var(--bb-primary-soft)]">
+                    Validações
+                  </Link>
+                  <ContentReviewBuilder
+                    clients={clients}
+                    items={itemsForOptions}
+                    defaultClientId={filters.client}
+                    defaultMonth={defaultContentMonth}
+                    ownerName={activeProfile.name}
+                    canPersist={isSupabaseConfigured()}
+                  />
+                </>
+              ) : null}
+              <ContentPlanningExportModal
+                clients={clients}
+                items={itemsForOptions}
+                defaultClientId={filters.client}
+                defaultMonth={defaultContentMonth}
+                defaultPreparedByName={defaultPreparer.name}
+                defaultPreparedByEmail={defaultPreparer.email}
+              />
+            </div>
           </div>
           <ContentFiltersBar
             filters={filtersForBar}

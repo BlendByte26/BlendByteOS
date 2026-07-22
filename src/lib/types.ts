@@ -270,6 +270,90 @@ export type ContentItem = {
   source_task?: Pick<Task, "id" | "title" | "status"> | null;
 };
 
+export const contentReviewRoundStatuses = [
+  "draft",
+  "open",
+  "submitted",
+  "approved",
+  "changes_requested",
+  "superseded",
+  "revoked",
+] as const;
+
+export type ContentReviewRoundStatus = (typeof contentReviewRoundStatuses)[number];
+export type ContentReviewDecision = "pending" | "approved" | "changes_requested";
+
+export type ContentReviewRound = {
+  id: string;
+  client_id: string;
+  month: string;
+  version: number;
+  status: ContentReviewRoundStatus;
+  access_token_hash: string;
+  client_name: string;
+  client_logo_url: string | null;
+  recipient_name: string | null;
+  recipient_email: string | null;
+  approval_deadline: string | null;
+  introduction: string | null;
+  owner_profile_key: "guilherme" | "sofia";
+  owner_name: string;
+  submitted_by_name: string | null;
+  submitted_by_email: string | null;
+  published_at: string;
+  submitted_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ContentReviewBlock = {
+  id: string;
+  round_id: string;
+  title: string;
+  position: number;
+  decision: ContentReviewDecision;
+  client_comment: string | null;
+  feedback_submitted_at: string | null;
+  revision_task_id: string | null;
+  revision_started_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ContentReviewBlockItem = {
+  id: string;
+  block_id: string;
+  content_item_id: string | null;
+  position: number;
+  publish_date: string | null;
+  publish_time: string | null;
+  platform: string;
+  format: string | null;
+  title: string;
+  copy_text: string | null;
+  description: string | null;
+  content_updated_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ContentReviewAsset = {
+  id: string;
+  block_id: string;
+  storage_path: string;
+  original_name: string;
+  mime_type: "image/png" | "image/jpeg" | "image/webp";
+  position: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ContentReviewAssetItem = {
+  asset_id: string;
+  block_item_id: string;
+  created_at: string;
+};
+
 export type ContentComment = {
   id: string;
   content_id: string;

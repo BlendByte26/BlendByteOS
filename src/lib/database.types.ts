@@ -3,6 +3,11 @@ import type {
   CompanyContact,
   ContentComment,
   ContentItem,
+  ContentReviewAsset,
+  ContentReviewAssetItem,
+  ContentReviewBlock,
+  ContentReviewBlockItem,
+  ContentReviewRound,
   Invest2030Newsletter,
   Invest2030Request,
   QuickNote,
@@ -61,6 +66,111 @@ export type Database = {
             columns: ["content_id"];
             isOneToOne: false;
             referencedRelation: "content_items";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      content_review_rounds: {
+        Row: ContentReviewRound;
+        Insert: Partial<
+          Pick<
+            ContentReviewRound,
+            "id" | "status" | "recipient_name" | "recipient_email" | "approval_deadline" | "introduction" | "submitted_by_name" | "submitted_by_email" | "published_at" | "submitted_at" | "created_at" | "updated_at"
+          >
+        > &
+          Omit<
+            ContentReviewRound,
+            "id" | "status" | "recipient_name" | "recipient_email" | "approval_deadline" | "introduction" | "submitted_by_name" | "submitted_by_email" | "published_at" | "submitted_at" | "created_at" | "updated_at"
+          >;
+        Update: Partial<Omit<ContentReviewRound, "id" | "client_id" | "created_at">>;
+        Relationships: [
+          {
+            foreignKeyName: "content_review_rounds_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "clients";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      content_review_blocks: {
+        Row: ContentReviewBlock;
+        Insert: Partial<
+          Pick<ContentReviewBlock, "id" | "decision" | "client_comment" | "feedback_submitted_at" | "revision_task_id" | "revision_started_at" | "created_at" | "updated_at">
+        > &
+          Omit<ContentReviewBlock, "id" | "decision" | "client_comment" | "feedback_submitted_at" | "revision_task_id" | "revision_started_at" | "created_at" | "updated_at">;
+        Update: Partial<Omit<ContentReviewBlock, "id" | "round_id" | "created_at">>;
+        Relationships: [
+          {
+            foreignKeyName: "content_review_blocks_round_id_fkey";
+            columns: ["round_id"];
+            isOneToOne: false;
+            referencedRelation: "content_review_rounds";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "content_review_blocks_revision_task_id_fkey";
+            columns: ["revision_task_id"];
+            isOneToOne: false;
+            referencedRelation: "tasks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      content_review_block_items: {
+        Row: ContentReviewBlockItem;
+        Insert: Partial<Pick<ContentReviewBlockItem, "id" | "content_item_id" | "publish_date" | "publish_time" | "format" | "copy_text" | "description" | "content_updated_at" | "created_at" | "updated_at">> &
+          Omit<ContentReviewBlockItem, "id" | "content_item_id" | "publish_date" | "publish_time" | "format" | "copy_text" | "description" | "content_updated_at" | "created_at" | "updated_at">;
+        Update: Partial<Omit<ContentReviewBlockItem, "id" | "block_id" | "created_at">>;
+        Relationships: [
+          {
+            foreignKeyName: "content_review_block_items_block_id_fkey";
+            columns: ["block_id"];
+            isOneToOne: false;
+            referencedRelation: "content_review_blocks";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "content_review_block_items_content_item_id_fkey";
+            columns: ["content_item_id"];
+            isOneToOne: false;
+            referencedRelation: "content_items";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      content_review_assets: {
+        Row: ContentReviewAsset;
+        Insert: Partial<Pick<ContentReviewAsset, "id" | "created_at" | "updated_at">> &
+          Omit<ContentReviewAsset, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<ContentReviewAsset, "id" | "block_id" | "storage_path" | "created_at">>;
+        Relationships: [
+          {
+            foreignKeyName: "content_review_assets_block_id_fkey";
+            columns: ["block_id"];
+            isOneToOne: false;
+            referencedRelation: "content_review_blocks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      content_review_asset_items: {
+        Row: ContentReviewAssetItem;
+        Insert: Partial<Pick<ContentReviewAssetItem, "created_at">> & Omit<ContentReviewAssetItem, "created_at">;
+        Update: never;
+        Relationships: [
+          {
+            foreignKeyName: "content_review_asset_items_asset_id_fkey";
+            columns: ["asset_id"];
+            isOneToOne: false;
+            referencedRelation: "content_review_assets";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "content_review_asset_items_block_item_id_fkey";
+            columns: ["block_item_id"];
+            isOneToOne: false;
+            referencedRelation: "content_review_block_items";
             referencedColumns: ["id"];
           },
         ];

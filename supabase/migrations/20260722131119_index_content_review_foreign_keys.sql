@@ -1,0 +1,6 @@
+create index content_review_asset_items_block_item_idx
+on public.content_review_asset_items(block_item_id);
+
+create index content_review_blocks_revision_task_idx
+on public.content_review_blocks(revision_task_id)
+where revision_task_id is not null;

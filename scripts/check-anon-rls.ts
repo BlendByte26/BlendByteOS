@@ -51,6 +51,13 @@ async function countRows(table: string) {
 }
 
 async function main() {
+  const privateReviewTables = [
+    "content_review_rounds",
+    "content_review_blocks",
+    "content_review_block_items",
+    "content_review_assets",
+    "content_review_asset_items",
+  ];
   const tables = [
     "clients",
     "content_items",
@@ -61,9 +68,18 @@ async function main() {
     "quick_todos",
     "quick_notes",
     "user_profiles",
+    ...privateReviewTables,
   ];
 
-  console.table(await Promise.all(tables.map(countRows)));
+  const results = await Promise.all(tables.map(countRows));
+  console.table(results);
+
+  const exposedReviewTable = results.find(
+    (result) => privateReviewTables.includes(result.table) && result.count > 0,
+  );
+  if (exposedReviewTable) {
+    throw new Error(`Anonymous access unexpectedly reached ${exposedReviewTable.table}.`);
+  }
 }
 
 main().catch((error) => {

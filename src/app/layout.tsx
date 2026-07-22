@@ -40,6 +40,7 @@ export default async function RootLayout({
   const pathname = (await headers()).get("x-blendbyte-pathname") ?? "";
   const isAccessPage = pathname.startsWith("/access");
   const isInvest2030PublicPage = pathname.startsWith("/invest2030");
+  const isContentReviewPublicPage = pathname.startsWith("/validar-conteudos");
 
   return (
     <html
@@ -47,7 +48,7 @@ export default async function RootLayout({
       className={`${manrope.variable} ${geistMono.variable} h-full overflow-x-hidden antialiased`}
     >
       <body className="min-h-full overflow-x-hidden">
-        {isAccessPage || isInvest2030PublicPage ? children : <AppShell>{children}</AppShell>}
+        {isAccessPage || isInvest2030PublicPage || isContentReviewPublicPage ? children : <AppShell>{children}</AppShell>}
       </body>
     </html>
   );

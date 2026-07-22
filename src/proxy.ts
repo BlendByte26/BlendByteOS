@@ -13,6 +13,7 @@ const ACCESS_PATH = "/access";
 const SET_PASSWORD_PATH = "/access/set-password";
 const AUTH_CONFIRM_PATH = "/auth/confirm";
 const PUBLIC_INVEST2030_PATHS = ["/invest2030/novo-pedido", "/invest2030/pedidos"];
+const PUBLIC_CONTENT_REVIEW_PATH = "/validar-conteudos";
 
 function createNextResponse(request: NextRequest) {
   const headers = new Headers(request.headers);
@@ -71,7 +72,7 @@ export async function proxy(request: NextRequest) {
   const isAuthConfirmPage = pathname === AUTH_CONFIRM_PATH;
   const isApiRoute = pathname.startsWith("/api");
 
-  if (isPublicInvest2030Path(pathname) || isAuthConfirmPage || pathname === "/api/health") {
+  if (pathname.startsWith(PUBLIC_CONTENT_REVIEW_PATH) || isPublicInvest2030Path(pathname) || isAuthConfirmPage || pathname === "/api/health") {
     return withPathHeader(request);
   }
 
