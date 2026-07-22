@@ -415,9 +415,9 @@ export function ContentReviewBuilder({
         Preparar aprovação
       </button>
       {open ? createPortal(
-        <div className="fixed inset-0 z-[200] overflow-y-auto bg-black/55 p-3 backdrop-blur-sm md:p-6" role="dialog" aria-modal="true" aria-label="Preparar aprovação do cliente">
-          <div className={`mx-auto min-h-full rounded-[28px] border border-white/50 bg-[#f3f3ef] shadow-[0_30px_100px_rgba(0,0,0,0.3)] ${preview && !created ? "max-w-6xl" : "max-w-5xl"}`}>
-            <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 rounded-t-[28px] border-b border-[var(--bb-border)] bg-[#f3f3ef]/95 px-4 py-3 backdrop-blur-xl md:px-6">
+        <div className="fixed inset-0 z-[200] overflow-hidden bg-black/55 p-3 backdrop-blur-sm md:p-6" role="dialog" aria-modal="true" aria-label="Preparar aprovação do cliente">
+          <div className={`mx-auto max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-[28px] border border-white/50 bg-[#f3f3ef] shadow-[0_30px_100px_rgba(0,0,0,0.3)] md:max-h-[calc(100dvh-3rem)] ${preview && !created ? "max-w-6xl" : "max-w-5xl"}`}>
+            <div className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 rounded-t-[28px] border-b border-[var(--bb-border)] bg-[#f3f3ef] px-4 py-3 md:px-6">
               <div>
                 <div className="text-xs font-extrabold uppercase tracking-[0.13em] text-[var(--bb-muted)]">Aprovação do cliente</div>
                 <h2 className="text-xl font-extrabold text-[var(--bb-charcoal)]">{created ? "Link pronto a partilhar" : preview ? "Pré-visualização final" : "Preparar planeamento"}</h2>

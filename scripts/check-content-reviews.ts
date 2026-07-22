@@ -24,6 +24,8 @@ assert.match(builderSource, /<MonthPicker/);
 assert.match(builderSource, /<DatePicker/);
 assert.match(builderSource, /Email sugerido/);
 assert.match(builderSource, /Copiar email/);
+assert.match(builderSource, /max-h-\[calc\(100dvh-1\.5rem\)\] overflow-y-auto/);
+assert.match(builderSource, /sticky top-0 z-30/);
 assert.match(helperSource, /contentReviewEmailSuggestion/);
 assert.match(blockTabsSource, /role="tablist"/);
 assert.match(blockTabsSource, /Conteúdo/);
