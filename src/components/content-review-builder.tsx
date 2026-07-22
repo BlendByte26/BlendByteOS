@@ -25,6 +25,7 @@ import { SelectField } from "@/components/select-field";
 import { createContentReviewAction } from "@/lib/content-review-actions";
 import {
   contentReviewSourceItems,
+  contentReviewEmailSuggestion,
   defaultContentReviewIntroduction,
   type ContentReviewView,
 } from "@/lib/content-reviews";
@@ -206,6 +207,8 @@ export function ContentReviewBuilder({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [created, setCreated] = useState<{ path: string; roundId: string } | null>(null);
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
   const [isPending, startTransition] = useTransition();
 
   const sourceItems = useMemo(() => contentReviewSourceItems(items, clientId, month), [clientId, items, month]);
@@ -220,6 +223,8 @@ export function ContentReviewBuilder({
     setBlocks(defaultBlocks(nextItems));
     setSelectedIds([]);
     setCreated(null);
+    setEmailSubject("");
+    setEmailBody("");
     setMessage(null);
     setRecipientName(nextClient?.contact_name ?? "");
     setRecipientEmail(nextClient?.contact_email ?? "");
@@ -386,7 +391,18 @@ export function ContentReviewBuilder({
         return;
       }
       setCreated({ path: result.path, roundId: result.roundId });
-      setMessage("Link criado. Confirma a página antes de o enviar ao cliente.");
+      const link = `${window.location.origin}${result.path}`;
+      const email = contentReviewEmailSuggestion({
+        clientName: client!.name,
+        month,
+        recipientName,
+        approvalDeadline,
+        ownerName,
+        link,
+      });
+      setEmailSubject(email.subject);
+      setEmailBody(email.body);
+      setMessage(null);
     });
   }
 
@@ -422,8 +438,28 @@ export function ContentReviewBuilder({
                     <button type="button" onClick={() => void copyText(absoluteLink).then(() => setMessage("Link copiado."))} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[var(--bb-black)] px-4 text-sm font-extrabold text-white"><Copy className="size-4" />Copiar link</button>
                     <a href={created.path} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[var(--bb-border)] bg-white px-4 text-sm font-extrabold"><Eye className="size-4" />Abrir página</a>
                   </div>
-                  {message ? <div role="status" className="mt-4 rounded-2xl border border-[#8fc7a1] bg-white/70 px-4 py-3 text-sm font-bold text-[#2f7650]">{message}</div> : null}
                 </section>
+                <section className="rounded-[22px] border border-[var(--bb-border)] bg-white/80 p-5 md:p-6">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-lg font-extrabold text-[var(--bb-charcoal)]">Email sugerido</h3>
+                      <p className="mt-1 text-sm font-medium text-[var(--bb-muted)]">Pode adaptar o assunto e a mensagem antes de copiar.</p>
+                    </div>
+                    {recipientEmail ? <span className="rounded-full bg-[var(--bb-primary-soft)] px-3 py-1.5 text-xs font-extrabold text-[var(--bb-charcoal)]">Para: {recipientEmail}</span> : null}
+                  </div>
+                  <div className="mt-5 grid gap-4">
+                    <label className={labelClass}>Assunto
+                      <input value={emailSubject} onChange={(event) => setEmailSubject(event.currentTarget.value)} className={inputClass} />
+                    </label>
+                    <label className={labelClass}>Mensagem
+                      <textarea value={emailBody} onChange={(event) => setEmailBody(event.currentTarget.value)} rows={12} className={`${textareaClass} min-h-72`} />
+                    </label>
+                  </div>
+                  <div className="mt-4 flex justify-end">
+                    <button type="button" onClick={() => void copyText(`Assunto: ${emailSubject}\n\n${emailBody}`).then(() => setMessage("Email copiado."))} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[var(--bb-black)] px-5 text-sm font-extrabold text-white"><Copy className="size-4" />Copiar email</button>
+                  </div>
+                </section>
+                {message ? <div role="status" className="rounded-2xl border border-[#8fc7a1] bg-[#edf8ef] px-4 py-3 text-sm font-bold text-[#2f7650]">{message}</div> : null}
                 <div className="flex flex-wrap justify-end gap-2">
                   <Link href={`/content/validations/${created.roundId}`} className="inline-flex min-h-11 items-center rounded-full border border-[var(--bb-border)] bg-white px-5 text-sm font-extrabold">Ver no histórico</Link>
                   <button type="button" onClick={closeBuilder} className="min-h-11 rounded-full bg-[var(--bb-black)] px-5 text-sm font-extrabold text-white">Fechar e voltar aos conteúdos</button>

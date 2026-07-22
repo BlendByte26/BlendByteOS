@@ -1,4 +1,5 @@
 import { contentItemsForPlanningPeriod } from "./content-planning-export";
+import { formatContentMonthLabel } from "./content-month";
 import type {
   Client,
   ContentItem,
@@ -83,6 +84,37 @@ export function contentReviewSourceItems(items: ContentItem[], clientId: string,
 
 export function defaultContentReviewIntroduction(client: Pick<Client, "name">, monthLabel: string) {
   return `Partilhamos o planeamento de conteúdos da ${client.name} para ${monthLabel}. Comece pela tabela-resumo do planeamento e valide depois cada bloco de conteúdos.`;
+}
+
+export function contentReviewEmailSuggestion({
+  clientName,
+  month,
+  recipientName,
+  approvalDeadline,
+  ownerName,
+  link,
+}: {
+  clientName: string;
+  month: string;
+  recipientName: string;
+  approvalDeadline: string;
+  ownerName: string;
+  link: string;
+}) {
+  const monthLabel = formatContentMonthLabel(month);
+  const deadlineParts = approvalDeadline.split("-");
+  const deadline = deadlineParts.length === 3
+    ? `${deadlineParts[2]}/${deadlineParts[1]}/${deadlineParts[0]}`
+    : approvalDeadline;
+  const greeting = recipientName.trim() ? `Olá ${recipientName.trim()},` : "Olá,";
+  const deadlineLine = deadline
+    ? `\nPara conseguirmos fechar o planeamento, agradecemos a resposta até ${deadline}.\n`
+    : "";
+
+  return {
+    subject: `Planeamento de conteúdos — ${clientName} — ${monthLabel}`,
+    body: `${greeting}\n\nPartilhamos o planeamento de conteúdos da ${clientName} para ${monthLabel}.\n\nPode consultar e validar cada bloco através deste link:\n${link}\n${deadlineLine}\nSe tiver alguma questão, estou disponível.\n\nCom os melhores cumprimentos,\n${ownerName}\nBlendByte`,
+  };
 }
 
 export function contentReviewDecisionSummary(blocks: Array<Pick<ContentReviewBlock, "decision">>) {
