@@ -47,7 +47,7 @@ export type TaskFilters = {
   assignee?: string;
   client?: string;
   priority?: string;
-  status?: string;
+  status?: string | string[];
   due?: string;
 };
 
@@ -517,6 +517,8 @@ export async function getMentionedContentComments(profileKey: OperationalProfile
 
 export async function getTasks(filters: TaskFilters = {}) {
   const supabase = await getSupabase();
+  const filteredStatuses = (Array.isArray(filters.status) ? filters.status : [filters.status])
+    .filter(Boolean) as TaskStatus[];
 
   if (!supabase) {
     return sampleTasks.filter((task) => {
@@ -525,7 +527,7 @@ export async function getTasks(filters: TaskFilters = {}) {
           task.assignee_name?.toLowerCase().includes(filters.assignee.toLowerCase())) &&
         (!filters.client || task.client_id === filters.client) &&
         (!filters.priority || task.priority === filters.priority) &&
-        (!filters.status || task.status === filters.status) &&
+        (!filteredStatuses.length || filteredStatuses.includes(task.status)) &&
         (!filters.due || (Boolean(task.due_date) && task.due_date! <= filters.due))
       );
     });
@@ -540,7 +542,7 @@ export async function getTasks(filters: TaskFilters = {}) {
   if (filters.assignee) query = query.ilike("assignee_name", `%${filters.assignee}%`);
   if (filters.client) query = query.eq("client_id", filters.client);
   if (filters.priority) query = query.eq("priority", filters.priority as TaskPriority);
-  if (filters.status) query = query.eq("status", filters.status as TaskStatus);
+  if (filteredStatuses.length) query = query.in("status", filteredStatuses);
   if (filters.due) query = query.lte("due_date", filters.due);
 
   const { data, error } = await query;
@@ -554,7 +556,7 @@ export async function getTasks(filters: TaskFilters = {}) {
             task.assignee_name?.toLowerCase().includes(filters.assignee.toLowerCase())) &&
           (!filters.client || task.client_id === filters.client) &&
           (!filters.priority || task.priority === filters.priority) &&
-          (!filters.status || task.status === filters.status) &&
+          (!filteredStatuses.length || filteredStatuses.includes(task.status)) &&
           (!filters.due || (Boolean(task.due_date) && task.due_date! <= filters.due))
         );
       }),

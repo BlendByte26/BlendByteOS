@@ -87,6 +87,15 @@ export function parseTaskStatusParam(value: string | null | undefined): TaskStat
   return "";
 }
 
+export function parseTaskStatusParams(value: string | string[] | null | undefined): TaskStatus[] {
+  const values = Array.isArray(value) ? value : [value];
+  const statuses = values
+    .map((item) => parseTaskStatusParam(item))
+    .filter(Boolean) as TaskStatus[];
+
+  return Array.from(new Set(statuses));
+}
+
 export function parseTaskPriorityParam(value: string | null | undefined): TaskPriority | "" {
   if (value === "urgent" || value === "normal" || value === "low") return value;
   return "";

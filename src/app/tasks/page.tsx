@@ -14,7 +14,7 @@ import {
 import { getClientLabel } from "@/lib/client-display";
 import { getClients, getTasks, getTeamMembers, uniqueValues } from "@/lib/data";
 import { taskPriorityLabels, taskStatusLabels } from "@/lib/labels";
-import { parseTaskPriorityParam, parseTaskStatusParam } from "@/lib/smart-links";
+import { parseTaskPriorityParam, parseTaskStatusParams } from "@/lib/smart-links";
 import { taskStatusTones } from "@/lib/status-styles";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { taskStatuses } from "@/lib/types";
@@ -98,8 +98,10 @@ function hrefForView(params: Record<string, string | string[] | undefined>, view
   const nextParams = new URLSearchParams();
 
   Object.entries(params).forEach(([key, rawValue]) => {
-    const value = Array.isArray(rawValue) ? rawValue[0] : rawValue;
-    if (value) nextParams.set(key, value);
+    const values = Array.isArray(rawValue) ? rawValue : [rawValue];
+    values.forEach((value) => {
+      if (value) nextParams.append(key, value);
+    });
   });
 
   if (view === "all") {
@@ -117,7 +119,7 @@ export default async function TasksPage({ searchParams }: Props) {
   const profile = await requireCurrentOperationalProfile();
   const requestedAssignee = valueOf(params, "assignee") ?? valueOf(params, "owner");
   const currentView = parseView(valueOf(params, "view"));
-  const requestedStatus = parseTaskStatusParam(valueOf(params, "status"));
+  const requestedStatus = parseTaskStatusParams(params.status);
   const filters = {
     assignee: requestedAssignee === "all" ? "" : requestedAssignee ?? profile.name,
     client: valueOf(params, "client") ?? "",

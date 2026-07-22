@@ -20,7 +20,7 @@ type TaskFilterValues = {
   assignee: string;
   client: string;
   priority: string;
-  status: string;
+  status: string[];
   due: string;
 };
 
@@ -375,11 +375,12 @@ export function TasksFiltersBar({
       </label>
       <label className={labelClass}>
         Estado
-        <SelectField
+        <MultiSelectField
           name="status"
           value={filters.status}
           onValueChange={(value) => updateFilter("status", value)}
           options={statusOptions}
+          allLabel="Todos os estados"
         />
       </label>
       <label className={labelClass}>

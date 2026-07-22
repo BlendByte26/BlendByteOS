@@ -204,6 +204,7 @@ Prioridades de domínio:
 Na criação manual, a interface privilegia `normal` e `urgent`. A prioridade `low` é usada, por exemplo, por algumas tarefas automáticas de setup.
 
 As vistas rápidas são: todas, hoje, esta semana, próximos sete dias e arquivadas. Por defeito, a lista abre filtrada para o utilizador atual.
+O filtro de estado permite selecionar vários estados em simultâneo, tal como no módulo de Conteúdos.
 
 ### 5.5 BlendHub
 
