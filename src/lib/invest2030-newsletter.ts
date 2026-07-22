@@ -1260,6 +1260,102 @@ function validUrl(value: string) {
   }
 }
 
+const invest2030CampaignFieldLabels: Record<string, string> = {
+  subject: "Assunto",
+  preheader: "Preheader",
+  eyebrow: "Etiqueta superior",
+  hero_title: "Título principal",
+  hero_subtitle: "Subtítulo",
+  benefits_title: "Título de condições e benefícios",
+  audience_section_title: "Título da secção de público",
+  audience_title: "Título do público",
+  audience_body: "Descrição do público",
+  exclusions: "Exclusões",
+  primary_cta_label: "Texto do primeiro CTA",
+  secondary_cta_label: "Texto do segundo CTA",
+  cta_url: "URL dos CTAs",
+  session_section_title: "Título da sessão",
+  primary_cta_url: "URL do CTA principal",
+};
+
+function technicalPlaceholderMarker(value: string) {
+  const mustache = value.match(/\{\{[^}]*\}\}|\{\{|\}\}/)?.[0];
+  if (mustache) return mustache;
+
+  const underscored = value.match(/__[A-Z0-9][A-Z0-9_ -]*__/)?.[0];
+  if (underscored) return underscored;
+
+  const todo = value.match(/\bTODO\b/)?.[0];
+  if (todo) return todo;
+
+  const textPlaceholder = value.match(/\b(?:LOREM(?:\s+IPSUM)?|PLACEHOLDER)\b/i)?.[0];
+  return textPlaceholder ?? null;
+}
+
+function technicalPlaceholderFieldLabel(path: string) {
+  const indicator = path.match(/^stats\[(\d+)\]\.(label|value)$/);
+  if (indicator) {
+    return `Indicador ${Number(indicator[1]) + 1} — ${indicator[2] === "label" ? "legenda" : "valor"}`;
+  }
+
+  const speaker = path.match(/^speaker\.(name|organisation|image_url)$/);
+  if (speaker) {
+    const labels = { name: "nome", organisation: "organização", image_url: "imagem" } as const;
+    return `Orador — ${labels[speaker[1] as keyof typeof labels]}`;
+  }
+
+  const arrayField = path.match(/^(intro_paragraphs|benefits|closing_paragraphs|session_topics)\[(\d+)\]$/);
+  if (arrayField) {
+    const labels = {
+      intro_paragraphs: "Introdução — parágrafo",
+      benefits: "Benefício",
+      closing_paragraphs: "Fecho — parágrafo",
+      session_topics: "Tópico da sessão",
+    } as const;
+    return `${labels[arrayField[1] as keyof typeof labels]} ${Number(arrayField[2]) + 1}`;
+  }
+
+  return invest2030CampaignFieldLabels[path] ?? path;
+}
+
+function findTechnicalPlaceholderField(
+  value: unknown,
+  path = "",
+): { field: string; marker: string } | null {
+  if (typeof value === "string") {
+    const marker = technicalPlaceholderMarker(value);
+    return marker ? { field: technicalPlaceholderFieldLabel(path), marker } : null;
+  }
+
+  if (Array.isArray(value)) {
+    for (let index = 0; index < value.length; index += 1) {
+      const match = findTechnicalPlaceholderField(value[index], `${path}[${index}]`);
+      if (match) return match;
+    }
+    return null;
+  }
+
+  if (value && typeof value === "object") {
+    for (const [key, childValue] of Object.entries(value)) {
+      const match = findTechnicalPlaceholderField(childValue, path ? `${path}.${key}` : key);
+      if (match) return match;
+    }
+  }
+
+  return null;
+}
+
+function addTechnicalPlaceholderBlocker(blockers: string[], content: Invest2030CampaignContent, html: string) {
+  const fieldMatch = findTechnicalPlaceholderField(content);
+  if (fieldMatch) {
+    blockers.push(`O campo “${fieldMatch.field}” contém o marcador técnico “${fieldMatch.marker}”.`);
+    return;
+  }
+
+  const htmlMarker = technicalPlaceholderMarker(html);
+  if (htmlMarker) blockers.push(`O HTML contém o marcador técnico “${htmlMarker}”.`);
+}
+
 export function validateInvest2030Newsletter(
   content: Invest2030NewsletterContent,
   _parsed: Invest2030NewsletterParsedRequest,
@@ -1276,7 +1372,7 @@ export function validateInvest2030Newsletter(
   if (content.stats.length !== 4) blockers.push("A newsletter tem de ter exatamente quatro indicadores.");
   if (!content.benefits.some((benefit) => benefit.trim())) blockers.push("Adicione pelo menos um benefício.");
   if (!validUrl(safeInvest2030CtaUrl(content.cta_url).url)) blockers.push("URL final inválido.");
-  if (/\{\{|\}\}|__|TODO|LOREM|PLACEHOLDER/i.test(html)) blockers.push("Existem campos técnicos internos ou placeholders por preencher.");
+  addTechnicalPlaceholderBlocker(blockers, content, html);
   if (!html.startsWith("<!doctype html>") || !html.endsWith("</html>")) blockers.push("HTML estrutural inválido.");
   if (!html.includes("[COMPANY_FULL_ADDRESS]") || !html.includes("[UNSUBSCRIBE_URL]")) blockers.push("Tags MagicSpider obrigatórias em falta.");
   if (html.includes("Ver no navegador") || html.includes('href=""')) blockers.push("Footer contém elementos proibidos.");
@@ -1304,7 +1400,7 @@ export function validateInvest2030Webinar(
   if (!content.session_topics.some((topic) => topic.trim())) blockers.push("Adicione pelo menos um tópico da sessão.");
   if (content.primary_cta_label !== undefined && !content.primary_cta_label.trim()) blockers.push("Texto do botão principal vazio.");
   if (!primaryLink.valid) blockers.push("Falta definir um link válido para a inscrição no webinar.");
-  if (/\{\{|\}\}|__|TODO|LOREM|PLACEHOLDER/i.test(html)) blockers.push("Existem campos técnicos internos ou placeholders por preencher.");
+  addTechnicalPlaceholderBlocker(blockers, content, html);
   if (!html.startsWith("<!doctype html>") || !html.endsWith("</html>")) blockers.push("HTML estrutural inválido.");
   if (!html.includes("[COMPANY_FULL_ADDRESS]") || !html.includes("[UNSUBSCRIBE_URL]")) blockers.push("Tags MagicSpider obrigatórias em falta.");
   if (html.includes("Ver no navegador") || html.includes('href=""')) blockers.push("Footer contém elementos proibidos.");

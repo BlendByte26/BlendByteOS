@@ -309,6 +309,31 @@ function assertJsonImportStates() {
   assert(editedHtml.startsWith("<!doctype html>") && editedHtml.trimEnd().endsWith("</html>"), "HTML copiado deve ser documento completo.");
 }
 
+function assertTechnicalPlaceholderValidation() {
+  const parsed = parseInvest2030TaskNotes("Tipo de ação:\nNewsletter");
+  const naturalPortugueseContent: Invest2030NewsletterContent = {
+    ...sourceContent,
+    intro_paragraphs: [
+      ...sourceContent.intro_paragraphs,
+      "Um dos mais elevados níveis de apoio de todo o Portugal 2030.",
+    ],
+  };
+  const naturalValidation = validateInvest2030Newsletter(naturalPortugueseContent, parsed);
+  assert(
+    !naturalValidation.blockers.some((blocker) => blocker.includes("marcador técnico")),
+    "A palavra portuguesa «todo» não pode ser confundida com o marcador técnico TODO.",
+  );
+
+  const placeholderValidation = validateInvest2030Newsletter(
+    { ...sourceContent, subject: "TODO: definir assunto" },
+    parsed,
+  );
+  assert(
+    placeholderValidation.blockers.includes("O campo “Assunto” contém o marcador técnico “TODO”."),
+    "Um TODO real deve bloquear e identificar o campo problemático.",
+  );
+}
+
 function assertOriginalBriefingsStayOpaque() {
   const validContent: Invest2030NewsletterContent = {
     ...sourceContent,
@@ -459,6 +484,7 @@ async function main() {
   assertStaticTemplateMatchesSource(generatedHtml);
   assertWorkspaceResponsiveSource();
   assertJsonImportStates();
+  assertTechnicalPlaceholderValidation();
   assertOriginalBriefingsStayOpaque();
   assertGptUrlConfiguration();
   assertWebinarIdentificationAndBriefing();

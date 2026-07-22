@@ -377,6 +377,7 @@ O histórico externo permite pesquisar e filtrar por tipo de ação, requerente,
 4. O workspace analisa o pedido e cria conteúdo inicial, ou aceita conteúdo JSON gerado/importado.
 5. O utilizador revê e edita conteúdo, CTA, benefícios, público, métricas, agenda ou oradores, conforme a variante.
 6. Ao guardar, o sistema valida o conteúdo e gera HTML.
+   Marcadores técnicos reais, como `TODO`, bloqueiam a exportação e a validação identifica o campo; a palavra portuguesa “todo” não é tratada como marcador.
 7. Com bloqueios de validação, o estado permanece `draft`.
 8. Sem bloqueios, passa a `ready_to_export`.
 9. O HTML pode ser exportado e o estado marcado como `exported`.
