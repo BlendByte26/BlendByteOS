@@ -283,6 +283,7 @@ export function ClientForm({
       <nav className="sticky top-[92px] z-10 flex max-w-full gap-2 overflow-x-auto rounded-full border border-[var(--bb-border)] bg-[rgba(255,255,255,0.92)] p-2 shadow-[0_12px_30px_rgba(0,0,0,0.08)] backdrop-blur-xl">
         {[
           ["identidade", "Identidade"],
+          ["contacto", "Contacto"],
           ["marca", "Marca"],
           ["contrato", "Contrato"],
           ["recursos", "Plataformas e recursos"],
@@ -333,6 +334,60 @@ export function ClientForm({
         </div>
       </ClientFormSection>
 
+      <ClientFormSection id="contacto" title="Contacto" description="Informação principal visível no perfil do cliente.">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <label className={labelClass}>
+            Responsável BlendByte
+            {teamMembers.length ? (
+              <SelectField name="owner_name" defaultValue={client?.owner_name ?? ""} options={ownerOptions} />
+            ) : (
+              <input name="owner_name" defaultValue={client?.owner_name ?? ""} className={inputClass} />
+            )}
+          </label>
+          <label className={labelClass}>
+            Email da empresa
+            <input
+              name="contact_email"
+              type="email"
+              defaultValue={client?.contact_email ?? ""}
+              placeholder="geral@cliente.pt"
+              className={inputClass}
+            />
+          </label>
+          <label className={labelClass}>
+            Telefone da empresa
+            <input
+              name="contact_phone"
+              type="tel"
+              defaultValue={client?.contact_phone ?? ""}
+              placeholder="+351 210 000 000"
+              className={inputClass}
+            />
+          </label>
+          <label className={labelClass}>
+            <span>
+              Pessoa de contacto <span className="font-semibold text-[var(--bb-muted)]">(opcional)</span>
+            </span>
+            <input
+              name="contact_name"
+              defaultValue={client?.contact_name ?? ""}
+              placeholder="Nome da pessoa"
+              className={inputClass}
+            />
+          </label>
+          <label className={`${labelClass} md:col-span-2`}>
+            Website
+            <input
+              name="website_url"
+              type="url"
+              defaultValue={client?.website_url ?? ""}
+              placeholder="https://cliente.pt"
+              className={inputClass}
+            />
+          </label>
+        </div>
+      </ClientFormSection>
+
       <ClientFormSection id="marca" title="Marca" description="Identidade visual e referências oficiais.">
         <ClientLogoEditor currentLogoUrl={client?.logo_url} prepareRef={prepareLogoRef} />
         <ClientColorField defaultValue={client?.color_key} />
@@ -340,17 +395,7 @@ export function ClientForm({
       </ClientFormSection>
 
       <ClientFormSection id="contrato" title="Contrato e serviços" description="Responsabilidade, âmbito e duração do trabalho.">
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className={labelClass}>
-            Responsável interno
-            {teamMembers.length ? (
-              <SelectField name="owner_name" defaultValue={client?.owner_name ?? ""} options={ownerOptions} />
-            ) : (
-              <input name="owner_name" defaultValue={client?.owner_name ?? ""} className={inputClass} />
-            )}
-          </label>
-          <ClientServicesField defaultValues={serviceValues} />
-        </div>
+        <ClientServicesField defaultValues={serviceValues} />
         <div className="grid gap-4 md:grid-cols-3">
           <label className={labelClass}>
             Valor contratado

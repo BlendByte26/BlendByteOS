@@ -64,9 +64,8 @@ export const clientLinkGroups: ClientLinkGroup[] = [
   {
     id: "channels",
     title: "Canais",
-    description: "Website e perfis públicos do cliente.",
+    description: "Perfis públicos do cliente.",
     fields: [
-      { key: "website_url", label: "Website" },
       { key: "instagram_url", label: "Instagram" },
       { key: "facebook_url", label: "Facebook" },
       { key: "linkedin_url", label: "LinkedIn" },

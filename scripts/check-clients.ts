@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   buildClientCode,
+  clientLinkGroups,
   getEffectiveClientStatus,
   getClientListTab,
   isClientListTab,
@@ -34,5 +35,10 @@ assert.equal(isClientListTab("internal"), true);
 assert.equal(isClientListTab("inactive"), true);
 assert.equal(isClientListTab("archived"), false);
 assert.equal(isClientListTab(undefined), false);
+
+const channelFields = clientLinkGroups
+  .find((group) => group.id === "channels")
+  ?.fields.map((field) => field.key);
+assert.equal(channelFields?.includes("website_url"), false);
 
 console.log("Client grouping, code and format checks passed.");

@@ -221,7 +221,7 @@ export function ClientSetupFlow({
                 <input value={previewCode} readOnly className={`${inputClass} bg-black/5`} />
               </label>
             </div>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2">
               <label className={labelClass}>
                 Tipo de cliente
                 <SelectField name="type" defaultValue="external" options={clientTypes.map((type) => ({ value: type, label: clientTypeLabels[type] }))} />
@@ -230,9 +230,32 @@ export function ClientSetupFlow({
                 Estado
                 <SelectField name="status" defaultValue="active" options={clientStatuses.map((status) => ({ value: status, label: clientStatusLabels[status] }))} />
               </label>
+            </div>
+          </ClientFormSection>
+
+          <ClientFormSection id="novo-contacto" title="Contacto" description="Informação principal que ficará visível no perfil do cliente.">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <label className={labelClass}>
-                Responsável interno
+                Responsável BlendByte
                 <SelectField name="owner_name" options={ownerOptions} />
+              </label>
+              <label className={labelClass}>
+                Email da empresa
+                <input name="contact_email" type="email" placeholder="geral@cliente.pt" className={inputClass} />
+              </label>
+              <label className={labelClass}>
+                Telefone da empresa
+                <input name="contact_phone" type="tel" placeholder="+351 210 000 000" className={inputClass} />
+              </label>
+              <label className={labelClass}>
+                <span>
+                  Pessoa de contacto <span className="font-semibold text-[var(--bb-muted)]">(opcional)</span>
+                </span>
+                <input name="contact_name" placeholder="Nome da pessoa" className={inputClass} />
+              </label>
+              <label className={`${labelClass} md:col-span-2`}>
+                Website
+                <input name="website_url" type="url" placeholder="https://cliente.pt" className={inputClass} />
               </label>
             </div>
           </ClientFormSection>
@@ -284,6 +307,10 @@ export function ClientSetupFlow({
             <SummaryValue label="Tipo" value={clientTypeLabels[(formSnapshot.type as keyof typeof clientTypeLabels) || "external"]} />
             <SummaryValue label="Estado" value={clientStatusLabels[(formSnapshot.status as keyof typeof clientStatusLabels) || "active"]} />
             <SummaryValue label="Responsável" value={formSnapshot.owner_name} />
+            <SummaryValue label="Email" value={formSnapshot.contact_email} />
+            <SummaryValue label="Telefone" value={formSnapshot.contact_phone} />
+            <SummaryValue label="Pessoa de contacto" value={formSnapshot.contact_name} />
+            <SummaryValue label="Website" value={formSnapshot.website_url} />
             <SummaryValue label="Serviços" value={selectedServices.join(", ")} />
             <SummaryValue label="Plataformas" value={selectedPlatforms.join(", ")} />
             <SummaryValue label="Links preenchidos" value={String(filledLinkCount)} />

@@ -1,6 +1,6 @@
 # BlendByte OS — contexto canónico e fluxos operacionais
 
-Versão desta fonte: 21 de julho de 2026
+Versão desta fonte: 22 de julho de 2026
 
 ## 1. Para que serve este documento
 
@@ -113,6 +113,8 @@ O módulo de Clientes mantém o perfil operacional de cada cliente:
 - identidade, código, nome curto, logótipo e cor;
 - tipo e estado;
 - responsável interno;
+- email e telefone da empresa cliente;
+- nome opcional da pessoa de contacto e website;
 - serviços contratados, valor, início e duração;
 - marca, manual de normas e brand assets;
 - plataformas e canais;
@@ -140,6 +142,8 @@ Estados de cliente:
 - `inactive`.
 
 O código é estável e segue a forma `NN_ABC`: `NN` é a ordem seguinte à maior já existente e `ABC` é, por defeito, o formato gerado a partir das primeiras três letras alfanuméricas do nome, em maiúsculas e sem acentos. O formato pode ser corrigido antes da criação; mudar posteriormente o nome ou o formato não renumera o código.
+
+No perfil, o tipo aparece junto do estado. Responsável BlendByte, email, telefone, pessoa de contacto e website formam a informação principal sempre visível. Serviços, valor, início e duração ficam numa faixa horizontal navegável, reduzindo a altura do cabeçalho sem retirar contexto.
 
 Um cliente só pode ser apagado definitivamente por Guilherme e apenas quando já não tem tarefas nem conteúdos associados.
 
@@ -268,7 +272,7 @@ Em desenvolvimento, se o Supabase não estiver configurado, a aplicação pode f
 
 O assistente de criação tem três passos:
 
-1. Dados principais: nome, formato e pré-visualização do código, tipo, estado, responsável, serviços, valor, início e duração.
+1. Dados principais: nome, formato e pré-visualização do código, tipo, estado, responsável, email e telefone da empresa, pessoa de contacto opcional, website, serviços, valor, início e duração.
 2. Marca e recursos: logótipo, cor, manual de normas, brand assets, plataformas, Drive de materiais, Figma, Meta Business Suite, canais e documentos.
 3. Resumo e criação: revisão, notas e opção de criar tarefas iniciais.
 

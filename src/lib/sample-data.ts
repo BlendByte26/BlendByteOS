@@ -30,6 +30,9 @@ export const sampleClients: Client[] = [
   type: entry.name === "Blendbyte" ? "internal" : entry.name === "Grupo Investe" ? "grupo_investe" : "external",
   status: entry.name === "Safe Vanguard" ? "inactive" : "active",
   owner_name: ["Carlota", "Carolina", "Sofia", "Guilherme"][index % 4],
+  contact_email: index === 0 ? "geral@cliente-exemplo.pt" : null,
+  contact_phone: index === 0 ? "+351 210 000 000" : null,
+  contact_name: index === 0 ? "Ana" : null,
   service_type: [
     "Gestão de Redes Sociais",
     "Marketing de Performance",

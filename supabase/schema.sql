@@ -62,6 +62,9 @@ create table if not exists public.clients (
   type client_type not null default 'external',
   status client_status not null default 'active',
   owner_name text,
+  contact_email text,
+  contact_phone text,
+  contact_name text,
   service_type text,
   service_types text[] not null default '{}',
   monthly_value numeric(12,2),
@@ -258,6 +261,9 @@ alter table public.clients add column if not exists client_code text;
 alter table public.clients add column if not exists short_name text;
 alter table public.clients add column if not exists display_order integer;
 alter table public.clients add column if not exists logo_url text;
+alter table public.clients add column if not exists contact_email text;
+alter table public.clients add column if not exists contact_phone text;
+alter table public.clients add column if not exists contact_name text;
 alter table public.clients add column if not exists drive_url text;
 alter table public.clients add column if not exists figma_url text;
 alter table public.clients add column if not exists meta_url text;

@@ -109,6 +109,9 @@ export type Client = {
   type: ClientType;
   status: ClientStatus;
   owner_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  contact_name: string | null;
   service_type: ServiceType | null;
   service_types: string[] | null;
   monthly_value: number | null;

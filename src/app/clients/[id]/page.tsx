@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getClient, getContentItems, getTasks } from "@/lib/data";
 import { displayContentPlatform } from "@/lib/content-platform";
 import { ClientBadge } from "@/components/client-badge";
+import { ClientDetailsSlider } from "@/components/client-details-slider";
 import { ClientOperationalControls } from "@/components/client-operational-controls";
 import { LinksList } from "@/components/links";
 import { getClientVisualToken } from "@/lib/client-visuals";
@@ -69,6 +70,9 @@ export default async function ClientDetailPage({ params }: Props) {
   const openTasks = tasks.filter((task) => !["done", "archived"].includes(task.status));
   const activeContent = content.filter((item) => !["published", "archived"].includes(item.status));
   const services = servicesFor(client);
+  const phoneHref = client.contact_phone
+    ? `tel:${client.contact_phone.replace(/[^\d+]/g, "")}`
+    : undefined;
   const newTaskHref = `/tasks/new?client=${encodeURIComponent(client.id)}`;
   const newContentHref = `/content/new?client=${encodeURIComponent(client.id)}`;
   const clientToken = getClientVisualToken({
@@ -95,6 +99,9 @@ export default async function ClientDetailPage({ params }: Props) {
                   variant="header"
                 />
                 <Badge value={effectiveStatus} label={clientStatusLabels[effectiveStatus]} />
+                <span className="inline-flex min-h-7 items-center rounded-full border border-[var(--bb-border)] bg-white/65 px-3 text-xs font-extrabold text-[var(--bb-charcoal)]">
+                  {clientTypeLabels[client.type]}
+                </span>
               </div>
               <h1 className="text-3xl font-extrabold tracking-tight text-[var(--bb-charcoal)] md:text-4xl">
                 {client.name}
@@ -113,14 +120,35 @@ export default async function ClientDetailPage({ params }: Props) {
           </div>
         </div>
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          <Info label="Tipo" value={clientTypeLabels[client.type]} />
-          <Info label="Responsável interno" value={client.owner_name ?? "-"} />
-          <Info label="Serviços contratados" value={services.join(", ") || "-"} />
-          <Info label="Valor contratado" value={contractValueFor(client) ?? "-"} />
-          <Info label="Início" value={formatDate(client.start_date)} />
-          <Info label="Duração" value={client.contract_duration ?? "-"} />
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          <ContactInfo label="Responsável BlendByte" value={client.owner_name} />
+          <ContactInfo
+            label="Email da empresa"
+            value={client.contact_email}
+            href={client.contact_email ? `mailto:${client.contact_email}` : undefined}
+          />
+          <ContactInfo
+            label="Telefone"
+            value={client.contact_phone}
+            href={phoneHref}
+          />
+          <ContactInfo label="Pessoa de contacto" value={client.contact_name} />
+          <ContactInfo
+            label="Website"
+            value={client.website_url}
+            href={client.website_url ?? undefined}
+            external
+          />
         </div>
+
+        <ClientDetailsSlider
+          items={[
+            { label: "Serviços contratados", value: services.join(", ") || "-" },
+            { label: "Valor contratado", value: contractValueFor(client) ?? "-" },
+            { label: "Início", value: formatDate(client.start_date) },
+            { label: "Duração", value: client.contract_duration ?? "-" },
+          ]}
+        />
       </section>
 
       <ClientOperationalControls
@@ -250,13 +278,34 @@ function PanelHeader({ title }: { title: string }) {
   return <h2 className="text-sm font-extrabold text-[var(--bb-charcoal)]">{title}</h2>;
 }
 
-function Info({ label, value }: { label: string; value: React.ReactNode }) {
+function ContactInfo({
+  label,
+  value,
+  href,
+  external = false,
+}: {
+  label: string;
+  value: string | null;
+  href?: string;
+  external?: boolean;
+}) {
   return (
-    <div className="rounded-[18px] border border-[var(--bb-border)] bg-white/42 px-4 py-3">
-      <div className="text-xs font-extrabold uppercase text-[var(--bb-muted)]">{label}</div>
-      <div className="mt-1 min-w-0 text-sm font-bold leading-5 text-[var(--bb-charcoal)]">
-        {value}
-      </div>
+    <div className="min-w-0 rounded-[16px] border border-[var(--bb-border)] bg-white/42 px-4 py-3">
+      <div className="text-[11px] font-extrabold uppercase text-[var(--bb-muted)]">{label}</div>
+      {href && value ? (
+        <a
+          href={href}
+          target={external ? "_blank" : undefined}
+          rel={external ? "noreferrer" : undefined}
+          className="mt-1 block truncate text-sm font-bold leading-5 text-[var(--bb-charcoal)] hover:underline"
+        >
+          {value}
+        </a>
+      ) : (
+        <div className="mt-1 truncate text-sm font-bold leading-5 text-[var(--bb-charcoal)]">
+          {value || "-"}
+        </div>
+      )}
     </div>
   );
 }
