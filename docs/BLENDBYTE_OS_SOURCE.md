@@ -157,7 +157,7 @@ O módulo de Conteúdos é o calendário editorial e pipeline de produção. Tem
 - Pipeline;
 - Calendário.
 
-Permite filtrar por cliente, mês, ano, responsável, estado e plataforma. Também permite criação em lote e exportação de um plano de conteúdos em PDF. A preparação e o acompanhamento da decisão do cliente pertencem ao módulo Aprovações.
+Permite filtrar por cliente, mês, ano, responsável, estado e plataforma, além da criação em lote. A preparação, partilha e acompanhamento da decisão do cliente pertencem exclusivamente ao módulo Aprovações; a página de Conteúdos já não apresenta a exportação do planeamento.
 
 Cada conteúdo pode guardar:
 

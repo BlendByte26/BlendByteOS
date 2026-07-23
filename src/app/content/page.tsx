@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { BulkContentModal } from "@/components/bulk-content-modal";
-import { ContentPlanningExportModal } from "@/components/content-planning-export-modal";
 import { ContentTable } from "@/components/content-table";
 import { ContentCalendarView, ContentPipelineView } from "@/components/content-views";
 import { ContentFiltersBar } from "@/components/live-filters";
@@ -16,7 +15,6 @@ import {
 } from "@/lib/actions";
 import { getClientLabel } from "@/lib/client-display";
 import { displayContentPlatform } from "@/lib/content-platform";
-import { defaultExportPreparer } from "@/lib/content-planning-export";
 import { getClients, getContentItems, getTeamMembers, uniqueValues } from "@/lib/data";
 import { contentStatusLabels } from "@/lib/labels";
 import { requireCurrentOperationalProfile } from "@/lib/auth";
@@ -169,7 +167,6 @@ export default async function ContentPage({ searchParams }: Props) {
       : filteredItems;
   const items = platformFilteredItems;
   const platforms = uniqueValues(itemsForOptions, (item) => displayContentPlatform(item.platform));
-  const defaultPreparer = defaultExportPreparer(activeProfile.name, teamMembers);
   const yearOptions = [monthYear.currentYear, String(Number(monthYear.currentYear) + 1)].map((year) => ({
     value: year,
     label: year,
@@ -189,7 +186,7 @@ export default async function ContentPage({ searchParams }: Props) {
         <div data-content-filter-card className="grid min-w-0 gap-3">
           <div
             data-content-filter-top
-            className="flex min-w-0 flex-wrap items-center justify-between gap-2.5"
+            className="flex min-w-0 flex-wrap items-center gap-2.5"
           >
             <div className="flex shrink-0 flex-wrap gap-1.5 rounded-[18px] border border-[var(--bb-border)] bg-white/45 p-1 shadow-[0_12px_28px_rgba(0,0,0,0.05)]">
               {viewOptions.map((option) => {
@@ -209,16 +206,6 @@ export default async function ContentPage({ searchParams }: Props) {
                   </Link>
                 );
               })}
-            </div>
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <ContentPlanningExportModal
-                clients={clients}
-                items={itemsForOptions}
-                defaultClientId={filters.client}
-                defaultMonth={defaultContentMonth}
-                defaultPreparedByName={defaultPreparer.name}
-                defaultPreparedByEmail={defaultPreparer.email}
-              />
             </div>
           </div>
           <ContentFiltersBar
