@@ -24,17 +24,20 @@ import { DatePicker, MonthPicker } from "@/components/date-picker";
 import { SelectField } from "@/components/select-field";
 import { createContentReviewAction } from "@/lib/content-review-actions";
 import {
+  CONTENT_REVIEW_ASSETS_BUCKET,
   CONTENT_REVIEW_ASSET_MAX_BYTES,
   CONTENT_REVIEW_TOTAL_MAX_BYTES,
   contentReviewEmailSuggestion,
   contentReviewSourceItems,
   defaultContentReviewIntroduction,
   isContentReviewAssetMimeType,
+  type ContentReviewBuilderPayload,
   type ContentReviewView,
 } from "@/lib/content-reviews";
 import { formatContentMonthLabel } from "@/lib/content-month";
 import { displayContentPlatform } from "@/lib/content-platform";
 import { cleanPrefixedTitle } from "@/lib/title-display";
+import { getBrowserSupabase } from "@/lib/supabase-browser";
 import type { Client, ContentItem } from "@/lib/types";
 
 type LocalAsset = {
@@ -58,6 +61,12 @@ const labelClass = "grid min-w-0 gap-2 text-sm font-bold text-[var(--bb-charcoal
 
 function makeKey(prefix: string) {
   return `${prefix}-${crypto.randomUUID()}`;
+}
+
+function fileExtension(file: File) {
+  if (file.type === "image/png") return "png";
+  if (file.type === "image/webp") return "webp";
+  return "jpg";
 }
 
 function defaultBlocks(items: ContentItem[]): LocalBlock[] {
@@ -273,6 +282,7 @@ export function ContentReviewBuilder({
   }
 
   function closeBuilder() {
+    if (isPending) return;
     setOpen(false);
     revokeBlockAssets(blocks);
     setBlocks([]);
@@ -423,41 +433,93 @@ export function ContentReviewBuilder({
       setMessage("A pré-visualização funciona em modo local, mas é preciso ligar a base de dados e aplicar a migração para gerar o link.");
       return;
     }
-    const formData = new FormData();
-    formData.set("payload", JSON.stringify({
-      clientId,
-      month,
-      recipientName: recipientName.trim() || null,
-      recipientEmail: recipientEmail.trim() || null,
-      approvalDeadline: approvalDeadline || null,
-      introduction: introduction.trim() || null,
-      blocks: blocks.map((block) => ({
-        key: block.key,
-        title: block.title.trim(),
-        contentIds: block.contentIds,
-        assets: block.assets.map((asset) => ({ key: asset.key, appliesToContentIds: asset.appliesToContentIds })),
-      })),
-    }));
-    blocks.forEach((block) => block.assets.forEach((asset) => formData.set(`asset:${asset.key}`, asset.file)));
+    const supabase = getBrowserSupabase();
+    if (!supabase) {
+      setMessage("Não foi possível ligar ao serviço de ficheiros. Atualiza a página e volta a tentar.");
+      return;
+    }
     startTransition(async () => {
-      const result = await createContentReviewAction(formData);
-      if (!result.ok) {
-        setMessage(result.message);
-        return;
+      const uploadId = crypto.randomUUID();
+      const uploadedPaths: string[] = [];
+      const uploadedByKey = new Map<string, {
+        storagePath: string;
+        originalName: string;
+        mimeType: "image/png" | "image/jpeg" | "image/webp";
+        size: number;
+      }>();
+      try {
+        setMessage("A carregar os visuais em segurança...");
+        for (const block of blocks) {
+          for (const asset of block.assets) {
+            const storagePath = `${clientId}/pending/${uploadId}/${crypto.randomUUID()}.${fileExtension(asset.file)}`;
+            const { error: uploadError } = await supabase.storage
+              .from(CONTENT_REVIEW_ASSETS_BUCKET)
+              .upload(storagePath, asset.file, {
+                contentType: asset.file.type,
+                cacheControl: "3600",
+                upsert: false,
+              });
+            if (uploadError) {
+              throw new Error(`Não foi possível carregar “${asset.file.name}”: ${uploadError.message}`);
+            }
+            uploadedPaths.push(storagePath);
+            uploadedByKey.set(asset.key, {
+              storagePath,
+              originalName: asset.file.name.slice(0, 255),
+              mimeType: asset.file.type as "image/png" | "image/jpeg" | "image/webp",
+              size: asset.file.size,
+            });
+          }
+        }
+
+        const payload: ContentReviewBuilderPayload = {
+          clientId,
+          month,
+          recipientName: recipientName.trim() || null,
+          recipientEmail: recipientEmail.trim() || null,
+          approvalDeadline: approvalDeadline || null,
+          introduction: introduction.trim() || null,
+          blocks: blocks.map((block) => ({
+            key: block.key,
+            title: block.title.trim(),
+            contentIds: block.contentIds,
+            assets: block.assets.map((asset) => ({
+              key: asset.key,
+              appliesToContentIds: asset.appliesToContentIds,
+              ...uploadedByKey.get(asset.key)!,
+            })),
+          })),
+        };
+        setMessage("Visuais carregados. A criar o link...");
+        const result = await createContentReviewAction(payload);
+        if (!result.ok) {
+          if (uploadedPaths.length) {
+            await supabase.storage.from(CONTENT_REVIEW_ASSETS_BUCKET).remove(uploadedPaths);
+          }
+          setMessage(result.message);
+          return;
+        }
+        setCreated({ path: result.path, roundId: result.roundId });
+        const link = `${window.location.origin}${result.path}`;
+        const email = contentReviewEmailSuggestion({
+          clientName: client!.name,
+          month,
+          recipientName,
+          approvalDeadline,
+          ownerName,
+          link,
+        });
+        setEmailSubject(email.subject);
+        setEmailBody(email.body);
+        setMessage(null);
+      } catch (uploadError) {
+        if (uploadedPaths.length) {
+          await supabase.storage.from(CONTENT_REVIEW_ASSETS_BUCKET).remove(uploadedPaths);
+        }
+        setMessage(uploadError instanceof Error
+          ? uploadError.message
+          : "Não foi possível carregar os visuais e criar o link. Volta a tentar.");
       }
-      setCreated({ path: result.path, roundId: result.roundId });
-      const link = `${window.location.origin}${result.path}`;
-      const email = contentReviewEmailSuggestion({
-        clientName: client!.name,
-        month,
-        recipientName,
-        approvalDeadline,
-        ownerName,
-        link,
-      });
-      setEmailSubject(email.subject);
-      setEmailBody(email.body);
-      setMessage(null);
     });
   }
 
@@ -478,8 +540,8 @@ export function ContentReviewBuilder({
                 <h2 className="text-xl font-extrabold text-[var(--bb-charcoal)]">{created ? "Link pronto a partilhar" : preview ? "Pré-visualização final" : "Preparar planeamento"}</h2>
               </div>
               <div className="flex items-center gap-2">
-                {preview && !created ? <button type="button" onClick={() => setPreview(false)} className="min-h-10 rounded-full border border-[var(--bb-border)] bg-white px-4 text-sm font-extrabold">Voltar à preparação</button> : null}
-                <button type="button" onClick={closeBuilder} aria-label="Fechar" className="grid size-10 place-items-center rounded-full border border-[var(--bb-border)] bg-white"><X className="size-4" /></button>
+                {preview && !created ? <button type="button" onClick={() => setPreview(false)} disabled={isPending} className="min-h-10 rounded-full border border-[var(--bb-border)] bg-white px-4 text-sm font-extrabold disabled:opacity-40">Voltar à preparação</button> : null}
+                <button type="button" onClick={closeBuilder} disabled={isPending} aria-label="Fechar" className="grid size-10 place-items-center rounded-full border border-[var(--bb-border)] bg-white disabled:opacity-40"><X className="size-4" /></button>
               </div>
             </div>
 
@@ -526,8 +588,8 @@ export function ContentReviewBuilder({
                 <ContentReviewPresentation review={previewReview} />
                 {message ? <div role="status" className="rounded-2xl border border-[var(--bb-border)] bg-[var(--bb-primary-soft)] px-4 py-3 text-sm font-bold text-[var(--bb-charcoal)]">{message}</div> : null}
                 <div className="flex flex-wrap justify-end gap-2 rounded-2xl border border-[var(--bb-border)] bg-white/90 p-3">
-                  <button type="button" onClick={() => setPreview(false)} className="min-h-11 rounded-full border border-[var(--bb-border)] px-5 text-sm font-extrabold">Corrigir preparação</button>
-                  <button type="button" onClick={createReview} disabled={isPending} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[var(--bb-black)] px-5 text-sm font-extrabold text-white disabled:opacity-50"><Send className="size-4" />{isPending ? "A criar..." : "Criar link para o cliente"}</button>
+                  <button type="button" onClick={() => setPreview(false)} disabled={isPending} className="min-h-11 rounded-full border border-[var(--bb-border)] px-5 text-sm font-extrabold disabled:opacity-40">Corrigir preparação</button>
+                  <button type="button" onClick={createReview} disabled={isPending} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[var(--bb-black)] px-5 text-sm font-extrabold text-white disabled:opacity-50"><Send className="size-4" />{isPending ? "A carregar e criar..." : "Criar link para o cliente"}</button>
                 </div>
               </div>
             ) : (

@@ -55,12 +55,37 @@ function tokenHash(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
 
-function parseBuilderPayload(formData: FormData): ContentReviewBuilderPayload {
-  const raw = formData.get("payload");
-  if (typeof raw !== "string") throw new Error("A preparação da aprovação está incompleta.");
-  const parsed = JSON.parse(raw) as Partial<ContentReviewBuilderPayload>;
+function isValidUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
 
-  if (!parsed.clientId || !parsed.month || !Array.isArray(parsed.blocks)) {
+function fileExtensionForMimeType(mimeType: string) {
+  if (mimeType === "image/png") return "png";
+  if (mimeType === "image/webp") return "webp";
+  return "jpg";
+}
+
+function isExpectedReviewUploadPath(path: string, clientId: string, mimeType: string) {
+  const parts = path.split("/");
+  if (parts.length !== 4) return false;
+  const [pathClientId, directory, uploadId, fileName] = parts;
+  const expectedExtension = fileExtensionForMimeType(mimeType);
+  return (
+    pathClientId === clientId &&
+    directory === "pending" &&
+    isValidUuid(uploadId ?? "") &&
+    new RegExp(`^[0-9a-f-]{36}\\.${expectedExtension}$`, "i").test(fileName ?? "") &&
+    isValidUuid((fileName ?? "").slice(0, -(expectedExtension.length + 1)))
+  );
+}
+
+function parseBuilderPayload(rawPayload: unknown): ContentReviewBuilderPayload {
+  if (!rawPayload || typeof rawPayload !== "object") {
+    throw new Error("A preparação da aprovação está incompleta.");
+  }
+  const parsed = rawPayload as Partial<ContentReviewBuilderPayload>;
+
+  if (!parsed.clientId || !isValidUuid(parsed.clientId) || !parsed.month || !Array.isArray(parsed.blocks)) {
     throw new Error("A preparação da aprovação está incompleta.");
   }
 
@@ -71,12 +96,25 @@ function parseBuilderPayload(formData: FormData): ContentReviewBuilderPayload {
     const assets = Array.isArray(block.assets)
       ? block.assets.map((asset) => ({
           key: cleanString(asset?.key, 100) ?? "",
+          storagePath: cleanString(asset?.storagePath, 500) ?? "",
+          originalName: cleanString(asset?.originalName, 255) ?? "",
+          mimeType: typeof asset?.mimeType === "string" ? asset.mimeType : "",
+          size: typeof asset?.size === "number" && Number.isSafeInteger(asset.size) ? asset.size : 0,
           appliesToContentIds: Array.from(new Set(Array.isArray(asset?.appliesToContentIds) ? asset.appliesToContentIds.filter((id): id is string => typeof id === "string" && contentIds.includes(id)) : [])),
         }))
       : [];
 
     if (!title || !contentIds.length) throw new Error(`O bloco ${blockIndex + 1} precisa de título e conteúdos.`);
-    if (assets.some((asset) => !asset.key || !asset.appliesToContentIds.length)) {
+    if (assets.some((asset) => (
+      !asset.key ||
+      !asset.storagePath ||
+      !asset.originalName ||
+      !isContentReviewAssetMimeType(asset.mimeType) ||
+      asset.size <= 0 ||
+      asset.size > CONTENT_REVIEW_ASSET_MAX_BYTES ||
+      !isExpectedReviewUploadPath(asset.storagePath, parsed.clientId!, asset.mimeType) ||
+      !asset.appliesToContentIds.length
+    ))) {
       throw new Error(`Revê a atribuição dos visuais no bloco “${title}”.`);
     }
 
@@ -84,7 +122,10 @@ function parseBuilderPayload(formData: FormData): ContentReviewBuilderPayload {
       key: cleanString(block.key, 100) ?? randomUUID(),
       title,
       contentIds,
-      assets,
+      assets: assets.map((asset) => ({
+        ...asset,
+        mimeType: asset.mimeType as "image/png" | "image/jpeg" | "image/webp",
+      })),
     };
   });
 
@@ -92,6 +133,16 @@ function parseBuilderPayload(formData: FormData): ContentReviewBuilderPayload {
   const allContentIds = blocks.flatMap((block) => block.contentIds);
   if (new Set(allContentIds).size !== allContentIds.length) {
     throw new Error("Cada conteúdo só pode aparecer uma vez na mesma aprovação.");
+  }
+  const allAssets = blocks.flatMap((block) => block.assets);
+  if (
+    new Set(allAssets.map((asset) => asset.key)).size !== allAssets.length ||
+    new Set(allAssets.map((asset) => asset.storagePath)).size !== allAssets.length
+  ) {
+    throw new Error("A preparação contém visuais duplicados.");
+  }
+  if (allAssets.reduce((total, asset) => total + asset.size, 0) > CONTENT_REVIEW_TOTAL_MAX_BYTES) {
+    throw new Error("O conjunto de visuais não pode exceder 28 MB por aprovação.");
   }
 
   return {
@@ -105,38 +156,36 @@ function parseBuilderPayload(formData: FormData): ContentReviewBuilderPayload {
   };
 }
 
-function reviewFiles(formData: FormData, payload: ContentReviewBuilderPayload) {
-  const files = new Map<string, File>();
+async function reviewUploadedAssets(
+  supabase: NonNullable<Awaited<ReturnType<typeof getSupabase>>>,
+  payload: ContentReviewBuilderPayload,
+) {
   let totalSize = 0;
+  const assets = payload.blocks.flatMap((block) => block.assets);
 
-  payload.blocks.forEach((block) => {
-    block.assets.forEach((asset) => {
-      const candidate = formData.get(`asset:${asset.key}`);
-      if (!(candidate instanceof File) || !candidate.size) {
-        throw new Error(`Falta um visual no bloco “${block.title}”.`);
-      }
-      if (!isContentReviewAssetMimeType(candidate.type)) {
-        throw new Error(`O ficheiro “${candidate.name}” deve ser PNG, JPG ou WebP.`);
-      }
-      if (candidate.size > CONTENT_REVIEW_ASSET_MAX_BYTES) {
-        throw new Error(`O ficheiro “${candidate.name}” não pode exceder 8 MB.`);
-      }
-      totalSize += candidate.size;
-      files.set(asset.key, candidate);
-    });
-  });
+  await Promise.all(assets.map(async (asset) => {
+    const { data, error } = await supabase.storage
+      .from(CONTENT_REVIEW_ASSETS_BUCKET)
+      .info(asset.storagePath);
+    if (error || !data) {
+      throw new Error(`Não foi possível confirmar o visual “${asset.originalName}”. Volta a tentar.`);
+    }
+    const actualSize = data.size ?? 0;
+    const actualMimeType = data.contentType ?? "";
+    if (
+      actualSize <= 0 ||
+      actualSize !== asset.size ||
+      actualSize > CONTENT_REVIEW_ASSET_MAX_BYTES ||
+      actualMimeType !== asset.mimeType
+    ) {
+      throw new Error(`O visual “${asset.originalName}” não corresponde ao ficheiro carregado.`);
+    }
+    totalSize += actualSize;
+  }));
 
   if (totalSize > CONTENT_REVIEW_TOTAL_MAX_BYTES) {
     throw new Error("O conjunto de visuais não pode exceder 28 MB por aprovação.");
   }
-
-  return files;
-}
-
-function fileExtension(file: File) {
-  if (file.type === "image/png") return "png";
-  if (file.type === "image/webp") return "webp";
-  return "jpg";
 }
 
 async function internalReviewContext() {
@@ -147,48 +196,48 @@ async function internalReviewContext() {
   return { profile, supabase };
 }
 
-export async function createContentReviewAction(formData: FormData): Promise<ReviewActionResult> {
+export async function createContentReviewAction(rawPayload: unknown): Promise<ReviewActionResult> {
   try {
     const { profile, supabase } = await internalReviewContext();
-    const payload = parseBuilderPayload(formData);
-    if (!isValidContentMonth(payload.month)) throw new Error("Escolhe um mês válido.");
-    const files = reviewFiles(formData, payload);
-    const contentIds = payload.blocks.flatMap((block) => block.contentIds);
-
-    const [{ data: client, error: clientError }, { data: sourceItems, error: contentError }] = await Promise.all([
-      supabase.from("clients").select("id, name, logo_url").eq("id", payload.clientId).maybeSingle(),
-      supabase.from("content_items").select("*").eq("client_id", payload.clientId).in("id", contentIds),
-    ]);
-
-    if (clientError || !client) throw new Error("O cliente selecionado já não está disponível.");
-    if (contentError) throw new Error(contentError.message);
-    const items = (sourceItems ?? []) as ContentItem[];
-    const itemMap = new Map(items.map((item) => [item.id, item]));
-    if (itemMap.size !== contentIds.length) throw new Error("Um ou mais conteúdos já não estão disponíveis.");
-    if (items.some((item) => !contentBelongsToPlanningPeriod(item, payload.month))) {
-      throw new Error("A seleção contém conteúdos fora do período escolhido.");
-    }
-    if (items.some((item) => item.status === "published" || item.status === "archived")) {
-      throw new Error("Conteúdos publicados ou arquivados não podem entrar numa nova aprovação.");
-    }
-
-    const { data: latestRound, error: latestError } = await supabase
-      .from("content_review_rounds")
-      .select("version")
-      .eq("client_id", payload.clientId)
-      .eq("month", payload.month)
-      .order("version", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (latestError) throw new Error(latestError.message);
-
+    const payload = parseBuilderPayload(rawPayload);
+    const uploadedPaths = payload.blocks.flatMap((block) => block.assets.map((asset) => asset.storagePath));
     const roundId = randomUUID();
-    const token = randomBytes(32).toString("hex");
-    const version = (latestRound?.version ?? 0) + 1;
-    const uploadedPaths: string[] = [];
     let roundInserted = false;
 
     try {
+      if (!isValidContentMonth(payload.month)) throw new Error("Escolhe um mês válido.");
+      await reviewUploadedAssets(supabase, payload);
+      const contentIds = payload.blocks.flatMap((block) => block.contentIds);
+
+      const [{ data: client, error: clientError }, { data: sourceItems, error: contentError }] = await Promise.all([
+        supabase.from("clients").select("id, name, logo_url").eq("id", payload.clientId).maybeSingle(),
+        supabase.from("content_items").select("*").eq("client_id", payload.clientId).in("id", contentIds),
+      ]);
+
+      if (clientError || !client) throw new Error("O cliente selecionado já não está disponível.");
+      if (contentError) throw new Error(contentError.message);
+      const items = (sourceItems ?? []) as ContentItem[];
+      const itemMap = new Map(items.map((item) => [item.id, item]));
+      if (itemMap.size !== contentIds.length) throw new Error("Um ou mais conteúdos já não estão disponíveis.");
+      if (items.some((item) => !contentBelongsToPlanningPeriod(item, payload.month))) {
+        throw new Error("A seleção contém conteúdos fora do período escolhido.");
+      }
+      if (items.some((item) => item.status === "published" || item.status === "archived")) {
+        throw new Error("Conteúdos publicados ou arquivados não podem entrar numa nova aprovação.");
+      }
+
+      const { data: latestRound, error: latestError } = await supabase
+        .from("content_review_rounds")
+        .select("version")
+        .eq("client_id", payload.clientId)
+        .eq("month", payload.month)
+        .order("version", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (latestError) throw new Error(latestError.message);
+
+      const token = randomBytes(32).toString("hex");
+      const version = (latestRound?.version ?? 0) + 1;
       const { error: roundError } = await supabase.from("content_review_rounds").insert({
         id: roundId,
         client_id: payload.clientId,
@@ -242,23 +291,13 @@ export async function createContentReviewAction(formData: FormData): Promise<Rev
         if (itemsError) throw new Error(itemsError.message);
 
         for (const [assetIndex, asset] of block.assets.entries()) {
-          const file = files.get(asset.key)!;
           const assetId = randomUUID();
-          const path = `${payload.clientId}/${roundId}/${assetId}.${fileExtension(file)}`;
-          const { error: uploadError } = await supabase.storage.from(CONTENT_REVIEW_ASSETS_BUCKET).upload(path, file, {
-            contentType: file.type,
-            cacheControl: "3600",
-            upsert: false,
-          });
-          if (uploadError) throw new Error(`Não foi possível carregar “${file.name}”: ${uploadError.message}`);
-          uploadedPaths.push(path);
-
           const { error: assetError } = await supabase.from("content_review_assets").insert({
             id: assetId,
             block_id: blockId,
-            storage_path: path,
-            original_name: file.name.slice(0, 255),
-            mime_type: file.type as "image/png" | "image/jpeg" | "image/webp",
+            storage_path: asset.storagePath,
+            original_name: asset.originalName,
+            mime_type: asset.mimeType,
             position: assetIndex,
           });
           if (assetError) throw new Error(assetError.message);
@@ -278,7 +317,7 @@ export async function createContentReviewAction(formData: FormData): Promise<Rev
         .in("id", contentIds);
       if (contentUpdateError) throw new Error(contentUpdateError.message);
 
-      await supabase
+      const { error: supersedeError } = await supabase
         .from("content_review_rounds")
         .update({ status: "superseded" })
         .eq("client_id", payload.clientId)
@@ -286,6 +325,7 @@ export async function createContentReviewAction(formData: FormData): Promise<Rev
         .neq("id", roundId)
         .is("archived_at", null)
         .in("status", ["draft", "open", "submitted", "changes_requested"]);
+      if (supersedeError) throw new Error(supersedeError.message);
 
       revalidatePath("/approvals");
       return { ok: true, path: contentReviewPublicPath(token), roundId };

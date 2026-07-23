@@ -19,11 +19,18 @@ export type ContentReviewBuilderAsset = {
   appliesToContentIds: string[];
 };
 
+export type ContentReviewUploadedAsset = ContentReviewBuilderAsset & {
+  storagePath: string;
+  originalName: string;
+  mimeType: (typeof contentReviewAssetMimeTypes)[number];
+  size: number;
+};
+
 export type ContentReviewBuilderBlock = {
   key: string;
   title: string;
   contentIds: string[];
-  assets: ContentReviewBuilderAsset[];
+  assets: ContentReviewUploadedAsset[];
 };
 
 export type ContentReviewBuilderPayload = {
