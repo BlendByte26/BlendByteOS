@@ -49,15 +49,17 @@ function DescriptionPanel({ block }: { block: ContentReviewBlockView }) {
 }
 
 function VisualPanel({ block }: { block: ContentReviewBlockView }) {
+  const multiple = block.assets.length > 1;
+
   return (
-    <div className="grid gap-3">
+    <div className={`grid gap-3 ${multiple ? "auto-cols-[85%] snap-x snap-mandatory grid-flow-col overflow-x-auto pb-1 sm:auto-cols-auto sm:grid-flow-row sm:grid-cols-2 sm:overflow-visible sm:pb-0" : ""}`}>
       {block.assets.map((asset) => (
-        <figure key={asset.id} className="overflow-hidden rounded-[20px] border border-[var(--bb-border)] bg-[#f4f4f1]">
-          <div className="grid min-h-52 place-items-center bg-[linear-gradient(45deg,#f3f3f0_25%,transparent_25%),linear-gradient(-45deg,#f3f3f0_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#f3f3f0_75%),linear-gradient(-45deg,transparent_75%,#f3f3f0_75%)] bg-[length:20px_20px] bg-[position:0_0,0_10px,10px_-10px,-10px_0]">
+        <figure key={asset.id} className={`overflow-hidden rounded-[20px] border border-[var(--bb-border)] bg-[#f4f4f1] ${multiple ? "snap-start" : ""}`}>
+          <div className={`grid place-items-center bg-[linear-gradient(45deg,#f3f3f0_25%,transparent_25%),linear-gradient(-45deg,#f3f3f0_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#f3f3f0_75%),linear-gradient(-45deg,transparent_75%,#f3f3f0_75%)] bg-[length:20px_20px] bg-[position:0_0,0_10px,10px_-10px,-10px_0] ${multiple ? "h-[240px] sm:h-[280px]" : "h-[340px] sm:h-[420px]"}`}>
             {asset.url ? (
               // Signed and local object URLs are deliberately rendered without Next image optimization.
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={asset.url} alt={`Visual de ${block.title}`} className="max-h-[680px] w-full object-contain" />
+              <img src={asset.url} alt={`Visual de ${block.title}`} className="size-full object-contain" />
             ) : (
               <ImageIcon className="size-10 text-[var(--bb-muted)]" aria-hidden="true" />
             )}
