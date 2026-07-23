@@ -1,6 +1,6 @@
 # BlendByte OS — contexto canónico e fluxos operacionais
 
-Versão desta fonte: 22 de julho de 2026 — módulo de aprovações de conteúdos
+Versão desta fonte: 23 de julho de 2026 — vistas e resposta das aprovações de conteúdos
 
 ## 1. Para que serve este documento
 
@@ -210,11 +210,11 @@ O filtro de estado permite selecionar vários estados em simultâneo, tal como n
 
 ### 5.5 Aprovações
 
-Aprovações é um módulo próprio na navegação, imediatamente depois de Tarefas, e está disponível apenas a Guilherme e Marketing. Concentra a preparação de uma nova aprovação, os links enviados, as decisões recebidas, os pedidos de alteração, as revisões e o histórico de rondas. Design não participa neste fluxo nem vê o módulo.
+Aprovações é um módulo próprio na navegação, imediatamente depois de Tarefas, e está disponível apenas a Guilherme e Marketing. Concentra a preparação de uma nova aprovação, os links enviados, as decisões recebidas, os pedidos de alteração, as revisões e o histórico de rondas. Design não participa neste fluxo nem vê o módulo. A listagem usa cartões compactos e pode ser filtrada pelas vistas Todas, A aguardar cliente, Alterações pedidas e Aprovadas; cada filtro mostra a respetiva contagem.
 
 Na aprovação por link, Guilherme ou Marketing selecionam o cliente e o mês, confirmam os conteúdos incluídos, agrupam livremente variantes que partilham o mesmo visual e carregam imagens PNG, JPEG ou WebP. A preparação tem uma pré-visualização integral antes da partilha. Depois da criação, o modal mantém-se aberto, apresenta o link para copiar ou abrir e sugere um email com assunto e mensagem editáveis para copiar.
 
-A página do cliente apresenta os logótipos BlendByte e do cliente, uma tabela mensal simples com informação prévia dos blocos e, depois, os blocos de conteúdos. Cada bloco abre na vista `Conteúdo`; quando existem imagens, disponibiliza também a vista `Visual`. Um bloco sem imagens não apresenta ao cliente avisos nem espaços vazios sobre essa ausência. Em cada bloco, o cliente aprova ou pede alterações e deixa um comentário. O link contém um token aleatório; a base de dados guarda apenas o hash desse token. Por isso, o histórico não revela o link já emitido: admin ou marketing podem gerar um novo, invalidando imediatamente o anterior.
+A página do cliente apresenta os logótipos BlendByte e do cliente, uma tabela mensal simples com informação prévia dos blocos e, depois, os blocos de conteúdos. Cada bloco abre na vista `Conteúdo`; quando existem imagens, disponibiliza também a vista `Visual`. Um bloco sem imagens não apresenta ao cliente avisos nem espaços vazios sobre essa ausência. Em cada bloco, o cliente aprova ou pede alterações e deixa um comentário. No final, a pessoa confirma o nome e o email, pode acrescentar uma nota geral e envia todas as decisões numa única resposta; os dados do destinatário definidos na preparação surgem pré-preenchidos. O link contém um token aleatório; a base de dados guarda apenas o hash desse token. Por isso, o histórico não revela o link já emitido: admin ou marketing podem gerar um novo, invalidando imediatamente o anterior.
 
 Os novos links usam `/aprovar-conteudos/[token]`. As rotas anteriores de preparação, histórico e resposta redirecionam para o módulo novo para preservar favoritos internos e links já enviados.
 
