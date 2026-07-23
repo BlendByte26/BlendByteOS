@@ -50,6 +50,14 @@ function optionalIntegerValue(formData: FormData, key: string, label: string) {
   return value;
 }
 
+function positiveIntegerValue(formData: FormData, key: string, label: string) {
+  const value = decimalValue(formData, key, label);
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error(`${label} tem de ser um número inteiro igual ou superior a 1.`);
+  }
+  return value;
+}
+
 function checkbox(formData: FormData, key: string) {
   return formData.get(key) === "on";
 }
@@ -292,9 +300,21 @@ export async function updateCommercialQuoteAction(id: string, formData: FormData
 export async function addCommercialQuoteItemAction(quoteId: string, formData: FormData) {
   const supabase = await commercialSupabase();
   const serviceId = requiredText(formData, "service_id", "o serviço");
-  const [{ data: service, error: serviceError }, { data: lastItem, error: positionError }] =
+  const [
+    { data: service, error: serviceError },
+    { data: existingItem, error: existingItemError },
+    { data: lastItem, error: positionError },
+  ] =
     await Promise.all([
       supabase.from("commercial_services").select("*").eq("id", serviceId).eq("active", true).single(),
+      supabase
+        .from("commercial_quote_items")
+        .select("id, quantity")
+        .eq("quote_id", quoteId)
+        .eq("service_id", serviceId)
+        .order("position")
+        .limit(1)
+        .maybeSingle(),
       supabase
         .from("commercial_quote_items")
         .select("position")
@@ -305,10 +325,28 @@ export async function addCommercialQuoteItemAction(quoteId: string, formData: Fo
     ]);
 
   if (serviceError || !service) throw new Error("O serviço selecionado já não está disponível.");
+  if (existingItemError) {
+    throw new Error(`Não foi possível verificar o orçamento: ${existingItemError.message}`);
+  }
   if (positionError) throw new Error(`Não foi possível ordenar a nova linha: ${positionError.message}`);
 
-  const quantity = decimalValue(formData, "quantity", "a quantidade");
-  if (quantity <= 0) throw new Error("A quantidade tem de ser superior a zero.");
+  const quantity = positiveIntegerValue(formData, "quantity", "A quantidade");
+
+  if (existingItem) {
+    const currentQuantity = Number(existingItem.quantity);
+    if (!Number.isInteger(currentQuantity) || currentQuantity < 1) {
+      throw new Error("A linha existente tem uma quantidade inválida. Corrige-a antes de adicionar unidades.");
+    }
+    const { error } = await supabase
+      .from("commercial_quote_items")
+      .update({ quantity: currentQuantity + quantity })
+      .eq("id", existingItem.id)
+      .eq("quote_id", quoteId);
+    if (error) throw new Error(`Não foi possível atualizar a quantidade: ${error.message}`);
+
+    refreshCommercial(`/commercial/quotes/${quoteId}`);
+    redirect(`/commercial/quotes/${quoteId}`);
+  }
 
   const typedUnitPrice = optionalDecimalValue(formData, "unit_price", "o preço unitário");
   const unitPrice = typedUnitPrice ?? Number(service.standard_price);
@@ -338,6 +376,63 @@ export async function addCommercialQuoteItemAction(quoteId: string, formData: Fo
   });
 
   if (error) throw new Error(`Não foi possível adicionar a linha: ${error.message}`);
+
+  refreshCommercial(`/commercial/quotes/${quoteId}`);
+  redirect(`/commercial/quotes/${quoteId}`);
+}
+
+export async function updateCommercialQuoteItemAction(
+  quoteId: string,
+  itemId: string,
+  formData: FormData,
+) {
+  const supabase = await commercialSupabase();
+  const quantity = positiveIntegerValue(formData, "quantity", "A quantidade");
+  const unitPrice = decimalValue(formData, "unit_price", "o preço unitário");
+  if (unitPrice < 0) throw new Error("O preço unitário não pode ser negativo.");
+
+  const { data: item, error: itemError } = await supabase
+    .from("commercial_quote_items")
+    .select("service_id")
+    .eq("id", itemId)
+    .eq("quote_id", quoteId)
+    .single();
+  if (itemError || !item) throw new Error("A linha do orçamento já não está disponível.");
+
+  let minimumPrice = 0;
+  if (item.service_id) {
+    const { data: service, error: serviceError } = await supabase
+      .from("commercial_services")
+      .select("minimum_price")
+      .eq("id", item.service_id)
+      .maybeSingle();
+    if (serviceError) {
+      throw new Error(`Não foi possível validar o preço mínimo: ${serviceError.message}`);
+    }
+    minimumPrice = Number(service?.minimum_price ?? 0);
+  }
+
+  const overrideReason = optionalText(formData, "price_override_reason");
+  if (unitPrice < minimumPrice && !overrideReason) {
+    throw new Error(
+      `O preço está abaixo do mínimo de ${minimumPrice.toFixed(2)} €. Justifica a exceção.`,
+    );
+  }
+
+  const { error } = await supabase
+    .from("commercial_quote_items")
+    .update({
+      quantity,
+      unit_price: unitPrice,
+      price_override_reason: overrideReason,
+      description: optionalText(formData, "description"),
+      eligible_category: optionalText(formData, "eligible_category"),
+      evidence_notes: optionalText(formData, "evidence_notes"),
+      internal_notes: optionalText(formData, "internal_notes"),
+    })
+    .eq("id", itemId)
+    .eq("quote_id", quoteId);
+  if (error) throw new Error(`Não foi possível atualizar a linha: ${error.message}`);
 
   refreshCommercial(`/commercial/quotes/${quoteId}`);
   redirect(`/commercial/quotes/${quoteId}`);

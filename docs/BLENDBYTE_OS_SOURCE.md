@@ -1,6 +1,6 @@
 # BlendByte OS — contexto canónico e fluxos operacionais
 
-Versão desta fonte: 23 de julho de 2026 — área Comercial em teste exclusivo de Guilherme; upload direto nas aprovações
+Versão desta fonte: 23 de julho de 2026 — catálogo comercial por categorias e construção simplificada de orçamentos
 
 ## 1. Para que serve este documento
 
@@ -158,12 +158,12 @@ Comercial é a área interna para estruturar preços, acompanhar oportunidades e
 O módulo tem três áreas:
 
 - Oportunidades: empresa, contacto, origem, estado, eventual ligação a um cliente e contexto de financiamento;
-- Catálogo: serviços versionados com categoria, unidade, preço-base, preço mínimo, inclusões, exclusões e estado do preço;
-- Orçamentos: proposta ligada a uma oportunidade, composta por linhas escolhidas do catálogo.
+- Catálogo: serviços versionados com categoria, unidade, preço-base, preço mínimo, inclusões, exclusões e estado do preço, apresentados em secções por categoria;
+- Orçamentos: proposta ligada a uma oportunidade, composta por linhas escolhidas diretamente das mesmas categorias do catálogo.
 
 Os preços iniciais pertencem à versão `v0.1` e começam como rascunho. O preço mínimo serve de controlo interno: uma linha abaixo desse valor exige uma justificação. Não são guardados custos ou horas presumidos quando ainda não existem dados internos validados.
 
-Cada linha de orçamento guarda uma cópia do código, nome, categoria, unidade, descrição e preço-base do serviço no momento em que é adicionada. Alterar o catálogo posteriormente não reescreve orçamentos anteriores.
+Cada linha de orçamento guarda uma cópia do código, nome, categoria, unidade, descrição e preço-base do serviço no momento em que é adicionada. Alterar o catálogo posteriormente não reescreve orçamentos anteriores. Adicionar um serviço coloca uma unidade ao preço-base; se o serviço já existir no orçamento, acrescenta uma unidade à linha existente sem substituir o preço unitário que tenha sido negociado. Em cada orçamento, Guilherme pode editar o preço unitário e a quantidade da linha. As quantidades são sempre unidades inteiras iguais ou superiores a um, validadas também no servidor.
 
 Nos projetos financiados, a oportunidade guarda programa, aviso, investimento elegível para marketing e período de execução. Cada linha pode indicar categoria elegível e evidências necessárias. O financiamento altera o âmbito, quantidade ou duração; não cria automaticamente um preço unitário diferente nem permite mudar a natureza real do serviço.
 
@@ -334,8 +334,8 @@ Depois da criação:
 2. Identifica a origem e, quando aplicável, assinala Invest2030 ou outro financiamento.
 3. Regista programa, aviso, investimento elegível, período e objetivos sem assumir que o orçamento aprovado corresponde ao incentivo recebido.
 4. Cria um orçamento ligado à oportunidade.
-5. Adiciona linhas a partir do catálogo. Quantidade e preço unitário determinam o total da linha.
-6. Num preço abaixo do mínimo, regista obrigatoriamente a justificação interna.
+5. Abre uma categoria do catálogo e adiciona os serviços necessários; cada adição começa com uma unidade e aumenta o total do orçamento.
+6. Ajusta, quando necessário, a quantidade em unidades inteiras e o preço unitário específico de cada linha. Num preço abaixo do mínimo, regista obrigatoriamente a justificação interna.
 7. Num projeto financiado, associa cada linha à categoria elegível real e às evidências exigidas.
 8. Atualiza o orçamento de rascunho até aceite, recusado ou expirado.
 9. Ao aceitar, a oportunidade passa a ganha.

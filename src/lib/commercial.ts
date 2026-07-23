@@ -91,6 +91,33 @@ export function commercialQuoteTotal(items: Array<Pick<CommercialQuoteItem, "qua
   return items.reduce((total, item) => total + commercialQuoteItemTotal(item), 0);
 }
 
+export function groupCommercialServices<T extends { category: string }>(services: T[]) {
+  const categoryOrder = new Map(
+    commercialServiceCategories.map((category, index) => [category, index]),
+  );
+  const groups = new Map<string, T[]>();
+
+  for (const service of services) {
+    const group = groups.get(service.category) ?? [];
+    group.push(service);
+    groups.set(service.category, group);
+  }
+
+  return Array.from(groups, ([category, groupedServices]) => ({
+    category,
+    services: groupedServices,
+  })).sort((left, right) => {
+    const leftOrder = categoryOrder.get(
+      left.category as (typeof commercialServiceCategories)[number],
+    );
+    const rightOrder = categoryOrder.get(
+      right.category as (typeof commercialServiceCategories)[number],
+    );
+    return (leftOrder ?? Number.MAX_SAFE_INTEGER) - (rightOrder ?? Number.MAX_SAFE_INTEGER)
+      || left.category.localeCompare(right.category, "pt");
+  });
+}
+
 export function commercialStatusTone(status: string) {
   if (["won", "accepted", "approved"].includes(status)) return "bg-[#e7f3e9] text-[#2f7650]";
   if (["lost", "rejected", "expired", "archived"].includes(status)) return "bg-[var(--bb-red-soft)] text-[#9f493c]";

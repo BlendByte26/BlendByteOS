@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import {
   commercialQuoteItemTotal,
   commercialQuoteTotal,
+  groupCommercialServices,
   isCommercialOpportunitySource,
   isCommercialOpportunityStatus,
   isCommercialQuoteStatus,
@@ -25,6 +26,14 @@ const quotePage = readFileSync(
   new URL("../src/app/commercial/quotes/[id]/page.tsx", import.meta.url),
   "utf8",
 );
+const quoteBuilder = readFileSync(
+  new URL("../src/components/commercial-quote-builder.tsx", import.meta.url),
+  "utf8",
+);
+const servicePicker = readFileSync(
+  new URL("../src/components/commercial-service-picker.tsx", import.meta.url),
+  "utf8",
+);
 
 assert.equal(commercialQuoteItemTotal({ quantity: 12, unit_price: 600 }), 7200);
 assert.equal(
@@ -39,6 +48,14 @@ assert.equal(isCommercialOpportunitySource("grant"), false);
 assert.equal(isCommercialOpportunityStatus("won"), true);
 assert.equal(isCommercialQuoteStatus("accepted"), true);
 assert.equal(isCommercialServicePriceStatus("approved"), true);
+assert.deepEqual(
+  groupCommercialServices([
+    { id: "web", category: "Web" },
+    { id: "social", category: "Redes sociais" },
+    { id: "other", category: "Categoria especial" },
+  ]).map((group) => group.category),
+  ["Redes sociais", "Web", "Categoria especial"],
+);
 
 for (const table of [
   "commercial_services",
@@ -75,8 +92,17 @@ assert.match(auth, /profile\?\.key === "guilherme" && profile\.authRole === "adm
 assert.match(actions, /await requireCommercialAccess\(\)/);
 assert.match(actions, /assertNotAdminPreviewMode/);
 assert.match(actions, /unitPrice < Number\(service\.minimum_price\) && !overrideReason/);
+assert.match(actions, /positiveIntegerValue\(formData, "quantity", "A quantidade"\)/);
+assert.match(actions, /updateCommercialQuoteItemAction/);
+assert.match(actions, /currentQuantity \+ quantity/);
 assert.match(actions, /status === "accepted"[\s\S]*status: "won"/);
 assert.match(page, /await requireCommercialAccess\(\)/);
+assert.match(page, /groupCommercialServices\(workspace\.services\)/);
 assert.match(quotePage, /await requireCommercialAccess\(\)/);
+assert.match(quotePage, /CommercialServicePicker/);
+assert.match(quotePage, /CommercialQuoteItemsEditor/);
+assert.match(quoteBuilder, /step="1"/);
+assert.match(quoteBuilder, /name="unit_price"/);
+assert.match(servicePicker, /Adicionar/);
 
 console.log("Commercial checks passed.");

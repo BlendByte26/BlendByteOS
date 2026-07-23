@@ -6,7 +6,6 @@ import {
   commercialQuoteStatusLabels,
   commercialServiceCategories,
   commercialServicePriceStatusLabels,
-  formatCommercialMoney,
 } from "@/lib/commercial";
 import {
   commercialOpportunitySources,
@@ -345,73 +344,6 @@ export function CommercialQuoteEditForm({
       </label>
       <div className="flex justify-end">
         <button className={primaryButton}>Guardar orçamento</button>
-      </div>
-    </form>
-  );
-}
-
-export function CommercialQuoteItemForm({
-  action,
-  services,
-  funded,
-}: {
-  action: (formData: FormData) => Promise<void>;
-  services: CommercialService[];
-  funded: boolean;
-}) {
-  const activeServices = services.filter((service) => service.active && service.price_status !== "archived");
-  return (
-    <form action={action} className="grid gap-4">
-      <label className={labelClass}>
-        Serviço do catálogo
-        <SelectField
-          name="service_id"
-          required
-          defaultValue={activeServices[0]?.id ?? ""}
-          options={activeServices.map((service) => ({
-            value: service.id,
-            label: `${service.code} · ${service.name} · ${formatCommercialMoney(service.standard_price)}/${service.unit}`,
-          }))}
-        />
-      </label>
-      <div className="grid gap-4 md:grid-cols-3">
-        <label className={labelClass}>
-          Quantidade
-          <input name="quantity" required type="number" min="0.01" step="0.01" defaultValue="1" className={inputClass} />
-        </label>
-        <label className={labelClass}>
-          Preço unitário
-          <input name="unit_price" type="number" min="0" step="0.01" placeholder="Vazio = preço-base" className={inputClass} />
-        </label>
-        <label className={labelClass}>
-          Justificação se abaixo do mínimo
-          <input name="price_override_reason" placeholder="Obrigatória apenas em exceções" className={inputClass} />
-        </label>
-      </div>
-      <label className={labelClass}>
-        Descrição específica desta linha
-        <textarea name="description" rows={2} placeholder="Vazio = resumo do catálogo" className={textareaClass} />
-      </label>
-      {funded ? (
-        <div className="grid gap-4 rounded-[20px] border border-[var(--bb-border)] bg-[var(--bb-primary-soft)]/45 p-4 md:grid-cols-2">
-          <label className={labelClass}>
-            Categoria elegível
-            <input name="eligible_category" placeholder="Categoria exata do aviso" className={inputClass} />
-          </label>
-          <label className={labelClass}>
-            Evidências necessárias
-            <input name="evidence_notes" placeholder="Relatórios, comprovativos, entregáveis..." className={inputClass} />
-          </label>
-        </div>
-      ) : null}
-      <label className={labelClass}>
-        Nota interna da linha
-        <input name="internal_notes" className={inputClass} />
-      </label>
-      <div className="flex justify-end">
-        <button disabled={!activeServices.length} className={`${primaryButton} disabled:opacity-40`}>
-          Adicionar linha
-        </button>
       </div>
     </form>
   );

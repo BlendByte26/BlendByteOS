@@ -1,15 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Trash2 } from "lucide-react";
-import {
-  CommercialQuoteEditForm,
-  CommercialQuoteItemForm,
-} from "@/components/commercial-forms";
-import { EmptyState, PageHeader, Panel, TableWrap } from "@/components/ui";
+import { CommercialQuoteEditForm } from "@/components/commercial-forms";
+import { CommercialQuoteItemsEditor } from "@/components/commercial-quote-builder";
+import { CommercialServicePicker } from "@/components/commercial-service-picker";
+import { EmptyState, PageHeader, Panel } from "@/components/ui";
 import { requireCommercialAccess } from "@/lib/auth";
 import {
-  addCommercialQuoteItemAction,
-  removeCommercialQuoteItemAction,
   updateCommercialQuoteAction,
 } from "@/lib/commercial-actions";
 import {
@@ -18,7 +14,6 @@ import {
   getCommercialWorkspaceData,
 } from "@/lib/commercial-data";
 import {
-  commercialQuoteItemTotal,
   commercialQuoteStatusLabels,
   commercialQuoteTotal,
   commercialStatusTone,
@@ -89,78 +84,13 @@ export default async function CommercialQuotePage({
         </Panel>
       ) : null}
 
-      <Panel>
+      <Panel className="p-4">
         {items.length ? (
-          <TableWrap>
-            <table className="w-full min-w-[960px] text-left text-sm">
-              <thead className="bg-[rgba(246,248,250,0.9)] text-xs uppercase text-[var(--bb-muted)]">
-                <tr>
-                  <th className="px-5 py-4 font-extrabold">Serviço</th>
-                  <th className="px-5 py-4 font-extrabold">Descrição</th>
-                  <th className="px-5 py-4 font-extrabold">Qtd.</th>
-                  <th className="px-5 py-4 font-extrabold">Preço unitário</th>
-                  <th className="px-5 py-4 font-extrabold">Total</th>
-                  <th className="px-5 py-4 font-extrabold">Elegibilidade</th>
-                  <th className="px-3 py-4 font-extrabold">Ação</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--bb-border)]">
-                {items.map((item) => (
-                  <tr key={item.id}>
-                    <td className="px-5 py-4">
-                      <div className="font-extrabold">{item.service_name}</div>
-                      <div className="mt-1 text-xs font-bold text-[var(--bb-muted)]">
-                        {item.service_code} · {item.category} · por {item.unit}
-                      </div>
-                      {item.price_override_reason ? (
-                        <div className="mt-2 text-xs font-bold text-[#9f493c]">
-                          Exceção: {item.price_override_reason}
-                        </div>
-                      ) : null}
-                    </td>
-                    <td className="max-w-80 px-5 py-4 text-xs font-bold leading-5 text-[var(--bb-muted)]">
-                      {item.description || "—"}
-                    </td>
-                    <td className="px-5 py-4 font-extrabold">{Number(item.quantity).toLocaleString("pt-PT")}</td>
-                    <td className="px-5 py-4">
-                      <div className="font-extrabold">{formatCommercialMoney(item.unit_price)}</div>
-                      {Number(item.unit_price) !== Number(item.standard_unit_price) ? (
-                        <div className="mt-1 text-xs font-bold text-[var(--bb-muted)]">
-                          Base: {formatCommercialMoney(item.standard_unit_price)}
-                        </div>
-                      ) : null}
-                    </td>
-                    <td className="px-5 py-4 font-extrabold">{formatCommercialMoney(commercialQuoteItemTotal(item))}</td>
-                    <td className="max-w-64 px-5 py-4">
-                      <div className="text-xs font-extrabold">{item.eligible_category || "—"}</div>
-                      {item.evidence_notes ? (
-                        <div className="mt-1 text-xs font-bold text-[var(--bb-muted)]">{item.evidence_notes}</div>
-                      ) : null}
-                    </td>
-                    <td className="px-3 py-4">
-                      <form action={removeCommercialQuoteItemAction.bind(null, quote.id, item.id)}>
-                        <button
-                          type="submit"
-                          aria-label={`Remover ${item.service_name}`}
-                          title="Remover linha"
-                          className="inline-grid size-9 place-items-center rounded-full border border-[rgba(232,76,49,0.28)] bg-white text-[#9f493c] hover:bg-[var(--bb-red-soft)]"
-                        >
-                          <Trash2 className="size-4" aria-hidden="true" />
-                        </button>
-                      </form>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="border-t-2 border-[var(--bb-black)]">
-                  <td colSpan={4} className="px-5 py-5 text-right text-sm font-extrabold">Total sem IVA</td>
-                  <td className="px-5 py-5 text-lg font-extrabold">{formatCommercialMoney(total)}</td>
-                  <td colSpan={2} />
-                </tr>
-              </tfoot>
-            </table>
-          </TableWrap>
+          <CommercialQuoteItemsEditor
+            quoteId={quote.id}
+            items={items}
+            funded={Boolean(opportunity?.is_funded)}
+          />
         ) : (
           <EmptyState title="Adiciona serviços para construir o orçamento." />
         )}
@@ -168,12 +98,11 @@ export default async function CommercialQuotePage({
 
       <Panel className="p-5">
         <details open={!items.length}>
-          <summary className="cursor-pointer list-none font-extrabold">Adicionar linha do catálogo</summary>
+          <summary className="cursor-pointer list-none font-extrabold">Adicionar serviços do catálogo</summary>
           <div className="mt-5 border-t border-[var(--bb-border)] pt-5">
-            <CommercialQuoteItemForm
-              action={addCommercialQuoteItemAction.bind(null, quote.id)}
+            <CommercialServicePicker
+              quoteId={quote.id}
               services={workspace.services}
-              funded={Boolean(opportunity?.is_funded)}
             />
           </div>
         </details>

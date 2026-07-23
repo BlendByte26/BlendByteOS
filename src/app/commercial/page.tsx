@@ -19,6 +19,7 @@ import {
   commercialServicePriceStatusLabels,
   commercialStatusTone,
   formatCommercialMoney,
+  groupCommercialServices,
 } from "@/lib/commercial";
 import { getClients } from "@/lib/data";
 import { requireCommercialAccess } from "@/lib/auth";
@@ -82,6 +83,7 @@ export default async function CommercialPage({
   const params = await searchParams;
   const selectedTab: CommercialTab = isCommercialTab(params.tab) ? params.tab : "opportunities";
   const [workspace, clients] = await Promise.all([getCommercialWorkspaceData(), getClients()]);
+  const catalogGroups = groupCommercialServices(workspace.services);
 
   return (
     <div className="grid gap-5">
@@ -216,57 +218,71 @@ export default async function CommercialPage({
               Os preços v0.1 começaram em rascunho. Aprova cada serviço apenas depois de validar capacidade, custos e margem.
             </p>
           </Panel>
-          <Panel>
+          <div className="grid gap-3">
             {workspace.services.length ? (
-              <TableWrap>
-                <table className="w-full min-w-[920px] text-left text-sm">
-                  <thead className="bg-[rgba(246,248,250,0.9)] text-xs uppercase text-[var(--bb-muted)]">
-                    <tr>
-                      <th className="px-5 py-4 font-extrabold">Serviço</th>
-                      <th className="px-5 py-4 font-extrabold">Categoria</th>
-                      <th className="px-5 py-4 font-extrabold">Preço-base</th>
-                      <th className="px-5 py-4 font-extrabold">Mínimo</th>
-                      <th className="px-5 py-4 font-extrabold">Versão</th>
-                      <th className="px-5 py-4 font-extrabold">Estado</th>
-                      <th className="px-3 py-4 font-extrabold">Ação</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[var(--bb-border)]">
-                    {workspace.services.map((service) => (
-                      <tr key={service.id} className={!service.active ? "opacity-55" : ""}>
-                        <td className="px-5 py-4">
-                          <div className="font-extrabold">{service.name}</div>
-                          <div className="mt-1 text-xs font-bold text-[var(--bb-muted)]">
-                            {service.code} · por {service.unit}
-                          </div>
-                        </td>
-                        <td className="px-5 py-4 font-bold text-[var(--bb-muted)]">{service.category}</td>
-                        <td className="px-5 py-4 font-extrabold">{formatCommercialMoney(service.standard_price)}</td>
-                        <td className="px-5 py-4 font-bold text-[var(--bb-muted)]">{formatCommercialMoney(service.minimum_price)}</td>
-                        <td className="px-5 py-4 font-bold text-[var(--bb-muted)]">{service.version_label}</td>
-                        <td className="px-5 py-4">
-                          <span className={`rounded-full px-3 py-1.5 text-xs font-extrabold ${commercialStatusTone(service.price_status)}`}>
-                            {commercialServicePriceStatusLabels[service.price_status]}
-                          </span>
-                        </td>
-                        <td className="px-3 py-4">
-                          <Link
-                            href={`/commercial/services/${service.id}/edit`}
-                            aria-label={`Editar ${service.name}`}
-                            className="inline-grid size-9 place-items-center rounded-full border border-[var(--bb-border)] bg-white hover:bg-[var(--bb-primary-soft)]"
-                          >
-                            <Pencil className="size-4" aria-hidden="true" />
-                          </Link>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </TableWrap>
+              catalogGroups.map((group, index) => (
+                <Panel key={group.category} className="overflow-hidden">
+                  <details open={index === 0}>
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 font-extrabold">
+                      <span>{group.category}</span>
+                      <span className="rounded-full bg-[var(--bb-primary-soft)] px-2.5 py-1 text-xs text-[var(--bb-muted)]">
+                        {group.services.length} {group.services.length === 1 ? "serviço" : "serviços"}
+                      </span>
+                    </summary>
+                    <div className="border-t border-[var(--bb-border)]">
+                      <TableWrap>
+                        <table className="w-full min-w-[820px] text-left text-sm">
+                          <thead className="bg-[rgba(246,248,250,0.9)] text-xs uppercase text-[var(--bb-muted)]">
+                            <tr>
+                              <th className="px-5 py-4 font-extrabold">Serviço</th>
+                              <th className="px-5 py-4 font-extrabold">Preço-base</th>
+                              <th className="px-5 py-4 font-extrabold">Mínimo</th>
+                              <th className="px-5 py-4 font-extrabold">Versão</th>
+                              <th className="px-5 py-4 font-extrabold">Estado</th>
+                              <th className="px-3 py-4 font-extrabold">Ação</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[var(--bb-border)]">
+                            {group.services.map((service) => (
+                              <tr key={service.id} className={!service.active ? "opacity-55" : ""}>
+                                <td className="px-5 py-4">
+                                  <div className="font-extrabold">{service.name}</div>
+                                  <div className="mt-1 text-xs font-bold text-[var(--bb-muted)]">
+                                    {service.code} · por {service.unit}
+                                  </div>
+                                </td>
+                                <td className="px-5 py-4 font-extrabold">{formatCommercialMoney(service.standard_price)}</td>
+                                <td className="px-5 py-4 font-bold text-[var(--bb-muted)]">{formatCommercialMoney(service.minimum_price)}</td>
+                                <td className="px-5 py-4 font-bold text-[var(--bb-muted)]">{service.version_label}</td>
+                                <td className="px-5 py-4">
+                                  <span className={`rounded-full px-3 py-1.5 text-xs font-extrabold ${commercialStatusTone(service.price_status)}`}>
+                                    {commercialServicePriceStatusLabels[service.price_status]}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-4">
+                                  <Link
+                                    href={`/commercial/services/${service.id}/edit`}
+                                    aria-label={`Editar ${service.name}`}
+                                    className="inline-grid size-9 place-items-center rounded-full border border-[var(--bb-border)] bg-white hover:bg-[var(--bb-primary-soft)]"
+                                  >
+                                    <Pencil className="size-4" aria-hidden="true" />
+                                  </Link>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </TableWrap>
+                    </div>
+                  </details>
+                </Panel>
+              ))
             ) : (
-              <EmptyState title="O catálogo ainda não tem serviços." />
+              <Panel>
+                <EmptyState title="O catálogo ainda não tem serviços." />
+              </Panel>
             )}
-          </Panel>
+          </div>
 
           {workspace.schemaReady ? (
             <Panel className="p-5">
