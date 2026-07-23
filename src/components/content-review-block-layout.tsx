@@ -12,15 +12,6 @@ function formatTime(value: string | null) {
   return value?.slice(0, 5) ?? null;
 }
 
-function AssetScope({ block, itemIds }: { block: ContentReviewBlockView; itemIds: string[] }) {
-  const labels = block.items
-    .filter((item) => itemIds.includes(item.id))
-    .map((item) => displayContentPlatform(item.platform));
-
-  if (!labels.length || labels.length === block.items.length) return <span>Todos os conteúdos do bloco</span>;
-  return <span>{Array.from(new Set(labels)).join(" · ")}</span>;
-}
-
 function DescriptionPanel({ block }: { block: ContentReviewBlockView }) {
   return (
     <div className="grid gap-3">
@@ -55,7 +46,7 @@ function VisualPanel({ block }: { block: ContentReviewBlockView }) {
     <div className={`grid gap-3 ${multiple ? "auto-cols-[85%] snap-x snap-mandatory grid-flow-col overflow-x-auto pb-1 sm:auto-cols-auto sm:grid-flow-row sm:grid-cols-2 sm:overflow-visible sm:pb-0" : ""}`}>
       {block.assets.map((asset) => (
         <figure key={asset.id} className={`overflow-hidden rounded-[20px] border border-[var(--bb-border)] bg-[#f4f4f1] ${multiple ? "snap-start" : ""}`}>
-          <div className={`grid place-items-center bg-[linear-gradient(45deg,#f3f3f0_25%,transparent_25%),linear-gradient(-45deg,#f3f3f0_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#f3f3f0_75%),linear-gradient(-45deg,transparent_75%,#f3f3f0_75%)] bg-[length:20px_20px] bg-[position:0_0,0_10px,10px_-10px,-10px_0] ${multiple ? "h-[240px] sm:h-[280px]" : "h-[340px] sm:h-[420px]"}`}>
+          <div className="h-[240px] sm:h-[280px] grid place-items-center bg-[linear-gradient(45deg,#f3f3f0_25%,transparent_25%),linear-gradient(-45deg,#f3f3f0_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#f3f3f0_75%),linear-gradient(-45deg,transparent_75%,#f3f3f0_75%)] bg-[length:20px_20px] bg-[position:0_0,0_10px,10px_-10px,-10px_0]">
             {asset.url ? (
               // Signed and local object URLs are deliberately rendered without Next image optimization.
               // eslint-disable-next-line @next/next/no-img-element
@@ -64,10 +55,6 @@ function VisualPanel({ block }: { block: ContentReviewBlockView }) {
               <ImageIcon className="size-10 text-[var(--bb-muted)]" aria-hidden="true" />
             )}
           </div>
-          <figcaption className="flex items-center gap-2 border-t border-[var(--bb-border)] bg-white/85 px-3 py-2 text-xs font-bold text-[var(--bb-muted)]">
-            <ImageIcon className="size-3.5" aria-hidden="true" />
-            <AssetScope block={block} itemIds={asset.applies_to_item_ids} />
-          </figcaption>
         </figure>
       ))}
     </div>
