@@ -1,7 +1,7 @@
 import { Check, MessageSquareText, RefreshCw } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { ClientLogo } from "@/components/client-logo";
-import { ContentReviewBlockTabs } from "@/components/content-review-block-tabs";
+import { ContentReviewBlockLayout } from "@/components/content-review-block-layout";
 import { ContentReviewOverviewTable } from "@/components/content-review-overview-table";
 import { formatContentMonthLabel } from "@/lib/content-month";
 import {
@@ -51,7 +51,7 @@ function ReviewBlock({
       </div>
 
       <div className="grid gap-5 p-5 md:p-6">
-        <ContentReviewBlockTabs block={block} />
+        <ContentReviewBlockLayout block={block} />
 
         <section className="rounded-[20px] border border-[rgba(83,183,223,0.34)] bg-[var(--bb-primary-soft)] p-4">
           <div className="flex items-center gap-2 text-sm font-extrabold text-[var(--bb-charcoal)]">
