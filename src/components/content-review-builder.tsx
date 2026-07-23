@@ -127,6 +127,9 @@ function buildPreview({
     submitted_by_email: null,
     published_at: now,
     submitted_at: null,
+    archived_at: null,
+    archived_by_profile_key: null,
+    archived_by_name: null,
     created_at: now,
     updated_at: now,
     blocks: blocks.map((block, blockIndex) => {

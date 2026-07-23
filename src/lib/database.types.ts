@@ -75,12 +75,12 @@ export type Database = {
         Insert: Partial<
           Pick<
             ContentReviewRound,
-            "id" | "status" | "recipient_name" | "recipient_email" | "approval_deadline" | "introduction" | "submitted_by_name" | "submitted_by_email" | "published_at" | "submitted_at" | "created_at" | "updated_at"
+            "id" | "status" | "recipient_name" | "recipient_email" | "approval_deadline" | "introduction" | "submitted_by_name" | "submitted_by_email" | "published_at" | "submitted_at" | "archived_at" | "archived_by_profile_key" | "archived_by_name" | "created_at" | "updated_at"
           >
         > &
           Omit<
             ContentReviewRound,
-            "id" | "status" | "recipient_name" | "recipient_email" | "approval_deadline" | "introduction" | "submitted_by_name" | "submitted_by_email" | "published_at" | "submitted_at" | "created_at" | "updated_at"
+            "id" | "status" | "recipient_name" | "recipient_email" | "approval_deadline" | "introduction" | "submitted_by_name" | "submitted_by_email" | "published_at" | "submitted_at" | "archived_at" | "archived_by_profile_key" | "archived_by_name" | "created_at" | "updated_at"
           >;
         Update: Partial<Omit<ContentReviewRound, "id" | "client_id" | "created_at">>;
         Relationships: [

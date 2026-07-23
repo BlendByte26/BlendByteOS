@@ -210,7 +210,7 @@ O filtro de estado permite selecionar vários estados em simultâneo, tal como n
 
 ### 5.5 Aprovações
 
-Aprovações é um módulo próprio na navegação, imediatamente depois de Tarefas, e está disponível apenas a Guilherme e Marketing. Concentra a preparação de uma nova aprovação, os links enviados, as decisões recebidas, os pedidos de alteração, as revisões e o histórico de rondas. Design não participa neste fluxo nem vê o módulo. A listagem usa cartões compactos e pode ser filtrada pelas vistas Todas, A aguardar cliente, Alterações pedidas e Aprovadas; cada filtro mostra a respetiva contagem.
+Aprovações é um módulo próprio na navegação, imediatamente depois de Tarefas, e está disponível apenas a Guilherme e Marketing. Concentra a preparação de uma nova aprovação, os links enviados, as decisões recebidas, os pedidos de alteração, as revisões e o histórico de rondas. Design não participa neste fluxo nem vê o módulo. A listagem usa cartões compactos e pode ser filtrada pelas vistas Todas, A aguardar cliente, Alterações pedidas, Aprovadas e Arquivadas; cada filtro mostra a respetiva contagem. Arquivar preserva o estado e todo o histórico da ronda, retira-a das vistas correntes e invalida o respetivo link público.
 
 Na aprovação por link, Guilherme ou Marketing selecionam o cliente e o mês, confirmam os conteúdos incluídos, agrupam livremente variantes que partilham o mesmo visual e carregam imagens PNG, JPEG ou WebP. A preparação tem uma pré-visualização integral antes da partilha. Depois da criação, o modal mantém-se aberto, apresenta o link para copiar ou abrir e sugere um email com assunto e mensagem editáveis para copiar.
 

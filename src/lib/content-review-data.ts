@@ -124,6 +124,7 @@ export async function getPublicContentReview(token: string) {
     .from("content_review_rounds")
     .select("*")
     .eq("access_token_hash", tokenHash(token))
+    .is("archived_at", null)
     .maybeSingle();
   if (error || !data) return null;
   return loadReviewRelations(admin, data as ContentReviewRound);

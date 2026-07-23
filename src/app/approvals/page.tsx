@@ -1,18 +1,19 @@
 import Link from "next/link";
-import { CalendarDays, Check, Clock3, ListFilter, RefreshCw } from "lucide-react";
+import { Archive, CalendarDays, Check, Clock3, ListFilter, RefreshCw } from "lucide-react";
 import { ContentReviewBuilder } from "@/components/content-review-builder";
 import { EmptyState, Panel } from "@/components/ui";
 import { requireRole } from "@/lib/auth";
 import { currentLisbonContentMonth, formatContentMonthLabel } from "@/lib/content-month";
+import { archiveContentReviewAction } from "@/lib/content-review-actions";
 import { getContentReviewSummaries } from "@/lib/content-review-data";
 import { contentReviewStatusLabels } from "@/lib/content-reviews";
 import { getClients, getContentItems } from "@/lib/data";
 import { isSupabaseConfigured } from "@/lib/supabase";
 
-type ApprovalView = "all" | "open" | "changes_requested" | "approved";
+type ApprovalView = "all" | "open" | "changes_requested" | "approved" | "archived";
 
 function isApprovalView(value: string | undefined): value is ApprovalView {
-  return ["all", "open", "changes_requested", "approved"].includes(value ?? "");
+  return ["all", "open", "changes_requested", "approved", "archived"].includes(value ?? "");
 }
 
 function formatDate(value: string | null) {
@@ -33,18 +34,23 @@ export default async function ApprovalsPage({
     getClients(),
     getContentItems(),
   ]);
-  const awaiting = reviews.filter((review) => review.status === "open").length;
-  const changes = reviews.filter((review) => review.status === "changes_requested").length;
-  const approved = reviews.filter((review) => review.status === "approved").length;
+  const activeReviews = reviews.filter((review) => !review.archived_at);
+  const archivedReviews = reviews.filter((review) => review.archived_at);
+  const awaiting = activeReviews.filter((review) => review.status === "open").length;
+  const changes = activeReviews.filter((review) => review.status === "changes_requested").length;
+  const approved = activeReviews.filter((review) => review.status === "approved").length;
   const selectedView: ApprovalView = isApprovalView(params.view) ? params.view : "all";
   const visibleReviews = selectedView === "all"
-    ? reviews
-    : reviews.filter((review) => review.status === selectedView);
+    ? activeReviews
+    : selectedView === "archived"
+      ? archivedReviews
+      : activeReviews.filter((review) => review.status === selectedView);
   const filters = [
-    { value: "all", label: "Todas", count: reviews.length, icon: ListFilter, active: "bg-[var(--bb-black)] text-white", inactive: "text-[var(--bb-charcoal)]" },
+    { value: "all", label: "Todas", count: activeReviews.length, icon: ListFilter, active: "bg-[var(--bb-black)] text-white", inactive: "text-[var(--bb-charcoal)]" },
     { value: "open", label: "A aguardar cliente", count: awaiting, icon: Clock3, active: "bg-[var(--bb-primary)] text-[var(--bb-black)]", inactive: "text-[var(--bb-muted)]" },
     { value: "changes_requested", label: "Alterações pedidas", count: changes, icon: RefreshCw, active: "bg-[var(--bb-red-soft)] text-[#9f493c]", inactive: "text-[#9f493c]" },
     { value: "approved", label: "Aprovadas", count: approved, icon: Check, active: "bg-[#e7f3e9] text-[#2f7650]", inactive: "text-[#2f7650]" },
+    { value: "archived", label: "Arquivadas", count: archivedReviews.length, icon: Archive, active: "bg-[#e9e9e4] text-[var(--bb-charcoal)]", inactive: "text-[var(--bb-muted)]" },
   ] as const;
 
   return (
@@ -83,13 +89,13 @@ export default async function ApprovalsPage({
       <section aria-label="Aprovações partilhadas">
         <div className="grid gap-3">
           {visibleReviews.map((review) => (
-            <Link key={review.id} href={`/approvals/${review.id}`} className="group block">
-              <Panel className="px-4 py-3.5">
-                <div className="flex items-start justify-between gap-3">
+            <Panel key={review.id} className="px-4 py-3.5">
+              <div className="flex items-start gap-3">
+                <Link href={`/approvals/${review.id}`} className="group min-w-0 flex-1">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                       <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--bb-muted)]">{review.client_name}</div>
-                      <h3 className="text-base font-extrabold text-[var(--bb-charcoal)]">{formatContentMonthLabel(review.month)} · versão {review.version}</h3>
+                      <h3 className="text-base font-extrabold text-[var(--bb-charcoal)] transition group-hover:text-black">{formatContentMonthLabel(review.month)} · versão {review.version}</h3>
                     </div>
                     <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs font-bold text-[var(--bb-muted)]">
                       <span className="inline-flex items-center gap-1"><CalendarDays className="size-3.5" />{formatDate(review.published_at)}</span>
@@ -99,14 +105,31 @@ export default async function ApprovalsPage({
                       <span className="inline-flex items-center gap-1 font-extrabold text-[#9f493c]"><RefreshCw className="size-3.5" />{review.changes_count} com alterações</span>
                     </div>
                   </div>
+                </Link>
+                <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                  {review.archived_at ? (
+                    <span className="rounded-full bg-[#e9e9e4] px-3 py-1.5 text-xs font-extrabold text-[var(--bb-charcoal)]">Arquivada</span>
+                  ) : null}
                   <span className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-extrabold ${review.status === "approved" ? "bg-[#e7f3e9] text-[#2f7650]" : review.status === "changes_requested" ? "bg-[var(--bb-red-soft)] text-[#9f493c]" : "bg-[var(--bb-primary-soft)] text-[var(--bb-charcoal)]"}`}>{contentReviewStatusLabels[review.status]}</span>
+                  {!review.archived_at ? (
+                    <form action={archiveContentReviewAction.bind(null, review.id)}>
+                      <button
+                        type="submit"
+                        title={`Arquivar aprovação de ${review.client_name}`}
+                        className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-[var(--bb-border)] bg-white px-3 text-xs font-extrabold text-[var(--bb-muted)] transition hover:border-[var(--bb-black)] hover:text-[var(--bb-black)]"
+                      >
+                        <Archive className="size-3.5" aria-hidden="true" />
+                        Arquivar
+                      </button>
+                    </form>
+                  ) : null}
                 </div>
-              </Panel>
-            </Link>
+              </div>
+            </Panel>
           ))}
           {!visibleReviews.length ? (
             <Panel>
-              <EmptyState title={selectedView === "all" ? "Ainda não existem aprovações partilhadas." : "Não existem aprovações nesta vista."} />
+              <EmptyState title={selectedView === "all" ? "Ainda não existem aprovações ativas." : "Não existem aprovações nesta vista."} />
             </Panel>
           ) : null}
         </div>

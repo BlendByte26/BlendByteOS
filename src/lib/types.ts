@@ -302,6 +302,9 @@ export type ContentReviewRound = {
   submitted_by_email: string | null;
   published_at: string;
   submitted_at: string | null;
+  archived_at: string | null;
+  archived_by_profile_key: "guilherme" | "sofia" | null;
+  archived_by_name: string | null;
   created_at: string;
   updated_at: string;
 };

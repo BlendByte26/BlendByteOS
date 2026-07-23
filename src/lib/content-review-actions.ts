@@ -284,6 +284,7 @@ export async function createContentReviewAction(formData: FormData): Promise<Rev
         .eq("client_id", payload.clientId)
         .eq("month", payload.month)
         .neq("id", roundId)
+        .is("archived_at", null)
         .in("status", ["draft", "open", "submitted", "changes_requested"]);
 
       revalidatePath("/approvals");
@@ -333,6 +334,7 @@ export async function submitContentReviewAction(token: string, formData: FormDat
       .eq("access_token_hash", tokenHash(token))
       .maybeSingle();
     if (roundError || !round) throw new Error("Esta aprovação não está disponível.");
+    if (round.archived_at) throw new Error("Esta aprovação foi arquivada e já não aceita respostas.");
     if (["approved", "changes_requested"].includes(round.status)) return { ok: true, alreadySubmitted: true };
     if (round.status !== "open") throw new Error("Esta aprovação já não aceita respostas.");
 
@@ -499,10 +501,11 @@ export async function rotateContentReviewLinkAction(roundId: string): Promise<Re
 
     const { data: round, error: roundError } = await supabase
       .from("content_review_rounds")
-      .select("id, status")
+      .select("id, status, archived_at")
       .eq("id", cleanRoundId)
       .maybeSingle();
     if (roundError || !round) throw new Error("A aprovação não está disponível.");
+    if (round.archived_at) throw new Error("Uma aprovação arquivada não pode receber um novo link.");
     if (round.status !== "open") throw new Error("Só é possível gerar um novo link enquanto a aprovação aguarda resposta.");
 
     const token = randomBytes(32).toString("hex");
@@ -519,4 +522,34 @@ export async function rotateContentReviewLinkAction(roundId: string): Promise<Re
     console.error("Erro ao renovar link de aprovação", error);
     return { ok: false, message: error instanceof Error ? error.message : "Não foi possível gerar um novo link." };
   }
+}
+
+export async function archiveContentReviewAction(roundId: string): Promise<void> {
+  const { profile, supabase } = await internalReviewContext();
+  const cleanRoundId = cleanString(roundId, 80);
+  if (!cleanRoundId) throw new Error("A aprovação não está disponível.");
+  if (profile.key !== "guilherme" && profile.key !== "sofia") {
+    throw new Error("Não tem permissão para arquivar aprovações.");
+  }
+
+  const { data, error } = await supabase
+    .from("content_review_rounds")
+    .update({
+      archived_at: new Date().toISOString(),
+      archived_by_profile_key: profile.key,
+      archived_by_name: profile.name,
+    })
+    .eq("id", cleanRoundId)
+    .is("archived_at", null)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    console.error("Erro ao arquivar aprovação de conteúdos", { code: error.code });
+    throw new Error("Não foi possível arquivar a aprovação.");
+  }
+  if (!data) throw new Error("Esta aprovação já estava arquivada ou deixou de estar disponível.");
+
+  revalidatePath("/approvals");
+  revalidatePath(`/approvals/${cleanRoundId}`);
 }
