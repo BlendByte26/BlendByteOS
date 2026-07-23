@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowDown,
@@ -24,9 +24,12 @@ import { DatePicker, MonthPicker } from "@/components/date-picker";
 import { SelectField } from "@/components/select-field";
 import { createContentReviewAction } from "@/lib/content-review-actions";
 import {
-  contentReviewSourceItems,
+  CONTENT_REVIEW_ASSET_MAX_BYTES,
+  CONTENT_REVIEW_TOTAL_MAX_BYTES,
   contentReviewEmailSuggestion,
+  contentReviewSourceItems,
   defaultContentReviewIntroduction,
+  isContentReviewAssetMimeType,
   type ContentReviewView,
 } from "@/lib/content-reviews";
 import { formatContentMonthLabel } from "@/lib/content-month";
@@ -213,6 +216,7 @@ export function ContentReviewBuilder({
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
   const [isPending, startTransition] = useTransition();
+  const assetUrlsRef = useRef(new Set<string>());
 
   const sourceItems = useMemo(() => contentReviewSourceItems(items, clientId, month), [clientId, items, month]);
   const itemMap = useMemo(() => new Map(sourceItems.map((item) => [item.id, item])), [sourceItems]);
@@ -220,9 +224,34 @@ export function ContentReviewBuilder({
   const includedIds = blocks.flatMap((block) => block.contentIds);
   const excludedItems = sourceItems.filter((item) => !includedIds.includes(item.id));
   const absoluteLink = created && typeof window !== "undefined" ? `${window.location.origin}${created.path}` : "";
+
+  useEffect(() => {
+    const assetUrls = assetUrlsRef.current;
+    return () => {
+      assetUrls.forEach((url) => URL.revokeObjectURL(url));
+      assetUrls.clear();
+    };
+  }, []);
+
+  function createAssetUrl(file: File) {
+    const url = URL.createObjectURL(file);
+    assetUrlsRef.current.add(url);
+    return url;
+  }
+
+  function revokeAssetUrl(url: string) {
+    URL.revokeObjectURL(url);
+    assetUrlsRef.current.delete(url);
+  }
+
+  function revokeBlockAssets(blocksToRevoke: LocalBlock[]) {
+    blocksToRevoke.forEach((block) => block.assets.forEach((asset) => revokeAssetUrl(asset.url)));
+  }
+
   function reset(nextClientId = clientId, nextMonth = month) {
     const nextItems = contentReviewSourceItems(items, nextClientId, nextMonth);
     const nextClient = clients.find((candidate) => candidate.id === nextClientId);
+    revokeBlockAssets(blocks);
     setBlocks(defaultBlocks(nextItems));
     setSelectedIds([]);
     setCreated(null);
@@ -245,6 +274,8 @@ export function ContentReviewBuilder({
 
   function closeBuilder() {
     setOpen(false);
+    revokeBlockAssets(blocks);
+    setBlocks([]);
     if (created) router.refresh();
   }
 
@@ -271,7 +302,7 @@ export function ContentReviewBuilder({
     const unaffected = blocks.filter((block) => !block.contentIds.some((id) => selectedIds.includes(id)));
     const firstIndex = Math.min(...affected.map((block) => blocks.indexOf(block)));
     const contentIds = affected.flatMap((block) => block.contentIds);
-    affected.forEach((block) => block.assets.forEach((asset) => URL.revokeObjectURL(asset.url)));
+    revokeBlockAssets(affected);
     const firstItem = itemMap.get(contentIds[0] ?? "");
     const grouped: LocalBlock = {
       key: makeKey("block"),
@@ -288,7 +319,7 @@ export function ContentReviewBuilder({
   }
 
   function splitBlock(block: LocalBlock) {
-    block.assets.forEach((asset) => URL.revokeObjectURL(asset.url));
+    revokeBlockAssets([block]);
     const replacements = block.contentIds.flatMap((contentId) => {
       const item = itemMap.get(contentId);
       return item ? defaultBlocks([item]) : [];
@@ -297,7 +328,7 @@ export function ContentReviewBuilder({
   }
 
   function removeBlock(block: LocalBlock) {
-    block.assets.forEach((asset) => URL.revokeObjectURL(asset.url));
+    revokeBlockAssets([block]);
     setBlocks((current) => current.filter((candidate) => candidate.key !== block.key));
     setSelectedIds((current) => current.filter((id) => !block.contentIds.includes(id)));
   }
@@ -320,17 +351,38 @@ export function ContentReviewBuilder({
 
   function addAssets(block: LocalBlock, files: FileList | null) {
     if (!files?.length) return;
-    const nextAssets = Array.from(files).map((file) => ({
+    const selectedFiles = Array.from(files);
+    const invalidType = selectedFiles.find((file) => !isContentReviewAssetMimeType(file.type));
+    if (invalidType) {
+      setMessage(`O ficheiro “${invalidType.name}” deve ser PNG, JPG ou WebP.`);
+      return;
+    }
+    const oversized = selectedFiles.find((file) => file.size > CONTENT_REVIEW_ASSET_MAX_BYTES);
+    if (oversized) {
+      setMessage(`O ficheiro “${oversized.name}” não pode exceder 8 MB.`);
+      return;
+    }
+    const currentTotalSize = blocks.reduce(
+      (total, currentBlock) => total + currentBlock.assets.reduce((blockTotal, asset) => blockTotal + asset.file.size, 0),
+      0,
+    );
+    const selectedTotalSize = selectedFiles.reduce((total, file) => total + file.size, 0);
+    if (currentTotalSize + selectedTotalSize > CONTENT_REVIEW_TOTAL_MAX_BYTES) {
+      setMessage("O conjunto de visuais não pode exceder 28 MB por aprovação.");
+      return;
+    }
+    const nextAssets = selectedFiles.map((file) => ({
       key: makeKey("asset"),
       file,
-      url: URL.createObjectURL(file),
+      url: createAssetUrl(file),
       appliesToContentIds: [...block.contentIds],
     }));
+    setMessage(null);
     updateBlock(block.key, { assets: [...block.assets, ...nextAssets], noVisualConfirmed: false });
   }
 
   function removeAsset(block: LocalBlock, asset: LocalAsset) {
-    URL.revokeObjectURL(asset.url);
+    revokeAssetUrl(asset.url);
     updateBlock(block.key, { assets: block.assets.filter((candidate) => candidate.key !== asset.key) });
   }
 
@@ -533,7 +585,7 @@ export function ContentReviewBuilder({
                       return item ? <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-[#f5f5f1] px-3 py-2 text-xs font-bold"><span><strong>{displayContentPlatform(item.platform)}</strong>{item.format ? ` · ${item.format}` : ""} — {cleanPrefixedTitle(item.title, item.clients)}</span><span className="text-[var(--bb-muted)]">{formatDate(item.publish_date)}</span></div> : null;
                     })}</div>
                     <div className="mt-4 grid gap-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2"><div><h4 className="text-sm font-extrabold">Visuais</h4><p className="text-xs font-bold text-[var(--bb-muted)]">Cada visual pode aplicar-se ao bloco inteiro ou apenas a algumas variantes.</p></div><label className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-full border border-[var(--bb-border)] bg-white px-4 text-sm font-extrabold"><ImagePlus className="size-4" />Adicionar imagens<input type="file" accept="image/png,image/jpeg,image/webp" multiple className="sr-only" onChange={(event) => { addAssets(block, event.currentTarget.files); event.currentTarget.value = ""; }} /></label></div>
+                      <div className="flex flex-wrap items-center justify-between gap-2"><div><h4 className="text-sm font-extrabold">Visuais</h4><p className="text-xs font-bold text-[var(--bb-muted)]">Cada visual pode aplicar-se ao bloco inteiro ou apenas a algumas variantes. PNG, JPEG ou WebP · máximo 8 MB por imagem.</p></div><label className="relative inline-flex min-h-10 cursor-pointer items-center gap-2 overflow-hidden rounded-full border border-[var(--bb-border)] bg-white px-4 text-sm font-extrabold focus-within:border-[var(--bb-black)] focus-within:ring-2 focus-within:ring-[var(--bb-primary)]"><ImagePlus className="size-4" />Adicionar imagens<input type="file" accept="image/png,image/jpeg,image/webp" multiple aria-label="Adicionar imagens" className="absolute inset-0 z-10 size-full cursor-pointer opacity-0" onChange={(event) => { addAssets(block, event.currentTarget.files); event.currentTarget.value = ""; }} /></label></div>
                       {block.assets.map((asset) => <div key={asset.key} className="grid gap-3 rounded-2xl border border-[var(--bb-border)] bg-[#f7f7f4] p-3 sm:grid-cols-[120px_1fr_auto]">
                         {/* Signed local object URL; Next image optimization is not applicable. */}
                         {/* eslint-disable-next-line @next/next/no-img-element */}
