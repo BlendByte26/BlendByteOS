@@ -496,6 +496,101 @@ export type Invest2030RequestFormState = {
   submissionKey?: string;
 };
 
+export const commercialServicePriceStatuses = ["draft", "approved", "archived"] as const;
+export const commercialOpportunitySources = ["direct", "referral", "invest2030", "partner", "other"] as const;
+export const commercialOpportunityStatuses = ["qualification", "quoting", "negotiation", "won", "lost"] as const;
+export const commercialQuoteStatuses = ["draft", "ready", "sent", "accepted", "rejected", "expired"] as const;
+
+export type CommercialServicePriceStatus = (typeof commercialServicePriceStatuses)[number];
+export type CommercialOpportunitySource = (typeof commercialOpportunitySources)[number];
+export type CommercialOpportunityStatus = (typeof commercialOpportunityStatuses)[number];
+export type CommercialQuoteStatus = (typeof commercialQuoteStatuses)[number];
+
+export type CommercialService = {
+  id: string;
+  code: string;
+  category: string;
+  name: string;
+  summary: string | null;
+  unit: string;
+  standard_price: number;
+  minimum_price: number;
+  price_status: CommercialServicePriceStatus;
+  version_label: string;
+  inclusions: string | null;
+  exclusions: string | null;
+  internal_notes: string | null;
+  active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CommercialOpportunity = {
+  id: string;
+  company_name: string;
+  contact_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  source: CommercialOpportunitySource;
+  source_detail: string | null;
+  status: CommercialOpportunityStatus;
+  owner_profile_key: "guilherme";
+  client_id: string | null;
+  is_funded: boolean;
+  funding_program: string | null;
+  funding_notice: string | null;
+  eligible_marketing_budget: number | null;
+  execution_start: string | null;
+  execution_end: string | null;
+  objectives: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  clients?: Pick<Client, "id" | "name" | "client_code" | "short_name"> | null;
+};
+
+export type CommercialQuote = {
+  id: string;
+  opportunity_id: string;
+  reference: string;
+  title: string;
+  status: CommercialQuoteStatus;
+  valid_until: string | null;
+  currency: "EUR";
+  funding_notes: string | null;
+  commercial_conditions: string | null;
+  internal_notes: string | null;
+  created_by_profile_key: "guilherme";
+  created_at: string;
+  updated_at: string;
+  commercial_opportunities?: Pick<
+    CommercialOpportunity,
+    "id" | "company_name" | "status" | "is_funded" | "funding_program" | "funding_notice"
+  > | null;
+};
+
+export type CommercialQuoteItem = {
+  id: string;
+  quote_id: string;
+  service_id: string | null;
+  position: number;
+  service_code: string;
+  service_name: string;
+  category: string;
+  unit: string;
+  description: string | null;
+  quantity: number;
+  unit_price: number;
+  standard_unit_price: number;
+  price_override_reason: string | null;
+  eligible_category: string | null;
+  evidence_notes: string | null;
+  internal_notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Option = {
   value: string;
   label: string;

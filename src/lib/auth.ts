@@ -105,6 +105,18 @@ export async function requireRole(roles: readonly OperationalRole[]) {
   return profile;
 }
 
+export function canAccessCommercial(
+  profile: Pick<AuthenticatedOperationalProfile, "key" | "authRole"> | null,
+) {
+  return profile?.key === "guilherme" && profile.authRole === "admin";
+}
+
+export async function requireCommercialAccess() {
+  const profile = await requireCurrentOperationalProfile();
+  if (!canAccessCommercial(profile)) redirect("/");
+  return profile;
+}
+
 export function canManageClients(profile: Pick<AuthenticatedOperationalProfile, "authRole"> | null) {
   return profile ? ["admin", "marketing"].includes(profile.authRole) : false;
 }

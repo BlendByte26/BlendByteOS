@@ -11,6 +11,7 @@
     "test:invest2030-newsletter": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-invest2030-newsletter-template.ts",
     "test:dashboard": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-dashboard.ts",
     "test:clients": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-clients.ts",
+    "test:commercial": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-commercial.ts",
     "test:vacations": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-vacations.ts",
     "test:content-reviews": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-content-reviews.ts",
     "tsx": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON"

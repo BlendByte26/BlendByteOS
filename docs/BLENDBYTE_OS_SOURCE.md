@@ -1,6 +1,6 @@
 # BlendByte OS — contexto canónico e fluxos operacionais
 
-Versão desta fonte: 23 de julho de 2026 — vistas e resposta das aprovações de conteúdos; upload direto nas aprovações
+Versão desta fonte: 23 de julho de 2026 — área Comercial em teste exclusivo de Guilherme; upload direto nas aprovações
 
 ## 1. Para que serve este documento
 
@@ -13,6 +13,7 @@ Não contém dados operacionais em tempo real, passwords, chaves, tokens nem inf
 O BlendByte OS é a aplicação interna de operações da agência BlendByte. Centraliza:
 
 - clientes, contratos, marca, canais e documentos;
+- catálogo-base, oportunidades e orçamentos comerciais;
 - tarefas operacionais e passagem de trabalho para Design;
 - planeamento, produção, aprovação e publicação de conteúdos;
 - partilha privada do planeamento com o cliente, incluindo tabela-resumo mensal, visuais, comentários e decisões;
@@ -62,6 +63,7 @@ Guilherme pode pré-visualizar a aplicação como Sofia, Carlota ou Carolina. Du
 | Consultar módulos internos | Sim | Sim | Sim |
 | Criar e editar clientes | Sim | Sim | Não |
 | Apagar clientes | Sim | Não | Não |
+| Consultar e gerir Comercial | Sim, apenas Guilherme | Não | Não |
 | Criar e editar tarefas | Sim | Sim | Sim |
 | Apagar tarefas | Sim | Sim | Não |
 | Criar e editar conteúdos | Sim | Sim | Sim |
@@ -149,7 +151,33 @@ No perfil, o tipo aparece junto do estado. Responsável BlendByte, email, telefo
 
 Um cliente só pode ser apagado definitivamente por Guilherme e apenas quando já não tem tarefas nem conteúdos associados.
 
-### 5.3 Conteúdos
+### 5.3 Comercial
+
+Comercial é a área interna para estruturar preços, acompanhar oportunidades e construir orçamentos. Durante a fase de teste, só o perfil Guilherme com papel `admin` pode ver ou alterar este módulo. A restrição é aplicada na navegação, nas páginas e ações do servidor e nas políticas RLS; a pré-visualização como outro perfil não dá acesso.
+
+O módulo tem três áreas:
+
+- Oportunidades: empresa, contacto, origem, estado, eventual ligação a um cliente e contexto de financiamento;
+- Catálogo: serviços versionados com categoria, unidade, preço-base, preço mínimo, inclusões, exclusões e estado do preço;
+- Orçamentos: proposta ligada a uma oportunidade, composta por linhas escolhidas do catálogo.
+
+Os preços iniciais pertencem à versão `v0.1` e começam como rascunho. O preço mínimo serve de controlo interno: uma linha abaixo desse valor exige uma justificação. Não são guardados custos ou horas presumidos quando ainda não existem dados internos validados.
+
+Cada linha de orçamento guarda uma cópia do código, nome, categoria, unidade, descrição e preço-base do serviço no momento em que é adicionada. Alterar o catálogo posteriormente não reescreve orçamentos anteriores.
+
+Nos projetos financiados, a oportunidade guarda programa, aviso, investimento elegível para marketing e período de execução. Cada linha pode indicar categoria elegível e evidências necessárias. O financiamento altera o âmbito, quantidade ou duração; não cria automaticamente um preço unitário diferente nem permite mudar a natureza real do serviço.
+
+Estados de oportunidade:
+
+`qualification` → `quoting` → `negotiation` → `won` ou `lost`
+
+Estados de orçamento:
+
+`draft` → `ready` → `sent` → `accepted`, `rejected` ou `expired`
+
+As sequências são orientações e não uma máquina de estados rígida. Marcar um orçamento como aceite marca a oportunidade como ganha. A criação ou ligação do cliente continua a exigir confirmação explícita de Guilherme, evitando criar dados operacionais silenciosamente.
+
+### 5.4 Conteúdos
 
 O módulo de Conteúdos é o calendário editorial e pipeline de produção. Tem três vistas:
 
@@ -178,7 +206,7 @@ Estados de conteúdo:
 
 Este é o fluxo recomendado; a interface permite alterações diretas de estado quando operacionalmente necessário.
 
-### 5.4 Tarefas
+### 5.5 Tarefas
 
 O módulo de Tarefas gere trabalho operacional com ou sem cliente associado.
 
@@ -208,7 +236,7 @@ Na criação manual, a interface privilegia `normal` e `urgent`. A prioridade `l
 As vistas rápidas são: todas, hoje, esta semana, próximos sete dias e arquivadas. Por defeito, a lista abre filtrada para o utilizador atual.
 O filtro de estado permite selecionar vários estados em simultâneo, tal como no módulo de Conteúdos.
 
-### 5.5 Aprovações
+### 5.6 Aprovações
 
 Aprovações é um módulo próprio na navegação, imediatamente depois de Tarefas, e está disponível apenas a Guilherme e Marketing. Concentra a preparação de uma nova aprovação, os links enviados, as decisões recebidas, os pedidos de alteração, as revisões e o histórico de rondas. Design não participa neste fluxo nem vê o módulo. A listagem usa cartões compactos e pode ser filtrada pelas vistas Todas, A aguardar cliente, Alterações pedidas, Aprovadas e Arquivadas; cada filtro mostra a respetiva contagem. Arquivar preserva o estado e todo o histórico da ronda, retira-a das vistas correntes e invalida o respetivo link público.
 
@@ -218,7 +246,7 @@ A página do cliente apresenta os logótipos BlendByte e do cliente, uma tabela 
 
 Os novos links usam `/aprovar-conteudos/[token]`. As rotas anteriores de preparação, histórico e resposta redirecionam para o módulo novo para preservar favoritos internos e links já enviados.
 
-### 5.6 BlendHub
+### 5.7 BlendHub
 
 O BlendHub reúne quatro áreas:
 
@@ -229,7 +257,7 @@ O BlendHub reúne quatro áreas:
 
 Todos os perfis ativos podem consultar. A gestão de equipa e contactos pertence a Guilherme. Todos podem criar um link útil, mas só Guilherme o pode editar ou apagar.
 
-### 5.7 Arquivo
+### 5.8 Arquivo
 
 O Arquivo apresenta:
 
@@ -238,7 +266,7 @@ O Arquivo apresenta:
 
 Conteúdo publicado com URL permite abrir diretamente a publicação; sem URL, abre a edição do conteúdo.
 
-### 5.8 Invest2030
+### 5.9 Invest2030
 
 O Invest2030 tem dois contextos:
 
@@ -300,7 +328,22 @@ Depois da criação:
 3. cria tarefas e conteúdos associados quando necessário;
 4. usa a edição por secções para atualizar identidade, marca, contrato, recursos e notas.
 
-### 6.4 Tarefa normal
+### 6.4 Oportunidade e orçamento comercial
+
+1. Guilherme abre Comercial e regista uma oportunidade.
+2. Identifica a origem e, quando aplicável, assinala Invest2030 ou outro financiamento.
+3. Regista programa, aviso, investimento elegível, período e objetivos sem assumir que o orçamento aprovado corresponde ao incentivo recebido.
+4. Cria um orçamento ligado à oportunidade.
+5. Adiciona linhas a partir do catálogo. Quantidade e preço unitário determinam o total da linha.
+6. Num preço abaixo do mínimo, regista obrigatoriamente a justificação interna.
+7. Num projeto financiado, associa cada linha à categoria elegível real e às evidências exigidas.
+8. Atualiza o orçamento de rascunho até aceite, recusado ou expirado.
+9. Ao aceitar, a oportunidade passa a ganha.
+10. Guilherme cria ou seleciona explicitamente o cliente e liga-o à oportunidade. A operação não acontece de forma automática.
+
+O atual contexto Invest2030 de pedidos de newsletters e webinars continua separado. Na área Comercial, Invest2030 é uma origem de oportunidade ou contexto de financiamento; no fluxo público existente, é um cliente operacional que submete pedidos de produção.
+
+### 6.5 Tarefa normal
 
 1. Criar tarefa, com cliente opcional.
 2. Definir título, responsável, prazo, prioridade, estado, notas e links.
@@ -310,7 +353,7 @@ Depois da criação:
 6. Marcar `done` quando o trabalho está terminado.
 7. Arquivar quando já não deve aparecer no trabalho ativo.
 
-### 6.5 Passagem de tarefa para Design
+### 6.6 Passagem de tarefa para Design
 
 1. A tarefa é aberta ou selecionada na tabela.
 2. Escolhe-se Carlota ou Carolina como designer.
@@ -321,7 +364,7 @@ Depois da criação:
 7. Tarefas arquivadas não podem ser enviadas para Design.
 8. Se a tarefa já estiver atribuída a Design, a ação não duplica o handoff.
 
-### 6.6 Transformar tarefa em conteúdo
+### 6.7 Transformar tarefa em conteúdo
 
 1. Editar a tarefa e escolher a ação de criar conteúdo.
 2. O sistema guarda primeiro as alterações da tarefa.
@@ -330,7 +373,7 @@ Depois da criação:
 5. O utilizador completa plataforma, formato, datas, copy, materiais, responsável e estado.
 6. O conteúdo mantém `source_task_id`, permitindo rastrear a origem.
 
-### 6.7 Produção de conteúdo
+### 6.8 Produção de conteúdo
 
 1. Criar um conteúdo individualmente ou em lote.
 2. Definir data de publicação; se ainda não existir, definir pelo menos o mês de planeamento.
@@ -350,7 +393,7 @@ Depois da criação:
 
 O sistema impede a duplicação exata de conteúdos com a mesma combinação de cliente, dia, título e plataforma. Linhas sem data de publicação podem coexistir como planeamento.
 
-### 6.8 Comentários e menções
+### 6.9 Comentários e menções
 
 1. Abrir os comentários de uma tarefa ou conteúdo.
 2. Escrever contexto e selecionar perfis mencionados.
@@ -358,7 +401,7 @@ O sistema impede a duplicação exata de conteúdos com a mesma combinação de 
 4. A pessoa mencionada vê o item no bloco “Menções” do Painel.
 5. O autor ou Guilherme pode apagar o comentário.
 
-### 6.9 Pedido Invest2030 externo
+### 6.10 Pedido Invest2030 externo
 
 1. O requerente abre `/invest2030/novo-pedido` com um token de acesso válido.
 2. Preenche campanha, tipos de ação, requerente, período, objetivo, público, CTA, link, mensagem, informação obrigatória, estado da informação e notas.
@@ -375,7 +418,7 @@ O sistema impede a duplicação exata de conteúdos com a mesma combinação de 
 
 O histórico externo permite pesquisar e filtrar por tipo de ação, requerente, objetivo, estado da informação e mês.
 
-### 6.10 Newsletter ou webinar Invest2030
+### 6.11 Newsletter ou webinar Invest2030
 
 1. A tarefa Invest2030 contém o briefing original estruturado nas notas.
 2. Se o tipo de ação incluir Newsletter ou Campanha para reuniões, a tarefa pode abrir o workspace de newsletter.
@@ -401,7 +444,7 @@ Estados disponíveis da campanha:
 
 O estado `in_review` faz parte do domínio, embora o guardar automático atual escolha normalmente entre `draft` e `ready_to_export`.
 
-### 6.11 Férias
+### 6.12 Férias
 
 1. Guilherme inicializa os saldos anuais dos membros ativos; o valor base é 22 dias.
 2. Pode ajustar direito anual, dias transitados, ajustes e notas privadas.
@@ -436,6 +479,11 @@ Task ──0:N── Content item (origem opcional)
 Task ──1:N── Task comment
 Content item ──1:N── Content comment
 
+Client ──0:N── Commercial opportunity
+Commercial opportunity ──1:N── Commercial quote
+Commercial quote ──1:N── Commercial quote item
+Commercial service ──0:N── Commercial quote item (origem; a linha guarda snapshot)
+
 Invest2030 request ──0:1── Task
 Task ──0:1── Invest2030 campaign/newsletter
 
@@ -449,6 +497,10 @@ User profile ──1:N── Quick note
 Tabelas atuais:
 
 - `clients`;
+- `commercial_services`;
+- `commercial_opportunities`;
+- `commercial_quotes`;
+- `commercial_quote_items`;
 - `content_items`;
 - `content_comments`;
 - `content_review_rounds`;
@@ -521,6 +573,10 @@ Quando o repositório estiver disponível como Source, usar esta prioridade:
 ## 11. Vocabulário recomendado
 
 - “Painel” para a agenda operacional inicial.
+- “Comercial” para catálogo, oportunidades e orçamentos internos.
+- “Catálogo” para a fonte versionada dos serviços e preços-base.
+- “Oportunidade” para uma potencial relação comercial ainda não convertida em cliente.
+- “Orçamento” para a proposta comercial construída a partir de linhas do catálogo.
 - “Cliente” para a conta ou organização acompanhada pela BlendByte.
 - “Tarefa” para uma unidade de trabalho operacional.
 - “Conteúdo” para uma peça de calendário editorial.

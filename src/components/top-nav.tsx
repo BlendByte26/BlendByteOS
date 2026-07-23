@@ -12,12 +12,19 @@ import {
   operationalProfiles,
   previewProfileKeys,
   type OperationalProfile,
+  type OperationalProfileKey,
   type OperationalRole,
 } from "@/lib/operational-profiles";
 
-const navItems: Array<{ href: string; label: string; roles?: OperationalRole[] }> = [
+const navItems: Array<{
+  href: string;
+  label: string;
+  roles?: OperationalRole[];
+  profileKeys?: OperationalProfileKey[];
+}> = [
   { href: "/", label: "Painel" },
   { href: "/clients", label: "Clientes" },
+  { href: "/commercial", label: "Comercial", roles: ["admin"], profileKeys: ["guilherme"] },
   { href: "/content", label: "Conteúdos" },
   { href: "/tasks", label: "Tarefas" },
   { href: "/approvals", label: "Aprovações", roles: ["admin", "marketing"] },
@@ -61,7 +68,11 @@ export function TopNav({ profile, realProfile, previewProfile }: Props) {
       : null;
   const showProfileControls = isDashboard && profile;
   const bulkContentHref = !isPreview && pathname === "/content" ? "/content?bulk=1" : null;
-  const visibleNavItems = navItems.filter((item) => !item.roles || (profile && item.roles.includes(profile.authRole)));
+  const visibleNavItems = navItems.filter(
+    (item) =>
+      (!item.roles || (profile && item.roles.includes(profile.authRole))) &&
+      (!item.profileKeys || (profile && item.profileKeys.includes(profile.key))),
+  );
 
   function openBulkContent(event: MouseEvent<HTMLAnchorElement>) {
     if (typeof window === "undefined") return;

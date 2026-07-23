@@ -1,5 +1,9 @@
 import type {
   Client,
+  CommercialOpportunity,
+  CommercialQuote,
+  CommercialQuoteItem,
+  CommercialService,
   CompanyContact,
   ContentComment,
   ContentItem,
@@ -51,6 +55,85 @@ export type Database = {
             columns: ["source_task_id"];
             isOneToOne: false;
             referencedRelation: "tasks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      commercial_services: {
+        Row: CommercialService;
+        Insert: Partial<
+          Pick<
+            CommercialService,
+            "id" | "summary" | "price_status" | "version_label" | "inclusions" | "exclusions" | "internal_notes" | "active" | "sort_order" | "created_at" | "updated_at"
+          >
+        > &
+          Pick<CommercialService, "code" | "category" | "name" | "unit" | "standard_price" | "minimum_price">;
+        Update: Partial<Omit<CommercialService, "id" | "created_at" | "updated_at">>;
+        Relationships: [];
+      };
+      commercial_opportunities: {
+        Row: CommercialOpportunity;
+        Insert: Partial<
+          Pick<
+            CommercialOpportunity,
+            "id" | "contact_name" | "contact_email" | "contact_phone" | "source" | "source_detail" | "status" | "owner_profile_key" | "client_id" | "is_funded" | "funding_program" | "funding_notice" | "eligible_marketing_budget" | "execution_start" | "execution_end" | "objectives" | "notes" | "created_at" | "updated_at"
+          >
+        > &
+          Pick<CommercialOpportunity, "company_name">;
+        Update: Partial<Omit<CommercialOpportunity, "id" | "owner_profile_key" | "created_at" | "updated_at" | "clients">>;
+        Relationships: [
+          {
+            foreignKeyName: "commercial_opportunities_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "clients";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      commercial_quotes: {
+        Row: CommercialQuote;
+        Insert: Partial<
+          Pick<
+            CommercialQuote,
+            "id" | "status" | "valid_until" | "currency" | "funding_notes" | "commercial_conditions" | "internal_notes" | "created_by_profile_key" | "created_at" | "updated_at"
+          >
+        > &
+          Pick<CommercialQuote, "opportunity_id" | "reference" | "title">;
+        Update: Partial<Omit<CommercialQuote, "id" | "opportunity_id" | "reference" | "created_by_profile_key" | "created_at" | "updated_at" | "commercial_opportunities">>;
+        Relationships: [
+          {
+            foreignKeyName: "commercial_quotes_opportunity_id_fkey";
+            columns: ["opportunity_id"];
+            isOneToOne: false;
+            referencedRelation: "commercial_opportunities";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      commercial_quote_items: {
+        Row: CommercialQuoteItem;
+        Insert: Partial<
+          Pick<
+            CommercialQuoteItem,
+            "id" | "service_id" | "position" | "description" | "price_override_reason" | "eligible_category" | "evidence_notes" | "internal_notes" | "created_at" | "updated_at"
+          >
+        > &
+          Pick<CommercialQuoteItem, "quote_id" | "service_code" | "service_name" | "category" | "unit" | "quantity" | "unit_price" | "standard_unit_price">;
+        Update: Partial<Omit<CommercialQuoteItem, "id" | "quote_id" | "created_at" | "updated_at">>;
+        Relationships: [
+          {
+            foreignKeyName: "commercial_quote_items_quote_id_fkey";
+            columns: ["quote_id"];
+            isOneToOne: false;
+            referencedRelation: "commercial_quotes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "commercial_quote_items_service_id_fkey";
+            columns: ["service_id"];
+            isOneToOne: false;
+            referencedRelation: "commercial_services";
             referencedColumns: ["id"];
           },
         ];
